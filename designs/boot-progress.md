@@ -1,57 +1,53 @@
-# System Boot Progress on OpenBMC
+# OpenBMC 上的系統開機進度
 
-Author: Andrew Geissler `geissonator`
+作者：Andrew Geissler `geissonator`
 
-Other contributors: None
+其他貢獻者：無
 
-Created: May 27, 2020
+建立日期：2020 年 5 月 27 日
 
-## Problem Description
+## 問題描述
 
-The boot progress of an OpenBMC managed system is complex. There are a mix of
-phosphor D-Bus properties, IPMI sensors, PLDM sensors, and Redfish properties to
-represent it. The goal of this design document is to highlight these different
-entities and provide a base for system implementors on what to implement.
+由 OpenBMC 管理的系統，其開機進度相當複雜。共有 phosphor D-Bus 屬性、IPMI
+感測器、PLDM 感測器以及 Redfish 屬性來呈現這個進度。本設計文件的目的，就是
+突顯這些不同的實體，並為系統實作者提供一份關於該實作哪些內容的基礎依據。
 
-## Background and References
+## 背景與參考
 
-[phosphor-state-manager][1] implements D-Bus properties which track the state of
-the BMC, Chassis, and Host. This design is primarily focused on the status of
-the Host since it is the most complex. Specifically the goal is to provide
-detailed information on what the host is doing during a boot.
+[phosphor-state-manager][1] 實作了用來追蹤 BMC、Chassis 與 Host 狀態的 D-Bus
+屬性。本設計主要聚焦在 Host 的狀態，因為它最為複雜。具體而言，目標是要提供
+關於主機在開機期間正在做什麼的詳細資訊。
 
-[HostState][2] provides basic `Off`/`Running` type information along with an
-error state (`Quiesced`) and debug state (`DiagnosticMode`). The focus of this
-document is the `Running` state. This simply indicates whether something is
-running on the host processors.
+[HostState][2] 提供基本的 `Off`/`Running` 類型資訊，另有一個錯誤狀態
+（`Quiesced`）與除錯狀態（`DiagnosticMode`）。本文件的焦點是 `Running` 狀態，
+它僅表示主機處理器上是否有東西正在執行。
 
-phosphor-state-manager implements some other D-Bus properties that represent the
-host boot progress:
+phosphor-state-manager 另外還實作了幾個代表主機開機進度的 D-Bus 屬性：
 
 - [xyz.openbmc_project.State.Boot.Progress][3]
 - [xyz.openbmc_project.State.OperatingSystem.Status][4]
 
-These two D-Bus properties are very IPMI-centric. They were defined based on two
-IPMI sensors which are set by the host firmware as it boots the system.
+這兩個 D-Bus 屬性非常以 IPMI 為中心。它們是根據兩個 IPMI 感測器所定義，由
+主機韌體在開機啟動系統的過程中設定。
 
-PLDM also has a boot progress sensor. Search for "Boot Progress" in this
-[doc][5]. A subset of this maps fairly well to the IPMI sensors above. This PLDM
-sensor is not implemented yet in OpenBMC code.
+PLDM 也有一個開機進度感測器。請在此[文件][5]中搜尋 "Boot Progress"。其中有一
+子集可以相當貼切地對應到上述的 IPMI 感測器。這個 PLDM 感測器目前尚未在
+OpenBMC 程式碼中實作。
 
-Redfish represents system state in a variety of ways. The BMC, Chassis, and
-System all implement a [Status][6] object. This provides a list of generic
-`State` options which are applicable to Redfish objects. OpenBMC has the
-following mapping for phosphor-state-manager to the Redfish System [Status][7]:
+Redfish 以多種方式來呈現系統狀態。BMC、Chassis 與 System 都實作了一個
+[Status][6] 物件。它提供一份適用於 Redfish 物件的通用 `State` 選項清單。針對
+phosphor-state-manager 對應到 Redfish System [Status][7]，OpenBMC 有下列對應
+方式：
 
 - `xyz.openbmc_project.State.Host.HostState.Running` : `Enabled`
 - `xyz.openbmc_project.State.Host.HostState.Quiesced` : `Quiesced`
 - `xyz.openbmc_project.State.Host.HostState.DiagnosticMode` : `InTest`
 
-As of [ComputerSystem.v1_13_0][7], the `BootProgress` object is officially in
-the Redfish ComputerSystem schema.
+自 [ComputerSystem.v1_13_0][7] 起，`BootProgress` 物件已正式納入 Redfish
+ComputerSystem schema。
 
-To summarize, the `LastState` property under this new `BootProgress` object
-tracks the following boot states of the system:
+總結來說，這個新的 `BootProgress` 物件下的 `LastState` 屬性會追蹤系統的下列
+開機狀態：
 
 - None
 - PrimaryProcessorInitializationStarted
@@ -64,72 +60,63 @@ tracks the following boot states of the system:
 - OSRunning
 - OEM
 
-There is also a `LastStateTime` associated with this new BootProgress object
-which should be updated with the date and time the `LastState` was last updated.
+這個新的 BootProgress 物件還有一個相關的 `LastStateTime`，它應該要更新為
+`LastState` 最後一次更新的日期與時間。
 
-In the end, the goal is to be able to map either the IPMI or PLDM boot sensors
-into all or some of the values in this new Redfish property.
+最終的目標，是要能夠將 IPMI 或 PLDM 的開機感測器對應到這個新 Redfish 屬性中
+的全部或部分值。
 
-Note that this design does not include multi-host computer system concepts but
-it also does not preclude them. The `BootProgress` D-Bus property is associated
-with a `/xyz/openbmc_project/state/host<X>` instance where `<X>` is the host
-instance. Similarly, the Redfish system object is also an instance based object.
+請注意，本設計並未納入多主機（multi-host）電腦系統的概念，但也不會將它們
+排除在外。`BootProgress` D-Bus 屬性會與一個 `/xyz/openbmc_project/state/host<X>`
+實例產生關聯，其中 `<X>` 是主機實例編號。同樣地，Redfish 的系統物件也是一個
+以實例為基礎的物件。
 
-## Requirements
+## 需求
 
-- Enhance the existing [BootProgress][3] D-Bus property to cover all supported
-  PLDM boot progress codes
-- Create a new `BootProgressLastUpdate` D-Bus property that will hold the date
-  and time of the last update to `BootProgress`
-- Ensure the `BootProgress` and `BootProgressLastUpdate` properties are updated
-  appropriately in both IPMI and PLDM based stacks
-  - It is the responsibility of the IPMI or PLDM implementation to update the
-    `BootProgress` property on D-Bus
-  - It is the responsibility the phosphor-state-manager to update the
-    `BootProgressLastUpdate` property on D-Bus when it sees `BootProgress`
-    updated
-- Ensure the new Redfish `LastState` and `LastStateTime` properties have the
-  appropriate mappings to the `BootProgress` and `BootProgressLastUpdate D-Bus
-  properties
+- 增強既有的 [BootProgress][3] D-Bus 屬性，以涵蓋所有支援的 PLDM 開機進度碼
+- 建立一個新的 `BootProgressLastUpdate` D-Bus 屬性，用來存放 `BootProgress`
+  最後一次更新的日期與時間
+- 確保在 IPMI 與 PLDM 兩類堆疊（stack）中，`BootProgress` 與
+  `BootProgressLastUpdate` 屬性都能被適當地更新
+  - 在 D-Bus 上更新 `BootProgress` 屬性是 IPMI 或 PLDM 實作的責任
+  - 當 phosphor-state-manager 看到 `BootProgress` 更新時，在 D-Bus 上更新
+    `BootProgressLastUpdate` 屬性是它的責任
+- 確保新的 Redfish `LastState` 與 `LastStateTime` 屬性，對 `BootProgress` 與
+  `BootProgressLastUpdate` D-Bus 屬性有適當的對應
 
-Different OpenBMC systems could support different boot progress codes, and
-support them in different orders. This document does not try to set any
-requirements on this other than that they must all be defined within the
-`BootProgress` D-Bus property and the ones which have a mapping to the Redfish
-BootProgress object will be shown via the Redfish interface.
+不同的 OpenBMC 系統可能支援不同的開機進度碼，並以不同的順序支援它們。本文件
+不嘗試對此設下任何需求，只要求它們全部必須定義在 `BootProgress` D-Bus 屬性
+之內，而那些能對應到 Redfish BootProgress 物件的，將會透過 Redfish 介面顯示
+出來。
 
-## Proposed Design
+## 建議設計
 
-[BootProgress][3] will be enhanced to support a superset of what is provided by
-IPMI and PLDM.
+[BootProgress][3] 將被增強，以支援一個涵蓋 IPMI 與 PLDM 所提供內容的超集合
+（superset）。
 
-IPMI code already sets the `BootProgress` D-Bus property based on a config file.
-Look for `fw_boot_sensor` in this [file][8] for an example of how a particular
-IPMI sensor is mapped to this D-Bus property.
+IPMI 程式碼已經會根據設定檔來設定 `BootProgress` D-Bus 屬性。請在此[檔案][8]
+中尋找 `fw_boot_sensor`，作為某個特定 IPMI 感測器如何對應到此 D-Bus 屬性的
+範例。
 
-PLDM software will do something similar.
+PLDM 軟體將會做類似的事情。
 
-bmcweb will then use this `BootProgress` D-Bus interface to respond
-appropriately to Redfish requests.
+接著 bmcweb 會使用這個 `BootProgress` D-Bus 介面，來適當地回應 Redfish 請求。
 
-## Alternatives Considered
+## 考慮過的替代方案
 
-A lot of system BIOS's provided some form of a detailed boot progress codes.
-UEFI has POST codes, POWER has istep progress codes. If more fine grained
-details were needed, we could look into using these. Currently though the need
-is just high level boot progress. Note that these POST/istep codes could be
-mapped to the appropriate BootProgress value if desired (or for cases where the
-host does not support an IPMI or PLDM stack that has BootProgress in it).
+許多系統 BIOS 都提供某種形式的詳細開機進度碼。UEFI 有 POST 碼，POWER 有 istep
+進度碼。如果需要更細部的資訊，我們可以考慮使用這些。但目前的需求只是高階的
+開機進度。請注意，這些 POST/istep 碼若有需要是可以對應到適當的 BootProgress
+值的（或者，適用於主機不支援內含 BootProgress 的 IPMI 或 PLDM 堆疊的情況）。
 
-## Impacts
+## 影響
 
-Each system will need to document which `BootProgress` codes they support and
-the expected order of them when a system is booting.
+每個系統都需要記錄它們支援哪些 `BootProgress` 碼，以及系統開機時這些碼的預期
+順序。
 
-## Testing
+## 測試
 
-Ensure an IPMI and PLDM based system boot and update the `BootProgress` D-Bus
-property as expected.
+確保 IPMI 與 PLDM 基礎的系統能夠開機，並如預期地更新 `BootProgress` D-Bus 屬性。
 
 [1]:
   https://github.com/openbmc/phosphor-state-manager#state-tracking-and-control

@@ -1,9 +1,8 @@
-# LED Support for OpenBMC
+# OpenBMC 的 LED 支援
 
-This document describes how to add LED support for your machine based upon the
-OpenBMC [LED Architecture][led d-bus readme] document. LED group management is
-done automatically for machines that support the use of the MRW and is beyond
-the scope of this document.
+本文件說明如何依據 OpenBMC 的 [LED 架構][led d-bus readme]文件，為你的機器
+新增 LED 支援。對於支援使用 MRW 的機器，LED 群組管理會自動完成，不在本文件的
+討論範圍之內。
 
 ## D-Bus
 
@@ -22,8 +21,8 @@ Attribute: Asserted (boolean)
 PUT /xyz/openbmc_project/led/groups/<group>/attr/Asserted
 ```
 
-The LED group state can be changed by setting the Asserted value to boolean 0
-or 1. In the following example, the lamp_test group is being asserted...
+LED 群組的狀態可以藉由將 Asserted 值設為布林 0 或 1 來變更。在下面的範例中，
+lamp_test 群組正在被設定為啟動（assert）...
 
 ```bash
 curl -b cjar -k -X PUT -H "Content-Type: application/json" -d '{"data":  1}' \
@@ -34,82 +33,74 @@ curl -b cjar -k -X PUT -H "Content-Type: application/json" -d '{"data":  1}' \
 
 ### Resource identify Operation
 
-Starting with Redfish v2020.3, Redfish resources have
-**LocationIndicatorActive** property, which is used to identify a particular
-resource. This is for LED Identify operation only.
+從 Redfish v2020.3 開始，Redfish 資源具有 **LocationIndicatorActive** 屬性，
+可用於辨識特定的資源。這僅適用於 LED 辨識（Identify）操作。
 
-All applicable Inventory D-Bus objects would have a forward association mapping
-to LED Group D-Bus object, namely:
+所有適用的 Inventory D-Bus 物件都會有一個指向 LED Group D-Bus 物件的前向
+association 對應，也就是：
 
 ```text
  - identify_led_group
 ```
 
-All applicable LED Group D-Bus objects would have an association mapping to
-inventory D-Bus object, namely:
+所有適用的 LED Group D-Bus 物件都會有一個對應到 inventory D-Bus 物件的
+association，也就是：
 
 ```text
  - identify_inventory_object
 ```
 
-When a `LocationIndicatorActive` GET operation is performed on the resource,
-bmcweb does below operations:
+當對資源執行 `LocationIndicatorActive` 的 GET 操作時，bmcweb 會進行以下操作：
 
-- Look for an association `identify_led_group` on the Inventory D-Bus object
-- If found, read the `asserted` property from the D-Bus object that is pointed
-  to by `identify_led_group`
+- 在 Inventory D-Bus 物件上尋找 `identify_led_group` association
+- 若找到，則從 `identify_led_group` 所指向的 D-Bus 物件讀取 `asserted` 屬性
 
-When a `LocationIndicatorActive` PATCH operation is performed on the resource,
-bmcweb does below operations:
+當對資源執行 `LocationIndicatorActive` 的 PATCH 操作時，bmcweb 會進行以下操作：
 
-- Look for an association `identify_led_group` on the Inventory D-Bus object
-- If found, set the `asserted` property on the D-Bus object that is pointed to
-  by `identify_led_group`
+- 在 Inventory D-Bus 物件上尋找 `identify_led_group` association
+- 若找到，則在 `identify_led_group` 所指向的 D-Bus 物件上設定 `asserted` 屬性
 
 ### Representing resource faults
 
-For representing the fault status of a resource, Redfish `Health` property is
-used. All applicable Inventory D-Bus objects would have a forward association
-mapping to LED Group D-Bus object, namely;
+若要表示資源的故障狀態，會使用 Redfish 的 `Health` 屬性。所有適用的 Inventory
+D-Bus 物件都會有一個指向 LED Group D-Bus 物件的前向 association 對應，也就是：
 
 ```text
  - fault_led_group
 ```
 
-All applicable LED Group D-Bus objects would have an association mapping to
-inventory D-Bus object, namely:
+所有適用的 LED Group D-Bus 物件都會有一個對應到 inventory D-Bus 物件的
+association，也就是：
 
 ```text
  - fault_inventory_object
 ```
 
-When a component fault is detected, the responsible code sets the `Functional`
-property of `xyz.openbmc_project.State.Decorator.OperationalStatus` to `false`
-on the Inventory D-Bus object.
+當偵測到元件故障時，負責的程式碼會在 Inventory D-Bus 物件上將
+`xyz.openbmc_project.State.Decorator.OperationalStatus` 的 `Functional` 屬性
+設為 `false`。
 
-When LED manager gets PropertyChanged signal, it does the following:
+當 LED manager 收到 PropertyChanged 信號時，它會執行以下動作：
 
-- Look for an association `fault_led_group` on the Inventory D-Bus object
-- Turn on/off the fault LED group depending on the value of `Functional` `false`
-  would mean turn ON the LED group `true` would mean turn OFF the LED group
+- 在 Inventory D-Bus 物件上尋找 `fault_led_group` association
+- 根據 `Functional` 的值開啟/關閉 fault LED 群組；`false` 代表開啟 LED 群組，
+  `true` 代表關閉 LED 群組
 
-- bmcweb already has a design to look for `Functional` property and set the
-  `Health` property.
+- bmcweb 已具有一項設計，會尋找 `Functional` 屬性並設定 `Health` 屬性。
 
 ## Development Details
 
-There are two significant layers for LED operations. The physical and the
-logical. The LED Group Manager communicates with the physical LED Manager to
-drive the physical LEDs. The logical groups are defined in the machine's
-led.yaml file. LED Group manager consumes this and creates D-Bus/REST interfaces
-for the individual LEDs that are part of the group.
+LED 操作有兩個重要的層級：實體層（physical）與邏輯層（logical）。LED Group
+Manager 會與實體的 LED Manager 溝通，以驅動實體的 LED。邏輯群組定義在機器的
+led.yaml 檔案中。LED Group manager 會讀取此檔案，並為群組中的個別 LED 建立
+D-Bus/REST 介面。
 
 ### Defining the physical LED
 
-Physical LED wiring is defined in the `leds` section of the machine's [device
-tree][kernel arm dts]. See the [Palmetto DTS][palmetto dts led] as an example.
+實體 LED 的接線定義在機器的 [device tree][kernel arm dts]的 `leds` 區塊中。
+請參考 [Palmetto DTS][palmetto dts led]作為範例。
 
-_Add a fault LED to the device tree with a corresponding gpio pin..._
+_在 device tree 中新增一個帶有對應 gpio 接腳的 fault LED..._
 
 ```dts
   leds {
@@ -121,7 +112,7 @@ _Add a fault LED to the device tree with a corresponding gpio pin..._
   }
 ```
 
-_The kernel will then create..._
+_核心接著會建立..._
 
 ```text
  ls -l /sys/class/leds/fault/
@@ -137,24 +128,22 @@ lrwxrwxrwx    1 root     root             0 Jun 21 20:04 subsystem -> ../../../.
 
 ### Defining Groups
 
-An LED Group can contain zero or more LEDs and is defined in the machines
-[led.yaml][led yaml]. The default one will likely need to be tailored to your
-machines layout. Customized yaml files are placed into the machines specific
-Yocto location. As an example:
+一個 LED Group 可以包含零個或多個 LED，並定義在機器的
+[led.yaml][led yaml]中。預設的檔案很可能需要依照你機器的配置進行調整。自訂的
+yaml 檔案會放置於該機器專屬的 Yocto 位置。舉例來說：
 
 ```text
 meta-ibm/meta-palmetto/recipes-phosphor/leds/palmetto-led-manager-config/led.yaml
 ```
 
-The parent properties in the yaml file will be created below
-`/xyz/openbmc_project/led/groups/`. The children properties need to map to an
-LED name in `/sys/class/leds`.
+yaml 檔案中的父屬性會在 `/xyz/openbmc_project/led/groups/` 之下被建立。子屬性
+則需要對應到 `/sys/class/leds` 中的一個 LED 名稱。
 
-In the example, below two URIs would be created:
-`/xyz/openbmc_project/led/groups/enclosure_fault` and
-`/xyz/openbmc_project/led/groups/lamp_test`. Both act on the same physical LED
-`fault` but do so differently. The lamp_test would also drive a blink signal to
-the physical `power` LED if one was created.
+在下方的範例中，會建立兩個 URI：
+`/xyz/openbmc_project/led/groups/enclosure_fault` 與
+`/xyz/openbmc_project/led/groups/lamp_test`。兩者都作用於同一個實體 LED
+`fault`，但作用方式不同。若已建立實體 `power` LED，lamp_test 也會對它送出
+閃爍（blink）信號。
 
 ```yaml
 EnclosureFault:
@@ -175,14 +164,14 @@ lamp_test:
 
 ### Required Groups
 
-OpenBMC Architecture requires specific LED Groups to be created and are
-documented in the [D-Bus interface][led d-bus readme].
+OpenBMC 架構要求必須建立特定的 LED Group，並記錄在 [D-Bus
+interface][led d-bus readme]中。
 
 ## Yocto packaging
 
-1. Create a tailored LED manager file
+1. 建立一份客製化的 LED manager 檔案
 
-   E.g.
+   例如：
    `meta-ibm/meta-romulus/recipes-phosphor/leds/romulus-led-manager-config-native.bb`
 
    ```bitbake
@@ -206,9 +195,9 @@ documented in the [D-Bus interface][led d-bus readme].
        }
    ```
 
-2. Change your machine's preferred provider for the led-manager in the conf file
+2. 在 conf 檔案中變更你機器所使用的 led-manager 偏好供應商（preferred provider）
 
-   E.g. `meta-ibm/meta-romulus/conf/machine/romulus.conf`
+   例如：`meta-ibm/meta-romulus/conf/machine/romulus.conf`
 
    `PREFERRED_PROVIDER_virtual/phosphor-led-manager-config-native = "romulus-led-manager-config-native"`
 

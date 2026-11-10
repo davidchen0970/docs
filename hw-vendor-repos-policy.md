@@ -1,182 +1,117 @@
-# Hardware Vendor Repository Policy
+# 硬體廠商 Repository 政策
 
-Author: Andrew Geissler @geissonator
+作者：Andrew Geissler @geissonator
 
-Other contributors:
+其他貢獻者：
 
-Created: May 13, 2024
+建立日期：2024 年 5 月 13 日
 
-## Introduction
+## 簡介
 
-This document covers the criteria from the TOF (Technical Oversight Forum) when
-a request for a new repository or a bitbake recipe to be hosted under the
-OpenBMC Github project is made. It starts with the requirements and then some
-information on how those requirements were created.
+本文件說明當有人請求在 OpenBMC Github 專案下託管一個新的 repository 或 bitbake recipe 時，TOF（Technical Oversight Forum）所採用的評審標準。文件先列出各項需求，接著說明這些需求是因應哪些問題而建立的。
 
-## Requirements
+## 需求
 
-Note that there is an expectation the reader of this document is familiar with
-OpenBMC architecture (bitbake, d-bus, phosphor-dbus-interfaces, ...).
+請注意，本文件假設讀者已經熟悉 OpenBMC 架構（bitbake、d-bus、phosphor-dbus-interfaces……）。
 
-Writing hard rules for anything is hard without defeating intent, these are
-guidelines to be used by the OpenBMC TOF in their decision to approve or not
-approve new recipes or repos.
+為任何事物訂定硬性規則都很困難，若過於死板反而違背了原本的意圖，因此這些是供 OpenBMC TOF 在決定是否核准新 recipe 或 repo 時參考的指引。
 
-Both hardware-specific and vendor-specific repositories should meet the
-following requirements to be eligible for a repository under OpenBMC:
+無論是硬體專屬（hardware-specific）或廠商專屬（vendor-specific）的 repository，都應符合以下需求，才有資格在 OpenBMC 下建立 repository：
 
-1. It is compatible with the Apache 2.0 license
-2. If an existing repository, it has an active maintainer
-3. It has no external dependencies which would fail the requirements defined
-   within this document
-4. The new repository will not break others (i.e. providing new APIs utilized by
-   a common repository that are not protected by compile flags, etc)
-5. It is a feature that is believed to be generally useful to the OpenBMC
-   organization
-   - Determination made by the TOF
-   - Reference: "Create a new repository" TOF [process][tof]
-6. It has an active OpenBMC community member that is willing to be a maintainer
+1. 與 Apache 2.0 授權條款相容
+2. 若是既有的 repository，必須有活躍的維護者
+3. 沒有任何外部相依性會抵觸本文件所定義的需求
+4. 新 repository 不會破壞其他專案（例如提供新的 API 給某個通用 repository 使用，卻沒有用編譯旗標等機制加以保護）
+5. 它是一項被認為對 OpenBMC 組織普遍有用的功能
+   - 由 TOF 進行判斷
+   - 參考："Create a new repository" TOF [流程][tof]
+6. 有一位活躍的 OpenBMC 社群成員願意擔任維護者
 
-Note that the first option should always be to look into hosting the repository
-under OpenBMC (vs. a recipe in OpenBMC that points to an external repository).
+請注意，首選的方案應該永遠是把 repository 直接託管在 OpenBMC 之下（而不是在 OpenBMC 中放一個指向外部 repository 的 recipe）。
 
-A repository must be hosted under OpenBMC if:
+若符合以下情況，repository 就必須託管在 OpenBMC 之下：
 
-1. The repository depends on other OpenBMC-hosted repositories
+1. 該 repository 相依於其他託管在 OpenBMC 的 repository
 
-If someone wishes to create a recipe within OpenBMC to point to an external
-repository, the following could be a valid reason for this:
+如果有人在 OpenBMC 中建立一個 recipe 來指向外部 repository，以下可能是合理的理由：
 
-1. If the repository is utilized by other projects outside of OpenBMC then it
-   may be better suited outside of OpenBMC and utilized via a bitbake recipe
+1. 若該 repository 也被 OpenBMC 之外的其他專案使用，那麼放在 OpenBMC 之外、透過 bitbake recipe 來使用，可能會更合適
 
-If a recipe is created within OpenBMC (in any meta-X layer) to point to an
-external repository then that repository must fulfill the following
-requirements:
+如果在 OpenBMC 中建立了一個 recipe（無論在哪個 meta-X layer）來指向外部 repository，則該 repository 必須滿足以下需求：
 
-1. It should meet all of the quality-based requirements for hosting a repository
-   within OpenBMC
-2. The external repository must never have its git history rewritten
-3. The maintainer of the repository must commit to quick turnaround on critical
-   fixes for things such as new compiler updates
+1. 它應該符合在 OpenBMC 內託管 repository 的所有品質相關需求
+2. 絕不得重寫該外部 repository 的 git 歷史
+3. 該 repository 的維護者必須承諾對關鍵修復（例如新的編譯器更新）提供快速的回應處理
 
-Note that when a recipe is non-OpenBMC specific, but useful to OpenBMC, it
-should be pushed upstream into meta-openembedded.
+請注意，當某個 recipe 不是 OpenBMC 專屬、但對 OpenBMC 有用時，應該把它推送到上游的 meta-openembedded。
 
-### Hardware Specific Feature
+### 硬體專屬功能
 
-A hardware vendor feature is defined as one of the following:
+硬體廠商功能定義為以下其中之一：
 
-1. A function that is specific to the vendor hardware
-   - For example, PECI, FSI, hardware diagnostics (specific to the processor)
-2. A device attached to the BMC (MCTP/PLDM/I2C/...) that is specific to the
-   vendor which the BMC must interact with
+1. 特定於廠商硬體的功能
+   - 例如 PECI、FSI、硬體診斷（特定於處理器）
+2. 一個連接到 BMC（MCTP/PLDM/I2C……）的裝置，該裝置為廠商專屬，且 BMC 必須與之互動
 
-To add a hardware specific repository to OpenBMC, it should meet the following
-additional criteria:
+若要將硬體專屬的 repository 加入 OpenBMC，還應符合以下額外標準：
 
-1. If it requires specific kernel APIs, they are available or in progress via
-   the [upstream][upstream] guidelines
+1. 若需要特定的 kernel API，這些 API 必須已取得，或正依照[上游][upstream]指引進行開發
 
-Some hardware vendor features which have no real synergy with OpenBMC, for
-example a CPLD code base that's only relevant to a particular vendors system,
-may be better suited to be hosted externally to OpenBMC.
+有些硬體廠商功能與 OpenBMC 沒有真正的協同效益，例如只與某個特定廠商系統相關的 CPLD code base，可能更適合託管在 OpenBMC 之外。
 
-### Vendor Specific Feature
+### 廠商專屬功能
 
-A vendor-specific feature is defined as one of the following:
+廠商專屬功能定義為以下其中之一：
 
-1. A vendor-specific data format or protocol
-   - For example, a dump collection of the host firmware, or a special format of
-     SPD/VPD
-2. A function that requires a specific hardware vendor feature
+1. 廠商專屬的資料格式或通訊協定
+   - 例如主機韌體的 dump 收集，或特殊格式的 SPD/VPD
+2. 需要特定硬體廠商功能的功能
 
-To add a vendor-specific repository to OpenBMC, it should meet the following
-additional criteria:
+若要將廠商專屬的 repository 加入 OpenBMC，還應符合以下額外標準：
 
-1. It consumes OpenBMC D-Bus APIs
-   - This indicates a synergy between this feature and OpenBMC
+1. 它使用 OpenBMC 的 D-Bus API
+   - 這代表該功能與 OpenBMC 之間存在協同效益
 
-## Background and References
+## 背景與參考資料
 
-As OpenBMC has grown, so has the need for software function that is tied to
-specific hardware families. For example, [OpenPOWER][openpower] was one of the
-first users of OpenBMC and a search for "openpower" in the openbmc github
-organization will show many repositories with that name in it. You will get a
-similar result if you search for "intel".
+隨著 OpenBMC 不斷成長，與特定硬體系列綁定的軟體功能需求也隨之增加。例如，[OpenPOWER][openpower] 是最早採用 OpenBMC 的用戶之一，在 openbmc github 組織中搜尋 "openpower" 會看到許多名稱含該字的 repository。搜尋 "intel" 也會得到類似的結果。
 
-OpenBMC in general is to be agnostic of the hardware it is managing, but that is
-not always possible due to specific features or functions only provided by
-certain hardware.
+OpenBMC 整體上應對其所管理的硬體保持無關（agnostic），但由於某些功能或特性只有特定硬體才提供，這並非總能做到。
 
-For example, OpenPOWER systems have a separate power management device within
-the processor called an OCC. This OCC has its own protocol and functions. This
-is why OpenBMC has a openpower-occ-control repository.
+舉例來說，OpenPOWER 系統在處理器內有一個獨立的電源管理裝置，稱為 OCC。這個 OCC 有它自己的通訊協定與功能。這就是 OpenBMC 設有 openpower-occ-control repository 的原因。
 
-Another example, Intel has a communication interface called PECI, it provides
-useful information (like temperatures) but only on Intel based systems. This is
-why OpenBMC has a peci-pcie repository.
+另一個例子，Intel 有一種稱為 PECI 的通訊介面，它能提供有用的資訊（如溫度），但只在 Intel 架構的系統上可用。這就是 OpenBMC 設有 peci-pcie repository 的原因。
 
-The goal of this document is to clearly state the requirements and expectations
-for hosting a hardware/vendor specific repository within the openbmc github
-organization. This document aims to answer the following questions:
+本文件的目標是清楚說明在 openbmc github 組織內託管硬體／廠商專屬 repository 的需求與期望。本文件旨在回答以下問題：
 
-1. Where does the OpenBMC community draw the line between what goes into the
-   OpenBMC organization and what should not?
+1. OpenBMC 社群在什麼樣的情況下會劃分界線，決定哪些東西要放入 OpenBMC 組織、哪些不該放入？
 
-2. If a repository doesn't belong in the OpenBMC organization, what determines
-   if a bitbake recipe can be added to OpenBMC to point to a vendors repository
-   outside of the OpenBMC org?
+2. 如果某個 repository 不屬於 OpenBMC 組織，那麼是什麼決定了一個 bitbake recipe 是否可以加入 OpenBMC，以指向 OpenBMC 組織之外、廠商的 repository？
 
-This document is based on a TOF meeting on Jan 9th, 2024.
+本文件是根據 2024 年 1 月 9 日的 TOF 會議所撰寫。
 
-## Philosophy
+## 理念
 
-OpenBMC wants to enable as many machines as possible with as many common paths
-shared between machines as possible, under the hope of keeping stability in its
-implementation between systems.
+OpenBMC 希望盡可能多地啟用各種機器，並讓各機器之間盡可能共用共同的路徑，期許在各系統之間維持實作上的穩定性。
 
-Within OpenBMC there are two areas of "vendor specific" repositories:
+在 OpenBMC 中有兩個「廠商專屬」repository 的領域：
 
-- A Hardware specific feature (implementation for a driver, support for
-  hardware, or other things that only exist on that platform).
-- Support for a vendor-specific feature. (OEM extensions, debug APIs, Redfish,
-  etc).
+- 硬體專屬功能（驅動程式的實作、硬體支援，或其他僅存在於該平台上的東西）。
+- 廠商專屬功能的支援（OEM 擴充、debug API、Redfish 等）。
 
-Yocto differentiates between the above with the "machine" and "distro" concepts.
-We need a policy within OpenBMC on how we handle each of these types of
-features.
+Yocto 以 "machine" 與 "distro" 的觀念來區分上述兩者。我們需要在 OpenBMC 中訂定一套政策，說明我們如何處理這些不同類型的功能。
 
-The OpenBMC project has a fairly extensive CI process, it has many great code
-reviewers, and it follows the tip of upstream yocto master. All of these things
-ensure a solid code base for others to use, and sets a certain standard for
-repositories that are hosted within OpenBMC. Having the source under the OpenBMC
-umbrella ensure it gets global updates (like upstream poky/bitbake changes) and
-other things like the latest compiler.
+OpenBMC 專案有一套相當完整的 CI 流程、許多優秀的 code reviewer，並追蹤上游 yocto master 的最新版本。這一切確保了堅實的 code base 供他人使用，也為託管在 OpenBMC 內的 repository 樹立了某種標準。將 source 置於 OpenBMC 的保護傘下，能確保它獲得全域性的更新（例如上游 poky/bitbake 的變更），以及其他像是最新編譯器等更新。
 
-There are times where big updates come in from yocto that break multiple
-repositories utilized by OpenBMC. It is always going to be easier to coordinate
-big changes like that on repositories hosted within OpenBMC directly (vs. trying
-to coordinate with externally hosted repositories.)
+有時候 yocto 會帶來大型更新，導致 OpenBMC 所使用的多個 repository 出問題。對於託管在 OpenBMC 內的 repository，要協調這類重大變更總是比較容易（比起試圖與外部託管的 repository 協調）。
 
-OpenBMC already hosts 100+ repositories, which can be very daunting to someone
-new joining the project. New repositories should be added in the case where they
-can be maintained over the long term without taking resources away from other
-project efforts. Having a set of guidelines for this process helps to speed up
-new code development within the project. How useful is the feature, how many
-other people could make use of it, how active has the person who will maintain
-the new repository been in the community? These are just a few of the questions
-we need to articulate into a vetting process.
+OpenBMC 已經託管了 100 多個 repository，對剛加入專案的新人而言可能相當令人卻步。新 repository 應該在能夠長期維護、且不會排擠其他專案工作資源的情況下才加入。為這個流程建立一套指引，有助於加速專案內的新程式碼開發。這個功能有多實用？還有多少人能用得上它？即將維護新 repository 的人在社群中有多活躍？這些只是我們需要納入審查流程中釐清的幾個問題。
 
-In a perfect world, only hardware-specific features would be in the meta machine
-layers, and vendor specific features should be in distro features. OpenBMC is
-not there yet but is something the community should strive towards.
+在理想情況下，只有硬體專屬功能才會放在 meta machine layers 中，而廠商專屬功能則應放在 distro features 中。OpenBMC 尚未達到這個目標，但這是社群應該努力的方向。
 
-## Conclusion
+## 結論
 
-This document was written to be a reference for people looking where to put
-vendor specific features and also as a reference for the TOF team to review when
-assessing a request for a vendor specific repository within OpenBMC.
+撰寫本文件是為了提供一份參考，讓人知道該把廠商專屬功能放在哪裡，同時也是 TOF 團隊在評估 OpenBMC 內廠商專屬 repository 的請求時可以參照的依據。
 
 [openpower]: https://openpowerfoundation.org/
 [upstream]: https://github.com/openbmc/docs/blob/master/kernel-development.md

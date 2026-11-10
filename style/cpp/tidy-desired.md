@@ -1,9 +1,8 @@
-# Desired clang-tidy checks
+# 希望啟用的 clang-tidy 檢查
 
-The following file contains checks and settings that the project would like to
-enable, but has had trouble either in engineering or has other higher priority
-rework. There is general agreement that the below checks _should_ be useful, but
-have not concretely enabled them across the project.
+以下檔案包含專案希望啟用、但目前因工程上的困難，或因有其他更高優先級的
+重構工作而尚未啟用的檢查與設定。大家普遍認同下列檢查理論上_應該_是有幫助的，
+但尚未在整個專案中實際啟用它們。
 
 ```yaml
 Checks: "-*, readability-function-size,

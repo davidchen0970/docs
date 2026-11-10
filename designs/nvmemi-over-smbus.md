@@ -1,28 +1,25 @@
 # NVMe-MI over SMBus
 
-Author: Tony Lee <tony.lee@quantatw.com>
+作者：Tony Lee <tony.lee@quantatw.com>
 
-Created: 3-8-2019
+建立日期：3-8-2019
 
-## Problem Description
+## 問題說明
 
-Currently, OpenBMC does not support NVMe drive information. NVMe-MI
-specification defines a command that can read the NVMe drive information via
-SMBus directly. The NVMe drive can provide its information or status, like
-vendor ID, temperature, etc. The aim of this proposal is to allow users to
-monitor NVMe drives so appropriate action can be taken.
+目前 OpenBMC 不支援 NVMe 硬碟資訊。NVMe-MI 規格定義了一條指令，可以直接透過
+SMBus 讀取 NVMe 硬碟資訊。NVMe 硬碟可以提供它的資訊或狀態，例如廠商
+ID（vendor ID）、溫度等。本提案的目標是讓使用者能夠監控 NVMe 硬碟，以便採取
+適當的處置。
 
-## Background and References
+## 背景與參考資料
 
-NVMe-MI specification defines a command called
-`NVM Express Basic Management Command` that can read the NVMe drives information
-via SMBus directly. [1]. This command uses SMBus Block Read protocol specified
-by the SMBus specification. [2].
+NVMe-MI 規格定義了一條名為 `NVM Express Basic Management Command` 的指令，
+可以直接透過 SMBus 讀取 NVMe 硬碟資訊 [1]。這條指令使用 SMBus 規格所定義的
+SMBus Block Read 通訊協定 [2]。
 
-For our purpose is retrieve NVMe drives information, therefore, using NVM
-Express Basic Management Command where describe in NVMe-MI specification to
-communicate with NVMe drives. According to different platforms, temperature
-sensor, present status, LED and power sequence will be customized.
+由於我們的目的是擷取 NVMe 硬碟資訊，因此使用 NVMe-MI 規格中所說明的 NVM
+Express Basic Management Command 與 NVMe 硬碟通訊。依據不同平台，溫度感測器、
+在位狀態、LED 與電源時序都會各自客製化。
 
 [1]:
   https://nvmexpress.org/wp-content/uploads/NVM_Express_Management_Interface_1_0a_2017.04.08_-_gold.pdf
@@ -31,25 +28,25 @@ sensor, present status, LED and power sequence will be customized.
   http://smbus.org/specs/SMBus_3_0_20141220.pdf
   "System Management Bus (SMBus) Specification Version 3.0 20 Dec 2014"
 
-## Requirements
+## 需求
 
-The implementation should:
+實作應具備以下能力：
 
-- Provide a daemon to monitor NVMe drives. Parameters to be monitored are Status
-  Flags, SMART Warnings, Temperature, Percentage Drive Life Used, Vendor ID, and
-  Serial Number.
-- Provide a D-bus interface to allow other services to access data.
-- Capability of communication over hardware channel I2C to NVMe drives.
-- Ability to turn the fault LED on/off for each drive by SmartWarnings if the
-  object path of fault LED is defined in the configuration file.
+- 提供一個 daemon 來監控 NVMe 硬碟。要監控的參數包括 Status Flags、SMART
+  Warnings、溫度（Temperature）、Percentage Drive Life Used、Vendor ID 以及
+  Serial Number。
+- 提供一個 D-bus 介面，讓其他服務能夠存取資料。
+- 具備透過硬體通道 I2C 與 NVMe 硬碟通訊的能力。
+- 能夠依據 SmartWarnings 對每個硬碟開啟／關閉故障 LED，前提是故障 LED 的
+  物件路徑已在設定檔中定義。
 
-## Proposed Design
+## 建議設計
 
-Create a D-bus service "xyz.openbmc_project.nvme.manager" with object paths for
-each NVMe sensor: "/xyz/openbmc_project/sensors/temperature/nvme0",
-"/xyz/openbmc_project/sensors/temperature/nvme1", etc. There is a JSON
-configuration file for drive index, bus ID, and the fault LED object path for
-each drive. For example,
+建立一個 D-bus 服務 "xyz.openbmc_project.nvme.manager"，為每個 NVMe 感測器
+提供物件路徑："/xyz/openbmc_project/sensors/temperature/nvme0"、
+"/xyz/openbmc_project/sensors/temperature/nvme1" 等。有一份 JSON 設定檔，
+記錄每個硬碟的硬碟索引（drive index）、匯流排 ID（bus ID）以及故障 LED 的
+物件路徑。例如，
 
 ```json
 {
@@ -68,9 +65,9 @@ each drive. For example,
 }
 ```
 
-Structure like:
+結構如下：
 
-Under the D-bus named "xyz.openbmc_project.nvme.manager":
+在名為 "xyz.openbmc_project.nvme.manager" 的 D-bus 之下：
 
 ```text
     /xyz/openbmc_project
@@ -78,13 +75,13 @@ Under the D-bus named "xyz.openbmc_project.nvme.manager":
       └─/xyz/openbmc_project/sensors/temperature/nvme0
 ```
 
-/xyz/openbmc_project/sensors/temperature/nvme0 Which implements:
+/xyz/openbmc_project/sensors/temperature/nvme0 實作了下列介面：
 
 - xyz.openbmc_project.Sensor.Value
 - xyz.openbmc_project.Sensor.Threshold.Warning
 - xyz.openbmc_project.Sensor.Threshold.Critical
 
-Under the D-bus named "xyz.openbmc_project.Inventory.Manager":
+在名為 "xyz.openbmc_project.Inventory.Manager" 的 D-bus 之下：
 
 ```text
 /xyz/openbmc_project
@@ -95,126 +92,120 @@ Under the D-bus named "xyz.openbmc_project.Inventory.Manager":
            └─/xyz/openbmc_project/inventory/system/chassis/motherboard/nvme0
 ```
 
-/xyz/openbmc_project/inventory/system/chassis/motherboard/nvme0 Which
-implements:
+/xyz/openbmc_project/inventory/system/chassis/motherboard/nvme0 實作了
+下列介面：
 
 - xyz.openbmc_project.Inventory.Item
 - xyz.openbmc_project.Inventory.Decorator.Asset
 - xyz.openbmc_project.Nvme.Status
 
-Interface `xyz.openbmc_project.Sensor.Value`, it's for hwmon to monitor
-temperature and with the following properties:
+介面 `xyz.openbmc_project.Sensor.Value`，供 hwmon 監控溫度使用，具有以下
+屬性：
 
 | Property | Type   | Description          |
 | -------- | ------ | -------------------- |
-| MaxValue | int64  | Sensor maximum value |
-| MinValue | int64  | Sensor minimum value |
-| Scale    | int64  | Sensor value scale   |
-| Unit     | string | Sensor unit          |
-| Value    | int64  | Sensor value         |
+| MaxValue | int64  | 感測器最大值 |
+| MinValue | int64  | 感測器最小值 |
+| Scale    | int64  | 感測器數值比例   |
+| Unit     | string | 感測器單位          |
+| Value    | int64  | 感測器數值         |
 
-Interface `xyz.openbmc_project.Nvme.Status` with the following properties:
+介面 `xyz.openbmc_project.Nvme.Status` 具有以下屬性：
 
 | Property          | Type   | Description                                  |
 | ----------------- | ------ | -------------------------------------------- |
-| SmartWarnings     | string | Indicates smart warnings for the state       |
-| StatusFlags       | string | Indicates the status of the drives           |
-| DriveLifeUsed     | string | A vendor specific estimate of the percentage |
-| TemperatureFault  | bool   | If warning type about temperature happened   |
-| BackupdrivesFault | bool   | If warning type about backup drives happened |
-| CapacityFault     | bool   | If warning type about capacity happened      |
-| DegradesFault     | bool   | If warning type about degrades happened      |
-| MediaFault        | bool   | If warning type about media happened         |
+| SmartWarnings     | string | 表示硬碟狀態的 smart warnings       |
+| StatusFlags       | string | 表示硬碟的狀態           |
+| DriveLifeUsed     | string | 由廠商估算的使用壽命百分比 |
+| TemperatureFault  | bool   | 是否發生與溫度相關的警告類型   |
+| BackupdrivesFault | bool   | 是否發生與備份硬碟相關的警告類型 |
+| CapacityFault     | bool   | 是否發生與容量相關的警告類型      |
+| DegradesFault     | bool   | 是否發生與效能衰退相關的警告類型      |
+| MediaFault        | bool   | 是否發生與媒體相關的警告類型         |
 
-Interface `xyz.openbmc_project.Inventory.Item` with the following properties:
+介面 `xyz.openbmc_project.Inventory.Item` 具有以下屬性：
 
 | Property   | Type   | Description                         |
 | ---------- | ------ | ----------------------------------- |
-| PrettyName | string | The human readable name of the item |
-| Present    | bool   | Whether or not the item is present  |
+| PrettyName | string | 該項目的人類可讀名稱 |
+| Present    | bool   | 該項目是否在位  |
 
-Interface `xyz.openbmc_project.Inventory.Decorator.Asset` with the following
-properties:
+介面 `xyz.openbmc_project.Inventory.Decorator.Asset` 具有以下
+屬性：
 
 | Property     | Type   | Description                                       |
 | ------------ | ------ | ------------------------------------------------- |
-| PartNumber   | string | The item part number, typically a stocking number |
-| SerialNumber | string | The item serial number                            |
-| Manufacturer | string | The item manufacturer                             |
-| BuildDate    | bool   | The date of item manufacture in YYYYMMDD format   |
-| Model        | bool   | The model of the item                             |
+| PartNumber   | string | 該項目的料號，通常為庫存編號 |
+| SerialNumber | string | 該項目的序號                            |
+| Manufacturer | string | 該項目的製造商                             |
+| BuildDate    | bool   | 該項目的製造日期，格式為 YYYYMMDD   |
+| Model        | bool   | 該項目的型號                             |
 
 ### xyz.openbmc_project.nvme.manager.service
 
-This service has several steps:
+這個服務有以下幾個步驟：
 
-1. It will register a D-bus called `xyz.openbmc_project.nvme.manager`
-   description above.
-2. Obtain the drive index, bus ID, GPIO present pin, power good pin and fault
-   LED object path from the json file mentioned above.
-3. Each cycle will do following steps:
-   1. Check if the present pin of target drive is true, if true, means drive
-      exists and go to next step. If not, means drive does not exists and remove
-      object path from D-bus by drive index.
-   2. Check if the power good pin of target drive is true, if true means drive
-      is ready then create object path by drive index and go to next step. If
-      not, means drive power abnormal, turn on fault LED and log in journal.
-   3. Send a NVMe-MI command via SMBus Block Read protocol by bus ID of target
-      drive to get data. Data get from NVMe drives are "Status Flags", "SMART
-      Warnings", "Temperature", "Percentage Drive Life Used", "Vendor ID", and
-      "Serial Number".
-   4. The data will be set to the properties in D-bus.
+1. 它會註冊一個名為 `xyz.openbmc_project.nvme.manager` 的 D-bus，
+   說明如上文所述。
+2. 從上述 json 檔案取得硬碟索引、匯流排 ID、GPIO 在位腳位（present pin）、
+   電源正常腳位（power good pin）以及故障 LED 物件路徑。
+3. 每個循環會執行下列步驟：
+   1. 檢查目標硬碟的在位腳位是否為 true，若為 true 表示硬碟存在，並進入下一步。
+      若不是，表示硬碟不存在，並依硬碟索引從 D-bus 移除其物件路徑。
+   2. 檢查目標硬碟的電源正常腳位是否為 true，若為 true 表示硬碟已準備就緒，
+      接著依硬碟索引建立物件路徑並進入下一步。若不是，表示硬碟電源異常，
+      開啟故障 LED 並記錄到 journal。
+   3. 依目標硬碟的匯流排 ID，透過 SMBus Block Read 通訊協定送出一條 NVMe-MI
+      指令以取得資料。從 NVMe 硬碟取得的資料為 "Status Flags"、"SMART
+      Warnings"、"Temperature"、"Percentage Drive Life Used"、"Vendor ID"
+      以及 "Serial Number"。
+   4. 這些資料會被設定到 D-bus 中的屬性。
 
-This service will run automatically and look up NVMe drives every second.
+這個服務會自動執行，並每秒查找一次 NVMe 硬碟。
 
-### Fault LED
+### 故障 LED
 
-When the value obtained from the command corresponds to one of the warning
-types, it will trigger the fault LED of corresponding device and issue events.
+當從指令取得的數值對應到其中一種警告類型時，會觸發對應裝置的故障 LED 並發出
+事件。
 
-### Add SEL related to NVMe
+### 新增與 NVMe 相關的 SEL
 
-The events `TemperatureFault`, `BackupdrivesFault`, `CapacityFault`,
-`DegradesFault` and `MediaFault` will be generated for the NVMe errors.
+會為 NVMe 錯誤產生 `TemperatureFault`、`BackupdrivesFault`、`CapacityFault`、
+`DegradesFault` 與 `MediaFault` 等事件。
 
-- Temperature Fault log : when the property `TemperatureFault` set to true
-- Backupdrives Fault log : when the property `BackupdrivesFault` set to true
-- Capacity Fault log : when the property `CapacityFault` set to true
-- Degrades Fault log : when the property `DegradesFault` set to true
-- Media Fault log: when the property `MediaFault` set to true
+- Temperature Fault log：當 `TemperatureFault` 屬性被設定為 true 時
+- Backupdrives Fault log：當 `BackupdrivesFault` 屬性被設定為 true 時
+- Capacity Fault log：當 `CapacityFault` 屬性被設定為 true 時
+- Degrades Fault log：當 `DegradesFault` 屬性被設定為 true 時
+- Media Fault log：當 `MediaFault` 屬性被設定為 true 時
 
-## Alternatives Considered
+## 曾考慮的替代方案
 
-NVMe-MI specification defines multiple commands that can communicate with NVMe
-drives over MCTP protocol. The NVMe-MI over MCTP has the following key
-capabilities:
+NVMe-MI 規格定義了多條可以透過 MCTP 通訊協定與 NVMe 硬碟通訊的指令。NVMe-MI
+over MCTP 具有以下幾項關鍵能力：
 
-- Discover drives that are present and learn capabilities of each drives.
-- Store data about the host environment enabling a Management Controller to
-  query the data later.
-- A standard format for VPD and defined mechanisms to read/write VPD contents.
-- Inventorying, configuring and monitoring.
+- 發現在位的硬碟並了解每個硬碟的能力。
+- 儲存關於主機環境的資料，讓 Management Controller 之後可以查詢這些資料。
+- 提供 VPD 的標準格式，以及讀取／寫入 VPD 內容的定義機制。
+- 清點（inventorying）、設定與監控。
 
-For monitoring NVMe drives, using NVM Express Basic Management Command over
-SMBus directly is much simpler than NVMe-MI over MCTP protocol.
+就監控 NVMe 硬碟而言，直接使用 SMBus 上的 NVM Express Basic Management Command
+遠比使用 MCTP 通訊協定上的 NVMe-MI 簡單得多。
 
-## Impacts
+## 影響
 
-This application is monitoring NVMe drives via SMbus and set values to D-bus.
-The impacts should be small in the system.
+這個應用程式透過 SMBus 監控 NVMe 硬碟並將數值設定到 D-bus。對系統的影響應該
+很小。
 
-## Testing
+## 測試
 
-This implementation is to use NVMe-MI-Basic command over SMBus and then set the
-response data to D-bus. Testing will send SMBus command to the drives to get the
-information and compare with the properties in D-bus to make sure they are the
-same. The testing can be performed on different NVMe drives by different
-manufacturers. For example: Intel P4500/P4600 and Micron 9200 Max/Pro.
+這個實作使用 SMBus 上的 NVMe-MI-Basic 指令，然後將回應資料設定到 D-bus。測試
+會送出 SMBus 指令給硬碟以取得資訊，並與 D-bus 中的屬性比較，以確認兩者相同。
+測試可以在不同製造商的不同 NVMe 硬碟上執行。例如：Intel P4500/P4600 以及
+Micron 9200 Max/Pro。
 
-Unit tests will test by function:
+單元測試將依功能進行測試：
 
-- It tests the length of responded data is as same as design in the function of
-  getting NVMe information.
-- It tests the function of setting values to D-bus is as same as design.
-- It tests the function of turn the corresponding LED ON/OFF by different
-  Smartwarnings values.
+- 在取得 NVMe 資訊的函式中，測試回應資料的長度是否與設計相同。
+- 測試將數值設定到 D-bus 的函式是否與設計相同。
+- 測試依據不同 Smartwarnings 數值開啟／關閉對應 LED 的函式。

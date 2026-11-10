@@ -1,149 +1,133 @@
-# OpenBMC platform communication channel: MCTP & PLDM in userspace
+# OpenBMC 平台通訊通道：使用者空間中的 MCTP 與 PLDM
 
-Author: Jeremy Kerr <jk@ozlabs.org> `jk`
+作者：Jeremy Kerr <jk@ozlabs.org> `jk`
 
-Please refer to the [MCTP Overview](mctp.md) document for general MCTP design
-description, background and requirements.
+關於一般的 MCTP 設計說明、背景與需求，請參考 [MCTP 概觀](mctp.md)文件。
 
-This document describes a userspace implementation of MCTP infrastructure,
-allowing a straightforward mechanism of supporting MCTP messaging within an
-OpenBMC system.
+本文件說明 MCTP 基礎設施的使用者空間實作，提供一種直接的方式，
+讓 OpenBMC 系統得以支援 MCTP 訊息傳遞。
 
-## Proposed Design
+## 建議設計
 
-The MCTP core specification just provides the packetisation, routing and
-addressing mechanisms. The actual transmit/receive of those packets is up to the
-hardware binding of the MCTP transport.
+MCTP 核心規格僅提供封包化、路由與定址機制。這些封包實際的
+傳送／接收則取決於 MCTP 傳輸層的硬體綁定（binding）。
 
-For OpenBMC, we would introduce a MCTP daemon, which implements the transport
-over a configurable hardware channel (eg., Serial UART, I2C or PCIe), and
-provides a socket-based interface for other processes to send and receive
-complete MCTP messages. This daemon is responsible for the packetisation and
-routing of MCTP messages from external endpoints, and handling the forwarding
-these messages to and from individual handler applications. This includes
-handling local MCTP-stack configuration, like local EID assignments.
+對於 OpenBMC，我們會引入一個 MCTP 常駐程式（daemon），它透過可設定的
+硬體通道（例如 Serial UART、I2C 或 PCIe）實作傳輸層，並提供一個
+基於 socket 的介面，讓其他行程得以傳送與接收完整的 MCTP 訊息。
+這個常駐程式負責將來自外部端點（endpoint）的 MCTP 訊息進行封包化
+與路由，並處理將這些訊息在各別處理程式（handler）應用程式之間
+轉送。這也包括處理本機的 MCTP 堆疊設定，例如本機 EID 的指派。
 
-This daemon has a few components:
+這個常駐程式有幾個組成元件：
 
-1. the core MCTP stack
+1. MCTP 核心堆疊
 
-2. one or more binding implementations (eg, MCTP-over-serial), which interact
-   with the hardware channel(s).
+2. 一或多個綁定實作（例如 MCTP-over-serial），負責與硬體通道互動。
 
-3. an interface to handler applications over a unix-domain socket.
+3. 透過 unix-domain socket 通往處理程式應用程式的介面。
 
-The proposed implementation here is to produce an MCTP "library" which provides
-the packetisation and routing functions, between:
+此處提出的實作方式是產出一個 MCTP「函式庫」，在下列兩者之間
+提供封包化與路由功能：
 
-- an "upper" messaging transmit/receive interface, for tx/rx of a full message
-  to a specific endpoint (ie, (1) above)
+- 一個「上層」的訊息傳送／接收介面，用於對特定端點傳送／接收
+  完整訊息（即上述的 (1)）
 
-- a "lower" hardware binding for transmit/receive of individual packets,
-  providing a method for the core to tx/rx each packet to hardware, and defines
-  the parameters of the common packetisation code (ie. (2) above).
+- 一個「下層」的硬體綁定，用於個別封包的傳送／接收，為核心提供
+  一種將每個封包傳送／接收至硬體的方法，並定義共用作業
+  （封包化）程式碼的參數（即上述的 (2)）。
 
-The lower interface would be plugged in to one of a number of hardware-specific
-binding implementations. Most of these would be included in the library source
-tree, but others can be plugged-in too, perhaps where the physical layer
-implementation does not make sense to include in the platform-agnostic library.
+下層介面會接到眾多硬體專用綁定實作之中的一個。這些綁定大多
+會包含在函式庫的原始碼樹中，但也可以插入其他綁定，例如當實體層
+實作不適合納入與平台無關的函式庫時。
 
-The reason for a library is to allow the same MCTP implementation to be used in
-both OpenBMC and host firmware; the library should be bidirectional. To allow
-this, the library would be written in portable C (structured in a way that can
-be compiled as "extern C" in C++ codebases), and be able to be configured to
-suit those runtime environments (for example, POSIX IO may not be available on
-all platforms; we should be able to compile the library to suit). The licence
-for the library should also allow this re-use; a dual Apache & GPLv2+ licence
-may be best.
+採用函式庫的理由是要讓同一套 MCTP 實作能同時用於 OpenBMC 與
+主機韌體；這個函式庫應該是雙向的。為了做到這一點，函式庫會以
+可攜的 C 語言撰寫（其結構方式要能在 C++ 程式碼庫中以 "extern C"
+編譯），並能針對這些執行環境進行設定（例如，POSIX IO 並非在所有
+平台上都可使用；我們應該能夠編譯出適合各平台的函式庫）。
+函式庫的授權條款也應該允許這種重複使用；採用 Apache 與 GPLv2+
+的雙重授權可能最為適切。
 
-These "lower" binding implementations may have very different methods of
-transferring packets to the physical layer. For example, a serial binding
-implementation for running on a Linux environment may be implemented through
-read()/write() syscalls to a PTY device. An I2C binding for use in low-level
-host firmware environments may interact directly with hardware registers to
-perform packet transfers.
+這些「下層」綁定實作，將封包傳輸至實體層的方式可能差異很大。
+舉例來說，在 Linux 環境執行的序列綁定實作，可以透過對 PTY 裝置
+呼叫 read()/write() 系統呼叫來實作。用於低階主機韌體環境的
+I2C 綁定，則可能直接與暫存器互動來執行封包傳輸。
 
-The application-specific handlers implement the actual functionality provided
-over the MCTP channel, and connect to the central daemon over a UNIX domain
-socket. Each of these would register with the MCTP daemon to receive MCTP
-messages of a certain type, and would transmit MCTP messages of that same type.
+各應用程式專屬的處理程式實作真正透過 MCTP 通道提供的功能，
+並透過 UNIX domain socket 連接到中央常駐程式。每一個處理程式都會
+向 MCTP 常駐程式註冊，以接收某種型別的 MCTP 訊息，並會傳送相同
+型別的 MCTP 訊息。
 
-The daemon's sockets to these handlers is configured for non-blocking IO, to
-allow the daemon to be decoupled from any blocking behaviour of handlers. The
-daemon would use a message queue to enable message reception/transmission to a
-blocked daemon, but this would be of a limited size. Handlers whose sockets
-exceed this queue would be disconnected from the daemon.
+常駐程式通往這些處理程式的 socket 會設定為非阻擋式 IO，以便讓
+常駐程式與處理程式的任何阻擋行為解耦。常駐程式會使用訊息佇列
+來讓被封鎖的常駐程式仍能接收／傳送訊息，但這個佇列的大小有限。
+若某個處理程式的 socket 超出此佇列容量，就會與常駐程式中斷連線。
 
-One design intention of the multiplexer daemon is to allow a future kernel-based
-MCTP implementation without requiring major structural changes to handler
-applications. The socket-based interface facilitates this, as the unix-domain
-socket interface could be fairly easily swapped out with a new kernel-based
-socket type.
+這個多工（multiplexer）常駐程式的一項設計意圖，是要讓未來基於
+核心的 MCTP 實作得以導入，而不需要對處理程式應用程式進行重大
+結構變更。基於 socket 的介面有助於達成此目標，因為 unix-domain
+socket 介面可以相當容易地替換為新的基於核心的 socket 型別。
 
-MCTP is intended to be an optional component of OpenBMC. Platforms using OpenBMC
-are free to adopt it as they see fit.
+MCTP 預期是 OpenBMC 的一個選用元件。使用 OpenBMC 的平台可自行
+決定是否採用。
 
-### Demultiplexer daemon interface
+### 解多工（Demultiplexer）常駐程式介面
 
-MCTP handlers (ie, clients of the demultiplexer) connect using a unix-domain
-socket, at the abstract socket address:
+MCTP 處理程式（即解多工器的客戶端）透過 unix-domain socket 連線，
+使用下列的抽象 socket 位址：
 
 ```text
 \0mctp-demux
 ```
 
-The socket type used should be `SOCK_SEQPACKET`.
+所使用的 socket 型別應該為 `SOCK_SEQPACKET`。
 
-Once connected, the client sends a single byte message, indicating what type of
-MCTP messages should be forwarded to the client. Types must be greater than
-zero.
+連線完成後，客戶端傳送一個單一位元組的訊息，指出應將哪一種型別的
+MCTP 訊息轉送至該客戶端。型別必須大於零。
 
-Subsequent messages sent over the socket are MCTP messages sent/received by the
-demultiplexer, that match the specified MCTP message type. Clients should use
-the send/recv syscalls to interact with the socket.
+隨後透過此 socket 傳送的訊息，就是由解多工器傳送／接收、且符合
+指定 MCTP 訊息型別的 MCTP 訊息。客戶端應使用 send/recv 系統呼叫
+來與 socket 互動。
 
-Each message has a fixed small header:
+每個訊息都有一個固定且小型的表頭：
 
 ```cpp
 uint8_t eid
 ```
 
-For messages coming from the demux daemon, this indicates the source EID of the
-outgoing MCTP message. For messages going to the demux daemon, this indicates
-the destination EID.
+對於來自解多工常駐程式的訊息，這表示傳出的 MCTP 訊息的來源 EID。
+對於送往解多工常駐程式的訊息，這表示目的 EID。
 
-The rest of the message data is the complete MCTP message, including MCTP
-message type field.
+其餘的訊息資料就是完整的 MCTP 訊息，包含 MCTP 訊息型別欄位。
 
-The daemon does not provide a facility for clients to specify or retrieve values
-for the tag field in individual MCTP packets.
+常駐程式不提供讓客戶端指定或取得個別 MCTP 封包中 tag 欄位值的
+功能。
 
-## Alternatives Considered
+## 曾考慮的替代方案
 
-In terms of an MCTP daemon structure, an alternative is to have the MCTP
-implementation contained within a single process, using the libmctp API directly
-for passing messages from the core code to application-level handlers. The
-drawback of this approach is that this single process needs to implement all
-possible functionality that is available over MCTP, which may be quite a
-disjoint set. This would likely lead to unnecessary restrictions on the
-implementation of those application-level handlers (programming language,
-frameworks used, etc). Also, this single-process approach would likely need more
-significant modifications if/when MCTP protocol support is moved to the kernel.
+就 MCTP 常駐程式的結構而言，一種替代方案是將 MCTP 實作包含在
+單一行程之中，直接使用 libmctp API 將訊息從核心程式碼傳遞到
+應用程式層級的處理程式。這種做法的缺點是，這個單一行程需要
+實作所有可能透過 MCTP 提供的功能，而這些功能可能彼此相當
+不相干。這很可能會對這些應用程式層級處理程式的實作造成
+不必要的限制（程式語言、所用框架等）。此外，若日後將 MCTP
+通訊協定支援移入核心，這種單一行程的做法可能也需要更大幅度的
+修改。
 
-The interface between the demultiplexer daemon and clients is currently defined
-as a socket-based interface. However, an alternative here would be to pass MCTP
-messages over dbus instead. The reason for the choice of sockets rather than
-dbus is that the former allows a direct transition to a kernel-based socket API
-when suitable.
+解多工常駐程式與客戶端之間的介面目前定義為基於 socket 的介面。
+不過，這裡的一種替代方案是改透過 dbus 傳遞 MCTP 訊息。之所以
+選擇 socket 而非 dbus，是因為前者在適當時機允許直接過渡到
+基於核心的 socket API。
 
-## Testing
+## 測試
 
-For the core MCTP library, we are able to run tests there in complete isolation
-(I have already been able to run a prototype MCTP stack through the afl fuzzer)
-to ensure that the core transport protocol works.
+對於 MCTP 核心函式庫，我們能夠在其中完全隔離地執行測試
+（我已經能夠讓一個原型 MCTP 堆疊通過 afl fuzzer 的測試），
+以確保核心傳輸通訊協定運作正常。
 
-For MCTP hardware bindings, we would develop channel-specific tests that would
-be run in CI on both host and BMC.
+對於 MCTP 硬體綁定，我們會開發通道專屬的測試，在主機與 BMC
+上於 CI 中執行。
 
-For the OpenBMC MCTP daemon implementation, testing models would depend on the
-structure we adopt in the design section.
+對於 OpenBMC 的 MCTP 常駐程式實作，測試模型將取決於我們在
+設計章節所採取的結構。

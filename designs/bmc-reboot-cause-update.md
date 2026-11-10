@@ -1,42 +1,36 @@
-# BMC Boot Cause Event Log
+# BMC 開機原因事件記錄
 
-Author: Patrick Lin (patrick_lin_wiwynn)
+作者：Patrick Lin (patrick_lin_wiwynn)
 
-Other contributors: Delphine Chiu(delphinechiu), Bonnie Lo(bonnielo), Ricky
-Wu(ricky_cx_wu)
+其他貢獻者：Delphine Chiu (delphinechiu)、Bonnie Lo (bonnielo)、Ricky
+Wu (ricky_cx_wu)
 
-Created: Aug 19, 2024
+建立日期：2024 年 8 月 19 日
 
-## Problem Description
+## 問題說明
 
-Currently, OpenBMC lacks a unified method that meets the needs of various
-vendors to record different types of BMC reboot cause event logs. The purpose of
-this proposal is to update the existing method, consolidating more BMC reboot
-causes to better align with current usage needs.
+目前 OpenBMC 缺少一套統一的方法，能夠滿足各家供應商記錄不同类型 BMC
+重新啟動原因事件記錄的需求。本提案的目的是更新現有的方法，整合更多種類的
+BMC 重新啟動原因，以更貼近目前的使用需求。
 
-## Background and References
+## 背景與參考資料
 
-In the current approach, the only defined reboot causes are **WDIOF_EXTERN1**
-and **WDIOF_CARDRESET**, but this is insufficient to meet today's needs.
-However, due to varying needs among different vendors, it’s not feasible to
-cover all possible reboot causes. In this update, we will add support for
-several more common types.
+在目前的做法中，唯一定義的重新啟動原因是 **WDIOF_EXTERN1** 與
+**WDIOF_CARDRESET**，但這不足以因應當前的需求。然而，由於各家供應商的
+需求不盡相同，要涵蓋所有可能的重新啟動原因並不切實際。在本次更新中，
+我們將增加對數種更常見類型的支援。
 
-## Requirements
+## 需求
 
-1. Each BMC vendor needs to provide or update their driver to retrieve the
-   corresponding BMC reboot cause.
-2. Each BMC vendor needs to record the results of the retrieved reboot cause to
-   the specified path.
-3. Each vendor needs to ensure the accuracy of interpreting the reboot cause
-   results.
-4. New reboot cause types need to be defined to cover the requirements
-5. Revise the definitions of certain existing reboot cause types to better
-   represent their respective conditions.
-6. Ensure that methods based on the original design can adapt well to this
-   change.
+1. 每家 BMC 供應商都需要提供或更新其驅動程式，以取得對應的 BMC
+   重新啟動原因。
+2. 每家 BMC 供應商都需要將取得的重新啟動原因結果記錄到指定的路徑。
+3. 每家供應商都需要確保重新啟動原因結果的判讀正確無誤。
+4. 需要定義新的重新啟動原因類型，以涵蓋各項需求。
+5. 修訂某些現有重新啟動原因類型的定義，使其更能代表各自的狀況。
+6. 確保基於原始設計的方法能夠良好地適應此變更。
 
-## Proposed Design
+## 建議設計
 
 ```mermaid
 flowchart TD
@@ -46,66 +40,57 @@ flowchart TD
     D --> E[Log the corresponding event based the the different flag]
 ```
 
-After a BMC reboot, each BMC vendor’s driver first retrieves the reboot cause.
-Then, based on the reboot cause, it sets different flags to the specified path.
-The PSM (Phosphor-state-manager) reads the flags from the specified path to
-determine the type of reboot cause. Finally, it generates the corresponding
-event log based on the determination.
+在 BMC 重新啟動之後，各家 BMC 供應商的驅動程式會先取得重新啟動原因。
+接著根據重新啟動原因，將不同的旗標設定到指定的路徑。PSM
+（Phosphor-state-manager）從指定路徑讀取旗標，以判定重新啟動原因的類型。
+最後，根據判定結果產生對應的事件記錄。
 
-This process ensures accurate logging and handling of different BMC reboot
-causes, improving system reliability and monitoring. Belows are the details of
-the new additions and changes:
+此流程確保了各種 BMC 重新啟動原因都能被準確地記錄與處理，進而提升系統的
+可靠性與監控能力。以下為新增內容與變更的詳細說明：
 
-1. Driver Provision by BMC Vendors:
-   - Each BMC vendor must provide a driver to retrieve the BMC reboot cause and
-     record the result at the specified location.
+1. 由 BMC 供應商提供的驅動程式：
+   - 每家 BMC 供應商都必須提供一個驅動程式，以取得 BMC 重新啟動原因，並將
+     結果記錄在指定的位置。
 
-2. Definition and Identification of Reboot Cause Type **Software Reset**:
-   - This one is still under discussion, please refer to the following link for
-     more detail:
+2. **Software Reset** 重新啟動原因類型的定義與辨識：
+   - 此項目仍在討論中，更多細節請參考以下連結：
      <https://lore.kernel.org/all/9565c496-44d8-4214-8038-931926210d0f@roeck-us.net/>
 
-3. Revise the Definition of **WDIOF_CARDRESET**:
-   - The **WDIOF_CARDRESET** type will now specifically indicate resets caused
-     by the watchdog.
+3. 修訂 **WDIOF_CARDRESET** 的定義：
+   - **WDIOF_CARDRESET** 類型現在將特別用於表示由看門狗（watchdog）所造成的
+     重設。
 
-4. Clarification of The **Power-on-reset case**:
-   - When a BMC reset occurred, but the flag in the bootstatus remains unchanged
-     by the watchdog driver (i.e., it stays at 0), this indicates that a
-     **Power-on-reset** has occurred.
+4. 釐清 **Power-on-reset** 的情況：
+   - 當 BMC 發生重設，但看門狗驅動程式並未改變 bootstatus 中的旗標（也就是
+     維持為 0）時，即表示發生了 **Power-on-reset**。
 
-5. Update Reboot Cause Interpretation:
+5. 更新重新啟動原因的判讀：
 
-   | phosphor-state-manager | bootstatus value | watchdog driver                  |
+   | phosphor-state-manager | bootstatus 值      | watchdog 驅動程式                |
    | ---------------------- | ---------------- | -------------------------------- |
-   | WDIOF_CARDRESET        | 0x20             | return 0x20 if reset by Watchdog |
-   | POR                    | 0x00             | Do nothing                       |
+   | WDIOF_CARDRESET        | 0x20             | 若由 Watchdog 重設則回傳 0x20    |
+   | POR                    | 0x00             | 不做任何事                       |
 
-6. Generate Corresponding Event Log:
-   - After interpreting the reboot cause, the system should issue the
-     corresponding event log based on the determined type.
+6. 產生對應的事件記錄：
+   - 在判讀重新啟動原因之後，系統應根據判定的類型發出對應的事件記錄。
 
-## Alternatives Considered
+## 曾考慮的替代方案
 
-In the original approach, **WDIOF_CARDRESET** was used to represent a **POR**
-(power-on-reset). However, with the new method, we need to distinguish between
-watchdog resets and power-on resets. Therefore, we now use **WDIOF_CARDRESET**
-to represent watchdog resets, aligning with the existing kernel documentation
-and driver implementation.
+在原本的做法中，**WDIOF_CARDRESET** 被用來代表 **POR**（power-on-reset）。
+然而，採用新的方法後，我們需要區分看門狗重設與開機重設（power-on reset）。
+因此，我們現在使用 **WDIOF_CARDRESET** 來代表看門狗重設，以與既有的核心
+文件及驅動程式實作保持一致。
 
-## Impacts
+## 影響
 
-1. Common reboot causes across vendors can be consolidated to issue a unified
-   event log.
-2. If any functions rely on the original reboot cause, the code must be adjusted
-   to align with the new definitions.
+1. 各家供應商之間常見的重新啟動原因可以整合，以發出統一的事件記錄。
+2. 若有任何功能依賴原本的重新啟動原因，則必須調整程式碼以符合新的定義。
 
-### Organizational
+### 組織層面
 
-Which repositories are expected to be modified to execute this design?
+預期需要修改哪些儲存庫（repository）才能執行此設計？
 phosphor-state-manager
 
-## Testing
+## 測試
 
-Reboot the BMC under various conditions and check whether the corresponding
-event logs are generated correctly.
+在各種條件下重新啟動 BMC，並檢查對應的事件記錄是否正確產生。

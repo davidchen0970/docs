@@ -1,18 +1,15 @@
-# IPMI Architecture
+# IPMI 架構
 
-IPMI is made up of commands and channels. Commands are provided by providers and
-channels are processes called bridges. Commands are received from external
-sources (system admin users) via the bridges and routed to the providers'
-command handlers via the main IPMI daemon.
+IPMI 由命令（commands）與通道（channels）組成。命令由提供者（providers）提供，
+通道則是稱為橋接器（bridges）的程序。命令會經由橋接器從外部來源（系統管理員
+使用者）接收，再經由主要的 IPMI 主控程序路由到各提供者的命令處理程式。
 
-## High-Level Overview
+## 高階概觀
 
-IPMI is all about commands and responses. Channels provide a mechanism for
-transporting the data, each with a slightly different protocol and transport
-layer, but ultimately, the highest level data is a raw IPMI command consisting
-of a NetFn/LUN, Command, and optional data. Each response is likewise a
-Completion Code and optional data. So the first step is to break apart channels
-and the IPMI queue.
+IPMI 的重心全在命令與回應。通道提供了一種傳輸資料的機制，每個通道都有略微
+不同的協定與傳輸層，但最終而言，最上層的資料就是一筆原始 IPMI 命令，包含
+NetFn/LUN、Command 以及選用的資料。每筆回應同樣由 Completion Code 與選用資料
+組成。因此第一步就是把通道與 IPMI 佇列拆開。
 
 ```ascii
                                                      /------------------\
@@ -46,9 +43,8 @@ and the IPMI queue.
                                                      ---------------------/
 ```
 
-The IPMI messages that get passed to and from the IPMI daemon (ipmid) are
-basically the equivalent of ipmitool's "raw" commands with a little more
-information about the message.
+傳給 IPMI 主控程序（ipmid）以及從其中傳出的 IPMI 訊息，大致上相當於 ipmitool
+的「raw」命令，只是多了一些關於該訊息的資訊。
 
 ```less
 Message Data:
@@ -69,64 +65,47 @@ Response Data:
   array<byte>:data - optional response data
 ```
 
-A channel bridge, upon receiving a new IPMI command, will extract the necessary
-fields from whatever transport format (RMCP+, IPMB, KCS, etc.) For session-based
-channels (RMCP+) the bridge is responsible for establishing the session with
-credentials and determining the maximum privilege available for this session.
-The bridge then takes the extracted command, data, and possibly user and
-privilege information, and encodes them in a D-Bus method call to send to the
-IPMI daemon, ipmid. The daemon will take the message, and attempt to find an
-appropriate handler in its handler tables. If a handler is found, it will
-attempt to extract the required parameters for the handler and pass them along.
-The handler will return a tuple of response parameters, which will get packed
-back into a D-Bus response message and sent back to the calling channel's
-bridge. The bridge will then re-package the response into its transport protocol
-and send it off.
+通道橋接器在收到新的 IPMI 命令時，會從各種傳輸格式（RMCP+、IPMB、KCS 等）中
+擷取出必要的欄位。對於以工作階段為基礎的通道（RMCP+），橋接器負責使用憑證
+建立工作階段，並決定此工作階段可用的最大權限。接著橋接器會取得擷取出的命令、
+資料，以及可能的使用者與權限資訊，將它們編碼成一個 D-Bus 方法呼叫，傳送給
+IPMI 主控程序 ipmid。主控程序接收該訊息後，會嘗試在其處理程式表中找到適當的
+處理程式。若找到處理程式，它會嘗試擷取該處理程式所需的參數並傳過去。處理程式
+會回傳一個回應參數的 tuple，這些參數會被重新打包成 D-Bus 回應訊息，並傳回給
+呼叫端通道的橋接器。橋接器接著會把回應重新封裝成其傳輸協定並送出。
 
-The next part is to provide a higher-level, strongly-typed, modern C++ mechanism
-for registering handlers. Each handler will specify exactly what arguments are
-needed for the command and what types will be returned in the response. This
-way, the ipmid queue can unpack requests and pack responses in a safe manner.
-Because the handler packing and unpacking code is templated, it is written
-mostly in headers.
+接下來的部分，是要提供一個更高階、強型別、現代化 C++ 的機制來註冊處理程式。
+每個處理程式會明確指出該命令需要哪些引數，以及回應中會回傳哪些型別。如此
+一來，ipmid 佇列就能以安全的方式解包請求並打包回應。由於處理程式的打包與
+解包程式碼是以樣板（template）寫成，因此大部分都寫在標頭檔中。
 
-## Details and Implementation
+## 詳細資訊與實作
 
-For session-less channels (like BT, KCS, and IPMB), the only privilege check
-will be to see that the requested privilege is less than or equal to the
-channel's maximum privilege. If the channel has a session and authenticates
-users, the privilege must be less than or equal to the channel's maximum
-privilege and the user's maximum privilege.
+對於無工作階段的通道（如 BT、KCS 與 IPMB），唯一的權限檢查是確認請求的權限
+小於或等於通道的最大權限。若通道設有工作階段且會對使用者驗證，則權限必須
+小於或等於通道的最大權限，同時也要小於或等於使用者的最大權限。
 
-Ipmid takes the LUN/netFN/Cmd tuple and looks up the corresponding handler
-function. If the requested privilege is less than or equal to the required
-privilege for the given registered command, the request may proceed. If any of
-these checks fail, ipmid returns with _Insufficient Privilege_.
+Ipmid 取得 LUN/netFN/Cmd 這個 tuple，並查尋對應的處理程式函式。如果請求的權限
+小於或等於該已註冊命令所需的權限，請求才可以繼續進行。若上述任何一項檢查失敗，
+ipmid 會以 _Insufficient Privilege_ 回傳。
 
-At this point, the IPMI command is run through the filter hooks. The default
-hook is ACCEPT, where the command just passes onto the execution phase. But OEMs
-and providers can register hooks that would ultimately block IPMI commands from
-executing, much like the IPMI 2.0 Spec's Firmware Firewall. The hook would be
-passed in the context of the IPMI call and the raw content of the call and has
-the opportunity to return any valid IPMI completion code. Any non-zero
-completion code would prevent the command from executing and would be returned
-to the caller.
+到了這一步，IPMI 命令會經過過濾器掛鉤（filter hooks）。預設的掛鉤是 ACCEPT，
+此時命令直接進入執行階段。但 OEM 與提供者可以註冊掛鉤，最終用以阻擋 IPMI 命令
+執行，情況類似 IPMI 2.0 規格中的 Firmware Firewall。掛鉤會接收 IPMI 呼叫的
+脈絡（context）以及呼叫的原始內容，並有機會回傳任何有效的 IPMI completion
+code。任何非零的 completion code 都會阻止命令執行，並會回傳給呼叫端。
 
-The network channel bridges (netipmid), executing one process per interface,
-handle session (RMCP+) and SOL commands and responses to those commands. Get/Set
-SOL configuration, Get session info, close session commands can also be
-requested through KCS/BT interface, ipmid daemon must also need details about
-session and SOL. In order to maintain sync between ipmid and netipmid daemon,
-session and SOL are exposed in D-Bus, which ipmid can query and respond to
-commands issued through host interface (KCS/BT).
+網路通道橋接器（netipmid）每個介面執行一個程序，負責處理工作階段（RMCP+）與
+SOL 命令以及這些命令的回應。Get/Set SOL 設定、Get session info、close session
+等命令也可以經由 KCS/BT 介面請求，因此 ipmid 主控程序同樣需要關於工作階段與
+SOL 的詳細資訊。為了在 ipmid 與 netipmid 主控程序之間維持同步，工作階段與 SOL
+會暴露在 D-Bus 上，ipmid 可以查詢它們，並回應經由主機介面（KCS/BT）發出的命令。
 
-The next phase is parameter unpacking and validation. This is done by
-compiler-generated code with variadic templates at handler registration time.
-The registration function is a templated function that allows any type of
-handler to be passed in so that the types of the handler can be extracted and
-unpacked.
+下一個階段是參數解包與驗證。這是透過在註冊處理程式時，由編譯器以可變引數樣板
+（variadic templates）產生的程式碼來完成。註冊函式是一個樣板函式，允許傳入任何
+型別的處理程式，如此便能擷取並解包處理程式的型別。
 
-This is done in the core IPMI library (from a high level) like this:
+核心 IPMI 函式庫（從高階角度來看）是這樣實作的：
 
 ```cpp
 template <typename Handler>
@@ -174,7 +153,7 @@ class IpmiHandler
  }
 ```
 
-While some IPMI handlers would look like this:
+而某些 IPMI 處理程式看起來會像這樣：
 
 ```cpp
 ipmi::RspType<> setUserAccess(
@@ -232,59 +211,49 @@ void providerInitFn()
 }
 ```
 
-Ipmid providers are all executed as boost::asio::coroutines. This means that
-they can take advantage of any of the boost::asio async method calls in a way
-that looks like synchronous code, but will execute asynchronously by yielding
-control of the processor to the run loop via the yield_context object. Use the
-yield_context object by passing it as a 'callback' which will then cause the
-calling coroutine to yield the processor until its IO is ready, at which point
-it will 'return' much like a synchronous call.
+Ipmid 的提供者全部都是以 boost::asio::coroutines 執行。這代表它們可以利用任何
+boost::asio 的非同步方法呼叫，寫起來看起來像同步程式碼，但實際上會經由
+yield_context 物件將處理器的控制權讓給執行迴圈，以非同步方式執行。使用
+yield_context 物件的方式是把它當作「callback」傳入，這樣就會讓呼叫中的
+coroutine 讓出處理器，直到其 IO 準備好為止，屆時它會「返回」，情況就像同步呼叫
+一樣。
 
-Ideally, all handlers would take advantage of the asynchronous capabilities of
-ipmid via the boost::asio::yield_context. This means that the queue could have
-multiple in-flight calls that are waiting on another D-Bus call to return. With
-asynchronous calls, this will not block the rest of the queue's operation, The
-sdbusplus::asio::connection that is available to all providers via the
-getSdBus() function provides yield_method_call() which is an asynchronous D-Bus
-call mechanism that 'looks' like a synchronous call. It is important that any
-global data that an asynchronous handler uses is protected as if the handler is
-multi-threaded. Since many of the resources used in IPMI handlers are actually
-D-Bus objects, this is not likely a common issue because of the serialization
-that happens via the D-Bus calls.
+理想上，所有處理程式都應該透過 boost::asio::yield_context 善用 ipmid 的非同步
+能力。這代表佇列可以同時有多個進行中的呼叫正在等待另一個 D-Bus 呼叫返回。有了
+非同步呼叫，這就不會阻擋佇列其餘部分的運作。所有提供者都可以透過 getSdBus()
+函式取得的 sdbusplus::asio::connection，提供了 yield_method_call()，這是一種
+非同步的 D-Bus 呼叫機制，「看起來」像同步呼叫。有一點很重要：任何非同步處理程式
+所使用的全域資料都必須加以保護，就如同該處理程式是多執行緒一樣。由於 IPMI 處理
+程式中使用的許多資源實際上都是 D-Bus 物件，因為 D-Bus 呼叫會帶來序列化，所以
+這不太可能是常見的問題。
 
-Using templates, it is possible to extract the return type and argument types of
-the handlers and use that to unpack (and validate) the arguments from the
-incoming request and then pack the result back into a vector of bytes to send
-back to the caller. The deserializer will keep track of the number of bits it
-has unpacked and then compare it with the total number of bits that the method
-is requesting. In the example, we are assuming that the non-full-byte integers
-are packed bits in the message in most-significant-bit first order (same order
-the specification describes them in). Optional arguments can be used easily with
-C++17's std::optional.
+使用樣板，可以擷取處理程式的回傳型別與引數型別，並用它來從傳入的請求中解包
+（並驗證）引數，然後把結果重新打包成一個位元組向量傳回給呼叫端。反序列化器會
+追蹤它已解包的位元數，然後與該方法所要求的總位元數做比較。在這個範例中，我們
+假設非完整位元組的整數在訊息中是以最高有效位元先（most-significant-bit first）
+的順序打包的位元（與規格描述它們的順序相同）。搭配 C++17 的 std::optional，
+可以輕鬆地使用選用引數。
 
-Some types that are supported are as follows:
+支援的某些型別如下：
 
-- standard integer types (`int8_t`, `uint16_t`, `uint32_t`, `int`, `long`, etc.)
-- `bool` (extracts a single bit, same as `uint1_t`)
-- multi-precision integers (`uint<N>`)
+- 標準整數型別（`int8_t`、`uint16_t`、`uint32_t`、`int`、`long` 等）
+- `bool`（擷取單一一位元，同 `uint1_t`）
+- 多精度整數（`uint<N>`）
 - `std::bitset<N>`
-- `std::optional<T>` - extracts T if there are enough remaining bits/bytes
-- `std::array<T, N>` - extracts N elements of T if possible
-- `std::vector<T>` - extracts elements of T from the remaining bytes
-- any additional types can be created by making a pack/unpack template
+- `std::optional<T>` - 若有足夠的剩餘位元/位元組則擷取 T
+- `std::array<T, N>` - 若可能則擷取 N 個 T 元素
+- `std::vector<T>` - 從剩餘的位元組中擷取 T 元素
+- 任何額外的型別都可以透過製作 pack/unpack 樣板來建立
 
-For partial byte types, the least-significant bits of the next full byte are
-extracted first. While this is opposite of the order the IPMI specification is
-written, it makes the code simple. Multi-byte fields are extracted as LSByte
-first (little-endian) to match the IPMI specification.
+對於部分位元組型別，會先擷取下一個完整位元組的最低有效位元（least-significant
+bits）。雖然這與 IPMI 規格的書寫順序相反，但它讓程式碼更為簡潔。多位元組欄位
+以 LSByte 先（小端序，little-endian）的方式擷取，以符合 IPMI 規格。
 
-When returning partial byte types, they are also packed into the reply in the
-least-significant bit first order. As each byte fills up, the full byte gets
-pushed onto the byte stream. For examples of how the packing and unpacking is
-used, see the unit test cases in test/message/pack.cpp and
-test/message/unpack.cpp.
+在回傳部分位元組型別時，它們同樣以最低有效位元先的順序打包進回應中。隨著每個
+位元組填滿，完整的位元組會被推入位元組串流中。關於打包與解包如何使用的範例，
+請參見 test/message/pack.cpp 與 test/message/unpack.cpp 中的單元測試案例。
 
-As an example this is how a bitset is unpacked
+作為範例，以下是 bitset 的解包方式：
 
 ```cpp
 /** @brief Specialization of UnpackSingle for std::bitset<N>
@@ -310,10 +279,8 @@ struct UnpackSingle<std::bitset<N>>
 };
 ```
 
-If a handler needs to unpack a variable payload, it is possible to request the
-Payload parameter. When the Payload parameter is present, any remaining,
-unpacked bytes are available for inspection. Using the same unpacking calls that
-were used to unpack the other parameters, the remaining parameters can be
-manually unpacked. This is helpful for multi-function commands like Set LAN
-Configuration Parameters, where the first two bytes are fixed, but the remaining
-3:N bytes vary based on the selected parameter.
+如果某個處理程式需要解包可變的載具（payload），可以請求 Payload 參數。當存在
+Payload 參數時，任何剩餘、尚未解包的位元組都可以供檢查。使用之前用來解包其他
+參數的相同解包呼叫，就可以手動解包剩餘的參數。這對於像 Set LAN Configuration
+Parameters 這類多功能命令很有幫助，它的前兩個位元組是固定的，但剩餘的 3:N
+個位元組會根據所選的參數而變動。

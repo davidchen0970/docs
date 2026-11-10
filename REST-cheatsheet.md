@@ -1,48 +1,46 @@
-# OpenBMC REST cheat sheet
+# OpenBMC REST 速查表
 
-This document is intended to provide a set of REST client commands for OpenBMC
-usage. OpenBMC REST is disabled by default in bmcweb. For more information, see
-<https://github.com/openbmc/bmcweb/commit/47c9e106e0057dd70133d50e928e48cbc68e709a>.
-Most of the functionality previously provided by OpenBMC REST is available in
-Redfish.
+本文件旨在提供一組用於 OpenBMC 的 REST 用戶端指令。OpenBMC REST 在 bmcweb 中
+預設為停用。更多資訊請參見
+<https://github.com/openbmc/bmcweb/commit/47c9e106e0057dd70133d50e928e48cbc68e709a>。
+OpenBMC REST 先前提供的大部分功能都可以在 Redfish 中找到。
 
-## Using CURL commands
+## 使用 CURL 指令
 
-### Notes on authentication
+### 關於認證的說明
 
-The original REST server, from the phosphor-rest-server repository, uses
-authentication handled by the curl cookie jar files. The bmcweb REST server can
-use the same cookie jar files for read-only REST methods like GET, but requires
-either an authentication token or the username and password passed in as part of
-the URL for non-read-only methods.
+原始的 REST 伺服器來自 phosphor-rest-server 資料庫（repository），使用由
+curl cookie jar 檔案處理的認證。bmcweb REST 伺服器對於 GET 等唯讀 REST
+方法可以使用相同的 cookie jar 檔案，但對於非唯讀方法，則需要在 URL 中傳入
+認證權杖（authentication token）或使用者名稱與密碼。
 
-Starting with the 2.7 OpenBMC release (August 2019), bmcweb is the default REST
-server. The phosphor-rest-server repository was archived in October 2022.
+自 2.7 OpenBMC 版本（2019 年 8 月）起，bmcweb 成為預設的 REST 伺服器。
+phosphor-rest-server 資料庫已於 2022 年 10 月封存。
 
-### Establish REST connection session
+### 建立 REST 工作階段連線
 
-- Using just the cookie jar files for the phosphor-rest server:
+- 僅對 phosphor-rest 伺服器使用 cookie jar 檔案：
 
 ```bash
  export bmc=xx.xx.xx.xx
  curl -c cjar -b cjar -k -H "Content-Type: application/json" -X POST https://${bmc}/login -d "{\"username\": \"root\", \"password\": \"0penBmc\" }"
 ```
 
-- If passing in the username/password as part of the URL, no unique login call
-  is required. The URL format is:
+- 若將使用者名稱/密碼作為 URL 的一部分傳入，則不需要單獨的登入呼叫。URL
+  格式為：
 
 ```bash
   <username>:<password>@<hostname>/<path>...
 ```
 
-For example:
+例如：
 
 ```bash
  export bmc=xx.xx.xx.xx
  curl -k -X GET https://root:0penBmc@${bmc}/xyz/openbmc_project/list
 ```
 
-- Token based authentication.
+- 基於權杖的認證。
 
 ```bash
  export bmc=xx.xx.xx.xx
@@ -50,13 +48,12 @@ For example:
  curl -k -H "X-Auth-Token: $token" https://${bmc}/xyz/openbmc_project/...
 ```
 
-The third method is recommended.
+建議使用第三種方法。
 
-### Commands
+### 指令
 
-Note: To keep the syntax below common between the phosphor-rest and bmcweb
-implementations as described above, this assumes that if bmcweb is used it is
-using the 'Token based' login method as described above:
+注意：為了讓下方的語法在上述 phosphor-rest 與 bmcweb 實作之間保持一致，
+此處假設若使用 bmcweb，則採用上述的「基於權杖」登入方法：
 
 ```bash
 export bmc=xx.xx.xx.xx
@@ -64,167 +61,164 @@ export token=`curl -k -H "Content-Type: application/json" -X POST https://${bmc}
 curl -k -H "X-Auth-Token: $token" https://$bmc/xyz/openbmc_project/...
 ```
 
-- List and enumerate:
+- 列出與列舉：
 
 ```bash
  curl -k -H "X-Auth-Token: $token" https://${bmc}/xyz/openbmc_project/list
  curl -k -H "X-Auth-Token: $token" https://${bmc}/xyz/openbmc_project/enumerate
 ```
 
-- List sub-objects:
+- 列出子物件：
 
 ```bash
  curl -k -H "X-Auth-Token: $token" https://${bmc}/xyz/openbmc_project/
  curl -k -H "X-Auth-Token: $token" https://${bmc}/xyz/openbmc_project/state/
 ```
 
-- Host soft power off:
+- 主機軟性關機（soft power off）：
 
 ```bash
  curl -k -H "X-Auth-Token: $token" -H "Content-Type: application/json" -d '{"data": "xyz.openbmc_project.State.Host.Transition.Off"}' -X PUT https://${bmc}/xyz/openbmc_project/state/host0/attr/RequestedHostTransition
 ```
 
-- Host hard power off:
+- 主機硬性關機（hard power off）：
 
 ```bash
  curl -k -H "X-Auth-Token: $token" -H "Content-Type: application/json" -X PUT -d '{"data":"xyz.openbmc_project.State.Chassis.Transition.Off"}' https://${bmc}//xyz/openbmc_project/state/chassis0/attr/RequestedPowerTransition
 ```
 
-- Host power on:
+- 主機開機：
 
 ```bash
  curl -k -H "X-Auth-Token: $token" -H "Content-Type: application/json" -d '{"data": "xyz.openbmc_project.State.Host.Transition.On"}' -X PUT https://${bmc}/xyz/openbmc_project/state/host0/attr/RequestedHostTransition
 ```
 
-- Reboot Host:
+- 重新啟動主機：
 
 ```bash
  curl -k -H "X-Auth-Token: $token" -H "Content-Type: application/json" -X PUT -d '{"data":"xyz.openbmc_project.State.Host.Transition.Reboot"}' https://${bmc}/xyz/openbmc_project/state/host0/attr/RequestedHostTransition
 ```
 
-- Reboot BMC:
+- 重新啟動 BMC：
 
 ```bash
  curl -k -H "X-Auth-Token: $token" -H "Content-Type: application/json" -X PUT -d '{"data":"xyz.openbmc_project.State.BMC.Transition.Reboot"}' https://${bmc}/xyz/openbmc_project/state/bmc0/attr/RequestedBMCTransition
 ```
 
-- Display logging entries:
+- 顯示紀錄（logging）項目：
 
 ```bash
  curl -k -H "X-Auth-Token: $token" -H "Content-Type: application/json" -X GET https://${bmc}/xyz/openbmc_project/logging/entry/enumerate
 ```
 
-- Delete logging entries:
+- 刪除紀錄項目：
 
 ```bash
  curl -k -H "X-Auth-Token: $token" -H "Content-Type: application/json" -X DELETE https://${bmc}/xyz/openbmc_project/logging/entry/<entry_id>
  curl -k -H "X-Auth-Token: $token" -H 'Content-Type: application/json' -X POST -d '{"data":[]}' https://${bmc}/xyz/openbmc_project/logging/action/DeleteAll
 ```
 
-- Delete dump entries:
+- 刪除轉傾印（dump）項目：
 
 ```bash
  curl -k -H "X-Auth-Token: $token" -H "Content-Type: application/json" -X DELETE https://${bmc}/xyz/openbmc_project/dump/entry/<entry_id>
  curl -k -H "X-Auth-Token: $token" -H 'Content-Type: application/json' -X POST -d '{"data":[]}' https://${bmc}/xyz/openbmc_project/dump/action/DeleteAll
 ```
 
-- Delete images from system:
-  - Delete image:
+- 從系統刪除映像：
+  - 刪除映像：
 
 ```bash
  curl -k -H "X-Auth-Token: $token" -H "Content-Type: application/json" -X POST -d '{"data": []}' https://${bmc}/xyz/openbmc_project/software/<image id>/action/Delete
 ```
 
-- Delete all non-running images:
+- 刪除所有未執行中的映像：
 
 ```bash
  curl -k -H "X-Auth-Token: $token" -H "Content-Type: application/json" -X POST -d '{"data": []}' https://${bmc}/xyz/openbmc_project/software/action/DeleteAll
 ```
 
-- Clear gard records:
+- 清除 gard 紀錄：
 
 ```bash
  curl -k -H "X-Auth-Token: $token" -H "Content-Type: application/json" -X POST -d '{"data":[]}' https://${bmc}/org/open_power/control/gard/action/Reset
 ```
 
-- Control boot source override:
-  - Read current boot source override settings:
+- 控制開機來源覆寫（boot source override）：
+  - 讀取目前的開機來源覆寫設定：
 
 ```bash
  curl -k -H "X-Auth-Token: $token"  https://${bmc}/xyz/openbmc_project/control/host0/boot/enumerate
 ```
 
-- Set boot source:
+- 設定開機來源：
 
 ```bash
  curl -k -H "X-Auth-Token: $token" -H "Content-Type: application/json" -X PUT https://${bmc}/xyz/openbmc_project/control/host0/boot/attr/BootSource -d '{"data": "xyz.openbmc_project.Control.Boot.Source.Sources.Default"}'
 ```
 
-- Set boot mode:
+- 設定開機模式：
 
 ```bash
  curl -k -H "X-Auth-Token: $token" -H "Content-Type: application/json" -X PUT https://${bmc}/xyz/openbmc_project/control/host0/boot/attr/BootMode -d '{"data": "xyz.openbmc_project.Control.Boot.Mode.Modes.Regular"}'
 ```
 
-- Set boot type (valid only if host is based on the x86 CPU):
+- 設定開機類型（僅適用於以 x86 CPU 為基礎的主機）：
 
 ```bash
  curl -k -H "X-Auth-Token: $token" -H "Content-Type: application/json" -X PUT https://${bmc}/xyz/openbmc_project/control/host0/boot/attr/BootType -d '{"data": "xyz.openbmc_project.Control.Boot.Type.Types.EFI"}'
 ```
 
-- Set boot source override persistent:
+- 將開機來源覆寫設為永久性：
 
 ```bash
  curl -k -H "X-Auth-Token: $token" -H "Content-Type: application/json" -X PUT https://${bmc}/xyz/openbmc_project/control/host0/boot/one_time/attr/Enabled -d '{"data": "false"}'
 ```
 
-- Enable boot source override:
+- 啟用開機來源覆寫：
 
 ```bash
  curl -k -H "X-Auth-Token: $token" -H "Content-Type: application/json" -X PUT https://${bmc}/xyz/openbmc_project/control/host0/boot/attr/Enabled -d '{"data": "true"}'
 ```
 
-- Set NTP and Nameserver:
+- 設定 NTP 與名稱伺服器（Nameserver）：
 
-  Examples using public server.
-  - NTP Server:
+  使用公開伺服器的範例。
+  - NTP 伺服器：
 
 ```bash
  curl -k -H "X-Auth-Token: $token" -H "Content-Type: application/json" -X PUT -d '{"data": ["pool.ntp.org"] }' https://${bmc}/xyz/openbmc_project/network/eth0/attr/NTPServers
 ```
 
-- Name Server:
+- 名稱伺服器：
 
 ```bash
  curl -k -H "X-Auth-Token: $token" -H "Content-Type: application/json" -X PUT -d '{"data": ["time.google.com"] }' https://${bmc}/xyz/openbmc_project/network/eth0/attr/Nameservers
 ```
 
-- Configure time ownership and time sync method:
+- 設定時間擁有者（time ownership）與時間同步方法：
 
-  The introduction about time setting is here:
+  關於時間設定的說明請參見這裡：
   <https://github.com/openbmc/phosphor-time-manager>
 
-  Note: Starting from OpenBMC 2.6 (with systemd v239), systemd's timedated
-  introduces a new behavior that it checks the NTP services' status during
-  setting time, instead of checking the NTP setting:
+  注意：自 OpenBMC 2.6（使用 systemd v239）起，systemd 的 timedated 引入了一種
+  新行為：它在設定時間時會檢查 NTP 服務的狀態，而不是檢查 NTP 設定：
 
-  -When NTP server is set to disabled, and the NTP service is stopping but not
-  stopped, setting time will get an error.
+  -當 NTP 伺服器設為停用，且 NTP 服務正在停止但尚未停止時，設定時間會發生錯誤。
 
-  Before OpenBMC 2.4 (with systemd v236), the above will always succeed. This
-  results in
-  [openbmc/openbmc#3459](https://github.com/openbmc/openbmc/issues/3459), and
-  the related test cases are updated to cooperate with this behavior change.
-  - Read:
+  在 OpenBMC 2.4 之前（使用 systemd v236），上述情況一定會成功。這導致了
+  [openbmc/openbmc#3459](https://github.com/openbmc/openbmc/issues/3459)，
+  相關的測試案例也已更新以配合此行為變更。
+  - 讀取：
 
 ```bash
  curl -k -H "X-Auth-Token: $token" -X GET https://${bmc}/xyz/openbmc_project/time/owner/attr/TimeOwner
  curl -k -H "X-Auth-Token: $token" -X GET https://${bmc}/xyz/openbmc_project/time/sync_method/attr/TimeSyncMethod
 ```
 
-- Write:
+- 寫入：
 
-Time owner:
+時間擁有者：
 
 ```bash
  curl -k -H "X-Auth-Token: $token" -H "Content-Type: application/json" -X  PUT -d '{"data": "xyz.openbmc_project.Time.Owner.Owners.BMC" }' https://${bmc}/xyz/openbmc_project/time/owner/attr/TimeOwner
@@ -233,44 +227,44 @@ Time owner:
  curl -k -H "X-Auth-Token: $token" -H "Content-Type: application/json" -X  PUT -d '{"data": "xyz.openbmc_project.Time.Owner.Owners.Both" }' https://${bmc}/xyz/openbmc_project/time/owner/attr/TimeOwner
 ```
 
-Time sync method:
+時間同步方法：
 
 ```bash
  curl -k -H "X-Auth-Token: $token" -H "Content-Type: application/json" -X  PUT -d '{"data": "xyz.openbmc_project.Time.Synchronization.Method.NTP" }' https://${bmc}/xyz/openbmc_project/time/sync_method/attr/TimeSyncMethod
  curl -k -H "X-Auth-Token: $token" -H "Content-Type: application/json" -X  PUT -d '{"data": "xyz.openbmc_project.Time.Synchronization.Method.Manual" }' https://${bmc}/xyz/openbmc_project/time/sync_method/attr/TimeSyncMethod
 ```
 
-- Power Supply Redundancy:
-  - Read:
+- 電源供應器冗餘（Power Supply Redundancy）：
+  - 讀取：
 
 ```bash
  curl -k -H "X-Auth-Token: $token" -X GET https://${bmc}/xyz/openbmc_project/control/power_supply_redundancy
 ```
 
-- Write (Enable/Disable):
+- 寫入（啟用/停用）：
 
 ```bash
  curl -k -H "X-Auth-Token: $token" -H "Content-Type: application/json" -X PUT https://${bmc}/xyz/openbmc_project/control/power_supply_redundancy/attr/PowerSupplyRedundancyEnabled -d '{"data": 1}'
  curl -k -H "X-Auth-Token: $token" -H "Content-Type: application/json" -X PUT https://${bmc}/xyz/openbmc_project/control/power_supply_redundancy/attr/PowerSupplyRedundancyEnabled -d '{"data": 0}'
 ```
 
-- Factory Reset:
-  - Factory reset host and BMC software:
+- 出廠重置（Factory Reset）：
+  - 出廠重置主機與 BMC 軟體：
 
 ```bash
  curl -k -H "X-Auth-Token: $token" -H 'Content-Type: application/json' -X POST -d '{"data":[]}' https://${bmc}/xyz/openbmc_project/software/action/Reset
 ```
 
-- Factory reset network setting:
+- 出廠重置網路設定：
 
 ```bash
  curl -k -H "X-Auth-Token: $token" -H 'Content-Type: application/json' -X POST -d '{"data":[]}' https://${bmc}/xyz/openbmc_project/network/action/Reset
 ```
 
-- Enable field mode:
+- 啟用維修模式（field mode）：
 
 ```bash
  curl -k -H "X-Auth-Token: $token" -H 'Content-Type: application/json' -X PUT -d '{"data":1}' https://${bmc}/xyz/openbmc_project/software/attr/FieldModeEnabled
 ```
 
-and then reboot BMC.
+然後重新啟動 BMC。

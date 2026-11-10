@@ -1,35 +1,32 @@
-# The ObjectMapper
+# ObjectMapper
 
-The `xyz.openbmc_project.ObjectMapper` service, commonly referred to as just the
-mapper, is an OpenBMC application that attempts to ease the pain of using D-Bus
-by providing APIs that help in discovering and associating other D-Bus objects.
+`xyz.openbmc_project.ObjectMapper` 服務通常被簡稱為 mapper，是一個 OpenBMC
+應用程式，它透過提供協助探索與關聯其他 D-Bus 物件的 API，試圖降低使用
+D-Bus 的痛苦。
 
-The mapper has two major pieces of functionality:
+mapper 有兩大功能：
 
-- [Methods](#methods) - Provides D-Bus discovery related functionality.
-- [Associations](#associations) - Associates two different objects with each
-  other.
+- [方法](#methods) - 提供與 D-Bus 探索相關的功能。
+- [關聯](#associations) - 將兩個不同的物件互相關聯。
 
-## Methods
+## 方法
 
-The official YAML interface definition can be found in
-[phosphor-dbus-interfaces][1].
+官方的 YAML 介面定義可以在 [phosphor-dbus-interfaces][1] 中找到。
 
 ### GetObject
 
-Use this method to find the services, with their interfaces, that implement a
-certain object path. The output is a map of service names to their implemented
-interfaces. An optional list of interfaces may also be passed in to constrain
-the output to services that implement those specific interfaces.
+使用這個方法來找出實作某個物件路徑的服務及其介面。輸出是一個從服務名稱
+到其所實作介面的對映（map）。也可以傳入一組選擇性的介面清單，將輸出限制
+為實作那些特定介面的服務。
 
-Inputs:
+輸入：
 
-- path: object path
-- param: interfaces - an optional list of interfaces to constrain the search to
+- path：物件路徑
+- param：interfaces - 一組選擇性的介面清單，用於限制搜尋範圍
 
-Output:
+輸出：
 
-- Map of service names to their interfaces
+- 從服務名稱到其介面的對映
 
 ```bash
 dbus-send --system --print-reply \
@@ -50,29 +47,25 @@ string:"/xyz/openbmc_project/sensors/voltage/ps1_input_voltage" array:string:
    ]
 ```
 
-#### Example Use Case
+#### 使用範例
 
-Find the service name that has the desired object path so it can be passed into
-a get property call.
+找出擁有目標物件路徑的服務名稱，以便傳入 get property 呼叫中。
 
 ### GetSubTree
 
-Use this method to find the objects, services, and interfaces in the specified
-subtree that implement a certain interface. An optional list of interfaces may
-also be passed in to constrain the output to services that implement those
-specific interfaces. If no interfaces are passed in, then all
-objects/services/interfaces in the subtree are returned.
+使用這個方法來找出指定子樹中實作某個介面的物件、服務與介面。也可以傳入
+一組選擇性的介面清單，將輸出限制為實作那些特定介面的服務。若沒有傳入任何
+介面，則會回傳子樹中所有的物件／服務／介面。
 
-Inputs:
+輸入：
 
-- param: subtree - the root of the tree. Using "/" will search the whole tree
-- param: depth - the maximum depth of the tree past the root to search. Use 0 to
-  search all
-- param: interfaces - an optional list of interfaces to constrain the search to
+- param：subtree - 樹的根節點。使用 "/" 會搜尋整棵樹
+- param：depth - 超過根節點之後要搜尋的樹最大深度。使用 0 表示搜尋全部
+- param：interfaces - 一組選擇性的介面清單，用於限制搜尋範圍
 
-Output:
+輸出：
 
-- Map of object paths to a map of service names to their interfaces
+- 從物件路徑對映到「從服務名稱到其介面」的對映
 
 ```bash
 dbus-send --system --print-reply \
@@ -112,31 +105,27 @@ string:"/" int32:0 array:string:"xyz.openbmc_project.Sensor.Threshold.Warning"
 
 ```
 
-#### Example Use Case
+#### 使用範例
 
-Find all object paths and services that implement a specific interface.
+找出實作某個特定介面所有的物件路徑與服務。
 
 ### GetAssociatedSubTree
 
-Use this method to find the objects, services, and interfaces in the specified
-subtree that implement a certain interface and an endpoint of the input
-associationPath. An optional list of interfaces may also be passed in to
-constrain the output to services that implement those specific interfaces. If no
-interfaces are passed in, then all objects/services/interfaces in the subtree
-and associated endpoint are returned.
+使用這個方法來找出指定子樹中，實作某個介面且為輸入之 associationPath
+某一端點的物件、服務與介面。也可以傳入一組選擇性的介面清單，將輸出限制為
+實作那些特定介面的服務。若沒有傳入任何介面，則會回傳子樹及關聯端點中所有的
+物件／服務／介面。
 
-Inputs:
+輸入：
 
-- param: associationPath - the path to look for the association endpoints.
-- param: subtree - the root of the tree. Using "/" will search the whole tree
-- param: depth - the maximum depth of the tree past the root to search. Use 0 to
-  search all
-- param: interfaces - an optional list of interfaces to constrain the search to
+- param：associationPath - 要用來尋找關聯端點的路徑。
+- param：subtree - 樹的根節點。使用 "/" 會搜尋整棵樹
+- param：depth - 超過根節點之後要搜尋的樹最大深度。使用 0 表示搜尋全部
+- param：interfaces - 一組選擇性的介面清單，用於限制搜尋範圍
 
-Output:
+輸出：
 
-- Map of object paths to a map of service names to their interfaces that is in
-  the associated endpoints
+- 位於關聯端點中，從物件路徑對映到「從服務名稱到其介面」的對映
 
 ```bash
 dbus-send --system --print-reply \
@@ -185,34 +174,31 @@ as N "/xyz/openbmc_project/sensors/current/ps0_output_current" \
   ...
 ```
 
-#### Example Use Case
+#### 使用範例
 
-Find all object paths and services that implement a specific interface and
-endpoint of the input associationPath.
+找出實作某個特定介面、且為輸入之 associationPath 端點的所有物件路徑與
+服務。
 
 ### GetAssociatedSubTreeById
 
-Use this method to find the objects, services, and interfaces in the specified
-subtree that implement certain interfaces and endpoints that end by input `id`.
-An optional list of interfaces may also be passed in to constrain the output to
-services that implement those specific interfaces. If no interfaces are passed
-in, then all objects/services/interfaces in the subtree and associated endpoint
-are returned.
+使用這個方法來找出指定子樹中，實作某些介面且端點以輸入的 `id` 結尾的
+物件、服務與介面。也可以傳入一組選擇性的介面清單，將輸出限制為實作那些
+特定介面的服務。若沒有傳入任何介面，則會回傳子樹及關聯端點中所有的
+物件／服務／介面。
 
-Inputs:
+輸入：
 
-- param: id - The leaf name of the dbus path, uniquely identifying a specific
-  component or entity within the system.
-- param: objectPath - The object path for which the result should be fetched.
-- param: subtreeInterfaces - a list of interfaces to constrain the search to
-- param: association - The endpoint association.
-- param: endpointInterfaces - An array of interfaces used to filter associated
-  endpoint paths.
+- param：id - dbus 路徑的葉節點名稱，可在系統中唯一識別某個特定的元件或
+  實體。
+- param：objectPath - 要為其取得結果的物件路徑。
+- param：subtreeInterfaces - 用於限制搜尋範圍的介面清單
+- param：association - 端點關聯。
+- param：endpointInterfaces - 用於篩選關聯端點路徑的介面陣列。
 
-Output:
+輸出：
 
-- Map of object paths to a map of service names to their interfaces that are in
-  the associated endpoints that end with `id`
+- 位於以 `id` 結尾之關聯端點中，從物件路徑對映到「從服務名稱到其介面」的
+  對映
 
 ```bash
 ID="chassis"
@@ -233,10 +219,10 @@ array:string:"xyz.openbmc_project.Inventory.Item.PowerSupply"
             dict entry(
                string "xyz.openbmc_project.Inventory.Manager"
                array [
-                  ...
-                  string "xyz.openbmc_project.Inventory.Item"
-                  string "xyz.openbmc_project.Inventory.Item.PowerSupply"
-                  ...
+                   ...
+                   string "xyz.openbmc_project.Inventory.Item"
+                   string "xyz.openbmc_project.Inventory.Item.PowerSupply"
+                   ...
                ]
             )
          ]
@@ -247,10 +233,10 @@ array:string:"xyz.openbmc_project.Inventory.Item.PowerSupply"
             dict entry(
                string "xyz.openbmc_project.Inventory.Manager"
                array [
-                  ...
-                  string "xyz.openbmc_project.Inventory.Item"
-                  string "xyz.openbmc_project.Inventory.Item.PowerSupply"
-                  ...
+                   ...
+                   string "xyz.openbmc_project.Inventory.Item"
+                   string "xyz.openbmc_project.Inventory.Item.PowerSupply"
+                   ...
                ]
             )
          ]
@@ -268,25 +254,24 @@ as N "/xyz/openbmc_project/inventory/system/chassis/motherboard/powersupply0" \
  ...
 ```
 
-#### Example Use Case
+#### 使用範例
 
-Find all object paths and services that implement a specific interface and
-endpoint of the input associationPath.
+找出實作某個特定介面、且為輸入之 associationPath 端點的所有物件路徑與
+服務。
 
 ### GetSubTreePaths
 
-This is the same as GetSubTree, but only returns object paths
+這與 GetSubTree 相同，但只回傳物件路徑
 
-Inputs:
+輸入：
 
-- param: subtree - the root of the tree. Using "/" will search the whole tree
-- param: depth - the maximum depth of the tree past the root to search. Use 0 to
-  search all
-- param: interfaces - an optional list of interfaces to constrain the search to
+- param：subtree - 樹的根節點。使用 "/" 會搜尋整棵樹
+- param：depth - 超過根節點之後要搜尋的樹最大深度。使用 0 表示搜尋全部
+- param：interfaces - 一組選擇性的介面清單，用於限制搜尋範圍
 
-Output:
+輸出：
 
-- array of object paths in that subtree
+- 該子樹中物件路徑的陣列
 
 ```bash
 dbus-send --system --print-reply \
@@ -303,25 +288,24 @@ string:"/" int32:0 array:string:"xyz.openbmc_project.Sensor.Threshold.Warning"
    ]
 ```
 
-#### Example Use Case
+#### 使用範例
 
-Find all object paths that implement a specific interface.
+找出實作某個特定介面所有的物件路徑。
 
 ### GetAssociatedSubTreePaths
 
-This is the same as GetAssociatedSubTreePaths, but only returns object paths
+這與 GetAssociatedSubTreePaths 相同，但只回傳物件路徑
 
-Inputs:
+輸入：
 
-- param: associationPath - the path to look for the association endpoints.
-- param: subtree - the root of the tree. Using "/" will search the whole tree
-- param: depth - the maximum depth of the tree past the root to search. Use 0 to
-  search all
-- param: interfaces - an optional list of interfaces to constrain the search to
+- param：associationPath - 要用來尋找關聯端點的路徑。
+- param：subtree - 樹的根節點。使用 "/" 會搜尋整棵樹
+- param：depth - 超過根節點之後要搜尋的樹最大深度。使用 0 表示搜尋全部
+- param：interfaces - 一組選擇性的介面清單，用於限制搜尋範圍
 
-Output:
+輸出：
 
-- array of object paths in that subtree that is in the associated endpoints
+- 該子樹中、位於關聯端點內之物件路徑的陣列
 
 ```bash
 dbus-send --system --print-reply \
@@ -347,29 +331,27 @@ as N "/xyz/openbmc_project/sensors/current/ps0_output_current" \
   ...
 ```
 
-#### Example Use Case
+#### 使用範例
 
-Find all object paths that implement a specific interface and endpoint of the
-input associationPath.
+找出實作某個特定介面、且為輸入之 associationPath 端點的所有物件路徑。
 
 ### GetAssociatedSubTreePathsById
 
-This is the same as GetAssociatedSubTreePathsById, but only returns object paths
+這與 GetAssociatedSubTreePathsById 相同，但只回傳物件路徑
 
-Inputs:
+輸入：
 
-- param: id - The leaf name of the dbus path, uniquely identifying a specific
-  component or entity within the system.
-- param: objectPath - The object path for which the result should be fetched.
-- param: subtreeInterfaces - a list of interfaces to constrain the search to
-- param: association - The endpoint association.
-- param: endpointInterfaces - An array of interfaces used to filter associated
-  endpoint paths.
+- param：id - dbus 路徑的葉節點名稱，可在系統中唯一識別某個特定的元件或
+  實體。
+- param：objectPath - 要為其取得結果的物件路徑。
+- param：subtreeInterfaces - 用於限制搜尋範圍的介面清單
+- param：association - 端點關聯。
+- param：endpointInterfaces - 用於篩選關聯端點路徑的介面陣列。
 
-Output:
+輸出：
 
-- Map of object paths to a map of service names to their interfaces that are in
-  the associated endpoints that ends with `id`
+- 位於以 `id` 結尾之關聯端點中，從物件路徑對映到「從服務名稱到其介面」的
+  對映
 
 ```bash
 ID="chassis"
@@ -400,25 +382,23 @@ as N "/xyz/openbmc_project/inventory/system/chassis/motherboard/powersupply0" \
  ...
 ```
 
-#### Example Use Case
+#### 使用範例
 
-Find all object paths that implement a specific interface and endpoint of the
-input associationPath.
+找出實作某個特定介面、且為輸入之 associationPath 端點的所有物件路徑。
 
 ### GetAncestors
 
-Use this method to find all ancestors of an object that implement a specific
-interface. If no interfaces are passed in, then all ancestor
-paths/services/interfaces are returned.
+使用這個方法來找出某個物件的所有祖先中，實作某個特定介面的祖先。若沒有
+傳入任何介面，則會回傳所有祖先的路徑／服務／介面。
 
-Inputs:
+輸入：
 
-- param: path - the object path to find the ancestors of
-- param: interfaces - an optional list of interfaces to constrain the search to
+- param：path - 要尋找其祖先的物件路徑
+- param：interfaces - 一組選擇性的介面清單，用於限制搜尋範圍
 
-Output:
+輸出：
 
-- A map of object paths to a map of services names to their interfaces
+- 從物件路徑對映到「從服務名稱到其介面」的對映
 
 ```bash
 
@@ -466,64 +446,59 @@ string:"/xyz/openbmc_project/inventory/system" array:string:
    ]
 ```
 
-#### Example Use Case
+#### 使用範例
 
-Find a parent object that implements a specific interface.
+找出實作某個特定介面的父物件。
 
-## Associations
+## 關聯
 
-Associations are special D-Bus objects created by the mapper to associate two
-objects with each other. For this to occur, some application must implement the
-`xyz.openbmc_project.Association.Definitions` interface, and then when an
-association is desired, the `Associations` property on that interface needs to
-be written.
+關聯是由 mapper 建立的特殊 D-Bus 物件，用來讓兩個物件互相關聯。要發生
+這種關聯，必須由某個應用程式實作 `xyz.openbmc_project.Association.Definitions`
+介面，然後當需要建立關聯時，需要寫入該介面上一個名為 `Associations` 的
+屬性。
 
-This `Associations` property is an array of tuples of the form:
+這個 `Associations` 屬性是一個由元組（tuple）組成的陣列，其形式為：
 
 ```text
 [forward, reverse, object path]
 ```
 
-- forward: this is the name of the forward association object
-- reverse: this is the name of the reverse association object
-- object path: this is the other object to associate with
+- forward：這是正向關聯物件的名稱
+- reverse：這是反向關聯物件的名稱
+- object path：這是要與之關聯的另一個物件
 
-When an object with, for example, an object path of `pathA` uses the following
-values:
+當某個物件（例如物件路徑為 `pathA`）使用下列值時：
 
 ```json
 ["foo", "bar", "pathB"]
 ```
 
-The mapper will create 2 new objects:
+mapper 會建立 2 個新物件：
 
 1. `pathA/foo`
 2. `pathB/bar`
 
-On each of these objects, the interface `xyz.openbmc_project.Association` will
-be implemented, which has a single `endpoints` property. This property is an
-array that holds the object paths to the other end of the association.
+在每一個這樣的物件上，都會實作 `xyz.openbmc_project.Association` 介面，
+它有一個名為 `endpoints` 的單一屬性。這個屬性是一個陣列，保存了指向關聯
+另一端的物件路徑。
 
-So, `pathA/foo->endpoints` will contain `pathB`, and `pathB/bar->endpoints` will
-contain `pathA`.
+所以 `pathA/foo->endpoints` 會包含 `pathB`，而 `pathB/bar->endpoints`
+會包含 `pathA`。
 
-If another object, say `pathC`, also has an association to `pathB`, then a
-second entry, `pathC`, will be added into `pathB`\'s endpoints property.
+如果另一個物件（假設是 `pathC`）也與 `pathB` 有關聯，那麼 `pathB` 的
+endpoints 屬性中就會新增第二個條目 `pathC`。
 
-These new objects will match the lifetime of the associated objects. For
-example, if `pathA` is deleted, then `pathA/foo` will also be deleted, and
-`pathA` will be removed from the endpoints property of `pathB/bar`. If that was
-the last entry in that property, then `pathB/bar` will also be deleted. In
-addition, if the endpoint path is removed from D-Bus, in this case `pathB`, then
-the mapper will remove the 2 association paths until `pathB` shows back up
-again.
+這些新物件的生命週期會與被關聯的物件一致。舉例來說，如果 `pathA` 被刪除，
+那麼 `pathA/foo` 也會被刪除，而 `pathA` 會從 `pathB/bar` 的 endpoints
+屬性中被移除。如果那是該屬性中最後一個條目，那麼 `pathB/bar` 也會被刪除。
+此外，如果端點路徑（在此例中是 `pathB`）從 D-Bus 上被移除，mapper 會先
+移除這 2 個關聯路徑，直到 `pathB` 再次出現為止。
 
-Note: The original name of the association definition interface was
-`org.openbmc.Associations`. While the mapper still supports this interface as
-well for the time being, new code should use the `xyz` version.
+注意：關聯定義介面原本的名稱是 `org.openbmc.Associations`。雖然 mapper
+暫時仍支援這個介面，但新程式碼應該使用 `xyz` 版本。
 
-The mappertool can be used to view associations live on a system. It can dump
-them all, or filter based on name or type:
+可以使用 mappertool 在系統上即時檢視關聯。它可以全部傾印，或依據名稱或
+類型進行篩選：
 
 ```bash
 mappertool assocs -n Altitude
@@ -531,9 +506,9 @@ mappertool assocs -n Altitude
 /xyz/openbmc_project/sensors/altitude/Altitude | chassis
 ```
 
-### Example Use Case
+### 使用範例
 
-Associate an error log with the inventory item that caused it.
+將一筆錯誤日誌與造成它的庫存項目（inventory item）關聯起來。
 
 ```text
 # Error log

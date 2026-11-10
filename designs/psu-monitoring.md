@@ -1,150 +1,79 @@
-# Power Supply Monitoring Application
+# 電源供應器監控應用程式
 
-Author: Brandon Wyman !bjwyman
+作者：Brandon Wyman !bjwyman
 
-Other contributors: Derek Howard
+其他貢獻者：Derek Howard
 
-Created: 2019-06-17
+建立日期：2019-06-17
 
-## Problem Description
+## 問題描述
 
-This is a proposal to provide a set of enhancements to the current OpenBMC power
-supply application for enterprise class systems. Some enterprise class systems
-may consist of a number of configuration variations including different power
-supply types and numbers. An application capable of communicating with the
-different power supplies is needed in order to initialize the power supplies,
-validate configurations, report invalid configurations, detect and report
-various faults, and report vital product data (VPD). Some of the function will
-be configurable to be included or excluded for use on different platforms.
+這是一份提案，針對企業級系統現有的 OpenBMC 電源供應器應用程式提供一系列增強功能。有些企業級系統可能包含多種組態變體，涵蓋不同的電源供應器類型與數量。因此需要一個能夠與各種電源供應器通訊的應用程式，以便初始化電源供應器、驗證組態、回報無效組態、偵測並回報各種故障，以及回報重要產品資料（VPD）。其中部分功能將可設定為啟用或停用，以適用於不同的平台。
 
-## Background and References
+## 背景與參考資料
 
-The OpenBMC project currently has a [witherspoon-pfault-analysis][1] repository
-that contains a power supply monitor application and a power sequencer monitor
-application. The current power supply application is lacking things desired for
-an enterprise class server.
+OpenBMC 專案目前有一個 [witherspoon-pfault-analysis][1] 儲存庫，其中包含一個電源供應器監控應用程式與一個電源依序啟動監控應用程式。現有的電源供應器應用程式缺少企業級伺服器所需的功能。
 
-The intent of this new application design is to enhance the OpenBMC project with
-a single power supply application that can communicate with one or more
-[PMBus][2] power supplies and provide the enterprise features currently lacking
-in the existing application that has multiple instances talking to a single
-power supply.
+這份新應用程式設計的目的，是要為 OpenBMC 專案增強功能，提供單一的電源供應器應用程式，能與一或多個 [PMBus][2] 電源供應器通訊，並提供現有應用程式所缺乏的企業級功能；現有應用程式以多個實例分別對應單一電源供應器。
 
-## Requirements
+## 需求
 
-Some of these requirements may be deemed as business specific logic, and thus
-could be configurable options as appropriate.
+其中部分需求可能被視為特定業務邏輯，因此可依需要作為可設定的選項。
 
-1. The power supply application must detect, isolate, and report individual
-   input power and power FRU faults, during boot and at runtime only.
-2. The power supply application must determine power supply presence,
-   configuration, and status, and report via external interfaces.
-3. The power supply application must report power supply failures to IPMI and
-   Redfish requests (during boot and at runtime only).
-4. The power supply application must report power supply present/missing changes
-   and status to IPMI and Redfish requests, and to the hypervisor. Recipes and
-   code for presence state monitoring and event log creation may need to be
-   moved from the `phosphor-dbus-monitor` to this application, depending on if
-   such function was already written or ported forward from a previously similar
-   system.
-5. The power supply application must ensure proper power supply configuration
-   and report improper configurations (during boot and at runtime only).
-6. The power supply application must collect and report power supply VPD (unless
-   that VPD is collected and reported via another application reading an EEPROM
-   device).
-7. The power supply application must allow power supply hot-plug and concurrent
-   maintenance (CM).
-8. The power supply application should create and update average and maximum
-   power consumption metric interfaces for telemetry data.
-9. The power supply application must be able to detect how many power supplies
-   are present in the system, what type of power supply is present (maximum
-   output power such as 900W, 1400W, 2200W, etc.), and what type of input power
-   is being supplied (AC input, DC input, input voltage, etc.).
-10. The application must be able to recognize if the power supplies present
-    consist of a valid configuration. Certain invalid combinations may result in
-    the application updating properties for a Minimum Ship Level ([MSL][3])
-    check.
-11. The application must create error logs for invalid configurations, or for
-    power supplies experiencing some other faulted condition (no input power,
-    output over voltage, output over current, etc.).
-12. The application would periodically communicate with the power supplies via
-    the sysfs file system files updated via a PMBus device driver (currently
-    only known to be created and updated by the [ibm-cffps][4] device driver).
-    Certain device driver updates may be necessary to support some power
-    supplies or power supply features. Any power supply that communicates using
-    the PMBus specification should be able to be supported, some manufacturing
-    specific code paths may be required for commands in the "User Data and
-    Configuration" (USER_DATA_00 through USER_DATA_15) and the "Manufacturer
-    Specific Commands" (MFR_SPECIFIC_00 through MFR_SPECIFIC_45), as well as bit
-    definitions for STATUS_MFR_SPECIFIC and any other "MFR" command.
+1. 電源供應器應用程式必須在開機期間與執行時期，偵測、隔離並回報個別的輸入電源與電源 FRU 故障。
+2. 電源供應器應用程式必須判定電源供應器的存在與否、組態與狀態，並透過外部介面回報。
+3. 電源供應器應用程式必須在開機期間與執行時期，將電源供應器故障回報給 IPMI 與 Redfish 要求。
+4. 電源供應器應用程式必須將電源供應器存在/缺失的變化與狀態回報給 IPMI 與 Redfish 要求，以及 hypervisor。存在狀態監控與事件記錄建立的 recipe 與程式碼，可能需要從 `phosphor-dbus-monitor` 移至本應用程式，端視此類功能是否已經撰寫完成，或已從先前類似的系統移植過來。
+5. 電源供應器應用程式必須確保電源供應器組態正確，並回報不正確的組態（僅限開機期間與執行時期）。
+6. 電源供應器應用程式必須蒐集並回報電源供應器 VPD（除非該 VPD 是由另一個讀取 EEPROM 裝置的應用程式蒐集並回報）。
+7. 電源供應器應用程式必須支援電源供應器熱插拔與並行維護（CM）。
+8. 電源供應器應用程式應建立並更新平均與最大功耗量測介面，供遙測資料使用。
+9. 電源供應器應用程式必須能夠偵測系統中有多少電源供應器存在、存在的是哪一種電源供應器（例如最大輸出功率 900W、1400W、2200W 等），以及供電的是哪一種輸入電源（AC 輸入、DC 輸入、輸入電壓等）。
+10. 應用程式必須能夠辨識目前存在的電源供應器是否構成有效的組態。某些無效的組合可能導致應用程式更新最低出貨等級（[MSL][3]）檢查的屬性。
+11. 應用程式必須為無效組態，或發生其他故障狀況（無輸入電源、輸出過壓、輸出過流等）的電源供應器建立錯誤記錄。
+12. 應用程式會透過由 PMBus 裝置驅動程式更新的 sysfs 檔案系統檔案，定期與電源供應器通訊（目前已知僅由 [ibm-cffps][4] 裝置驅動程式建立並更新）。為了支援某些電源供應器或電源供應器功能，可能需要對裝置驅動程式進行某些更新。任何使用 PMBus 規範通訊的電源供應器都應能被支援；對於「使用者資料與組態」（USER_DATA_00 至 USER_DATA_15）以及「製造商特定指令」（MFR_SPECIFIC_00 至 MFR_SPECIFIC_45）中的指令，以及 STATUS_MFR_SPECIFIC 與其他任何「MFR」指令的位元定義，可能需要某些製造商特定的程式碼路徑。
 
-## Proposed Design
+## 擬議設計
 
-The proposal is to create a single new power supply application in the OpenBMC
-[phosphor-power][6] repository. The application would be written in C++17.
+提案是在 OpenBMC 的 [phosphor-power][6] 儲存庫中建立一個全新的單一電源供應器應用程式。該應用程式將以 C++17 撰寫。
 
-Upon startup, the power supply application would be passed a parameter
-consisting of the location of some kind of configuration file, some JSON format
-file. This file would contain information such as the D-Bus object name(s),
-possible power supply types, possible system types that the various power
-supplies are valid to be used in, I2C/PMBus file location data, read retries,
-deglitch counts, etc.
+啟動時，電源供應器應用程式會收到一個參數，內容為某種組態檔（某個 JSON 格式檔案）的位置。此檔案將包含諸如 D-Bus 物件名稱、可能的電源供應器類型、各種電源供應器可合法使用的可能系統類型、I2C/PMBus 檔案位置資料、讀取重試次數、去雜訊計數等資訊。
 
-The power supply application would then detect which system type it is running
-on, which supplies are present, if the power supply is ready for reading VPD
-information, what type each supply is, etc. The application would then try to
-find a matching valid configuration. If no match is found, that configuration
-would be considered invalid. The application should continue to check what if
-any faults are occurring, logging errors as appropriate.
+電源供應器應用程式接著會偵測它執行於哪一種系統類型、哪些供應器存在、電源供應器是否已可讀取 VPD 資訊、每個供應器各屬於哪一種類型等。接著應用程式會嘗試尋找相符的有效組態。若找不到相符者，該組態將被視為無效。應用程式應持續檢查是否發生任何故障，並適當地記錄錯誤。
 
-When the system is powered on, the power supplies should start outputting power
-to the system. At that point the application will start to and continue to
-monitor the supplies and communicate any changes such as removal of input
-voltage, removal of a power supply, insertion of a power supply, and take any
-necessary actions to take upon detection of fault conditions.
+當系統開機後，電源供應器應開始對系統輸出電力。此時應用程式將開始並持續監控各供應器，並傳達任何變化，例如輸入電壓被移除、電源供應器被移除、電源供應器被插入，以及在偵測到故障狀況時採取任何必要的處置動作。
 
-The proposed power supply application would not control any fans internal to the
-power supply, that function would be left to other userspace application(s).
+擬議的電源供應器應用程式將不會控制電源供應器內部的任何風扇，該功能將留給其他使用者空間應用程式處理。
 
-## Alternatives Considered
+## 曾考慮的替代方案
 
-The current implementation of multiple instances of a power supply monitor was
-considered, essentially similar to the [psu-monitor][5] from the
-[witherspoon-pfault-analysis][1] repository. This design was avoided due to:
+曾考慮現有電源供應器監控多實作的實作方式，本質上類似 [witherspoon-pfault-analysis][1] 儲存庫中的 [psu-monitor][5]。此設計之所以被排除，原因如下：
 
-- Complexity of the various valid and invalid configuration combinations.
-- Power line disturbance communication.
-- Timing/serialization concerns with power supply communication.
+- 各種有效與無效組態組合的複雜性。
+- 電力線擾動的通訊。
+- 電源供應器通訊的時序/序列化疑慮。
 
-## Impacts
+## 影響
 
-The application is expected to have some impact on the PLDM API, due to the
-various DBus properties it may be updating.
+預期此應用程式會對 PLDM API 產生某些影響，因為它可能會更新各種 DBus 屬性。
 
-No security impacts are anticipated.
+預期不會有安全性方面的影響。
 
-The main documentation impact should be this design document. Future
-enhancements or clarifications may be required for this document.
+主要的文件影響應該就是本設計文件。未來可能需要對本文件進行增強或釐清。
 
-The application is expected to have a similar or lesser performance impact than
-the one application per power supply.
+預期此應用程式的效能影響，與每個電源供應器一個應用程式相比，相當或更低。
 
-## Testing
+## 測試
 
-Testing can be accomplished via automated or manual testing to verify that:
+可透過自動化或手動測試來完成驗證，確認以下事項：
 
-- Configuration not listed as valid results in appropriate behavior.
-- Application detects and logs faults for power supply faults including input
-  faults, output faults, shorts, current share faults, communication failures,
-  etc.
-- Power supply VPD data reported for present power supplies.
-- Power supply removal and insertion, on a system supporting concurrent
-  maintenance, does not result in power loss to powered on system.
-- System operates through power supply faults and power line disturbances as
-  appropriate.
+- 未列為有效的組態會導致適當的行為。
+- 應用程式會偵測電源供應器故障（包括輸入故障、輸出故障、短路、電流分擔故障、通訊失敗等）並記錄這些故障。
+- 針對存在的電源供應器回報其 VPD 資料。
+- 在支援並行維護的系統上移除並插入電源供應器，不會導致已開機系統斷電。
+- 系統會適當地在電源供應器故障與電力線擾動下繼續運作。
 
-CI testing could be impacted if a system being used for testing is in an
-unsupported or faulted configuration.
+若用於測試的系統處於不支援或故障的組態，CI 測試可能會受到影響。
 
 [1]: https://github.com/openbmc/witherspoon-pfault-analysis
 [2]: https://en.wikipedia.org/wiki/Power_Management_Bus

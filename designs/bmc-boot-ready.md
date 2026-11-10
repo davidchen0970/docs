@@ -1,61 +1,52 @@
-# BMC Boot Ready
+﻿# BMC 開機就緒
 
-Author: Andrew Geissler (geissonator)
+作者：Andrew Geissler (geissonator)
 
-Other contributors:
+其他貢獻者：
 
-Created: May 12, 2022
+建立日期：2022 年 5 月 12 日
 
-## Problem Description
+## 問題描述
 
-There are services which run on the BMC which are required for the BIOS (host
-firmware) to power on and boot the system. The goal of this design is to define
-a mechanism to ensure these dependencies are met before a power on or boot is
-started.
+BMC 上執行著一些服務，是 BIOS（主機韌體）要開機並啟動系統所必需的。本
+設計的目標是定義一套機制，確保在開始開機或啟動之前，這些相依關係都能被
+滿足。
 
-For example, on some system, you can not power on the chassis until the VPD has
-been collected from the VRM's by the BMC to determine their characteristics. On
-other systems, the BIOS service is needed so the host firmware can look for any
-overrides.
+舉例來說，在某些系統上，除非 BMC 已從 VRM 收集到 VPD 以判斷其特性，否則
+無法開啟機箱電源。在另一些系統上，則需要 BIOS 服務，讓主機韌體可以尋找
+任何覆寫設定。
 
-Currently, OpenBMC has an undefined behavior in this area. If a particular BMC
-has a large time gap between when the webserver is available and when all BMC
-services have completed running, there is a window there that a user could
-request a power on via the webserver when not all needed services are running.
+目前，OpenBMC 在這方面的行為並未定義。如果某台 BMC 在 Web 伺服器可供使用
+與所有 BMC 服務執行完成之間存在較大的時間差距，就會存在一個視窗，讓使用者
+能在並非所有必要服務都在執行的情況下，透過 Web 伺服器要求開機。
 
-## Background and References
+## 背景與參考
 
-The [mailing list discussion][1] can be found. The BMC currently has three major
-[state][2] management interfaces in a system. The BMC, Chassis, and Host. Within
-each state interface, the current state and requested state are tracked.
+可以找到[郵件清單討論][1]。BMC 目前在系統中擁有三個主要的[狀態][2]管理
+介面，分別是 BMC、Chassis 與 Host。在每個狀態介面中，都會追蹤目前的狀態
+與被要求的狀態。
 
-The [BMC][3] state object is considered `Ready` once the systemd
-`multi-user.target` has successfully started all if its services.
+一旦 systemd 的 `multi-user.target` 成功啟動其所有服務，[BMC][3] 狀態物件
+就被視為 `Ready`。
 
-There are three options that have been discussed to solve this issue:
+針對這個問題，曾討論過三種解決方案：
 
-1. D-Bus objects don't exist until the backend is prepared to handle them.
-2. If a user tries something that system is not in proper state to handle then
-   return an error code.
-3. If a user tries something that system is not in proper state to handle then
-   queue it up.
+1. 後端準備好處理之前，D-Bus 物件都不存在。
+2. 如果使用者嘗試了系統狀態尚不適當而無法處理的操作，就回傳錯誤碼。
+3. 如果使用者嘗試了系統狀態尚不適當而無法處理的操作，就將排隊等候。
 
-Option 1 is challenging because D-Bus interfaces provided by OpenBMC state
-applications have a mix of read-only properties (like current state) and
-writable properties that are used to request state changes. Not showing any
-until everything is available could have unknown consequences. This also has
-similar issues to option 2 in that applications and clients must have proper
-code to handle missing interfaces.
+選項 1 具有挑戰性，因為 OpenBMC 狀態應用程式所提供的 D-Bus 介面混合了
+唯讀屬性（例如目前狀態）與用於要求狀態變更的可寫入屬性。在一切就緒之前
+完全不顯示，可能帶來未知的後果。這也與選項 2 有類似的問題，即應用程式與
+客戶端必須具備處理介面缺失的適當程式碼。
 
-Option 2 is challenging because Redfish clients and internal applications like
-the op-panel code now need to properly handle error codes like this. You can
-argue that they already should, but that is definitely not the case with a lot
-of OpenBMC applications and clients.
+選項 2 具有挑戰性，因為 Redfish 客戶端以及像 op-panel 程式碼這樣的內部
+應用程式現在都需要妥善處理這類錯誤碼。你可以辯稱它們本來就應該這麼做，
+但對許多 OpenBMC 應用程式與客戶端而言，事實顯然並非如此。
 
-Option 3 is the most user friendly option. No client or OpenBMC application
-changes would be needed. One concern is that having a system somewhat randomly
-power on at some later point in time could be unexpected. The general consensus
-in this review though has been that this is the most preferred option.
+選項 3 是對使用者最友善的選項。不需要變更任何客戶端或 OpenBMC 應用程式。
+有一點令人擔憂的是，系統在稍後某個時間點有些隨機地開機，可能會出乎意料。
+不過在本次審查中，大家的共識是這是最受青睞的選項。
 
 [1]: https://lists.ozlabs.org/pipermail/openbmc/2022-April/030175.html
 [2]:
@@ -63,48 +54,40 @@ in this review though has been that this is the most preferred option.
 [3]:
   https://github.com/openbmc/phosphor-dbus-interfaces/blob/master/yaml/xyz/openbmc_project/State/BMC.interface.yaml
 
-## Requirements
+## 需求
 
-- Queue up chassis and host requested state changes until the BMC is in the
-  proper state to allow the request
-  - What the "proper state" is will be implementation specific but by default
-    phosphor-state-manager will queue all requests until the BMC state has
-    reached `Ready`
+- 將機箱與主機被要求的狀態變更排隊等候，直到 BMC 處於允許該請求的適當
+  狀態為止
+  - 所謂的「適當狀態」會因實作而異，但預設情況下 phosphor-state-manager
+    會將所有請求排隊等候，直到 BMC 狀態達到 `Ready`
 
-## Proposed Design
+## 建議設計
 
-If a power on or boot request is made to the Chassis or Host state objects and
-the BMC is not at `Ready` then the request will be queued and the state
-management code will begin monitoring for BMC `Ready`. Once reached, the
-requested operation will be automatically executed.
+如果對 Chassis 或 Host 狀態物件提出了開機或啟動請求，而 BMC 尚未達到
+`Ready`，則該請求將被排隊，且狀態管理程式碼會開始監控 BMC 的 `Ready`。
+一旦達到，被要求的操作就會自動執行。
 
-## Alternatives Considered
+## 曾考慮的替代方案
 
-The "Background and References" section covered some alternative options and the
-complexity behind them.
+「背景與參考」章節已涵蓋若干替代選項及其背後的複雜性。
 
-Another option is to code the dependencies directly into the services. For
-example, if the power on service requires the vrm vpd collection service, encode
-that dependency in the systemd files. This is easy to say but in practice has
-been challenging. Some OpenBMC services have built in assumptions that the
-multi-user.target and all of it's dependent services have completed prior to a
-power on being started. The general consensus within IBM was that it's much
-easier and safer to just have a global wait-for-bmc-ready function as proposed
-in this design.
+另一種做法是把相依關係直接寫進服務中。舉例來說，如果開機服務需要 VRM VPD
+收集服務，就在 systemd 檔案中編碼該相依關係。說起來容易，但在實務上一直
+相當有挑戰。某些 OpenBMC 服務內含假設，認為 multi-user.target 及其所有相依
+服務在開機開始之前就已經完成。IBM 內部的共識是，採用本設計所提議的全域
+wait-for-bmc-ready（等待 BMC 就緒）機制，要容易且安全得多。
 
-## Impacts
+## 影響
 
-Users will need to understand that their request to power on the system may be
-delayed by an undefined amount of time. In general, a BMC gets to Ready state
-within a couple of minutes.
+使用者需要了解，他們開機系統的請求可能會被延遲一段未定義的時間。一般來說，
+BMC 會在幾分鐘內達到 Ready 狀態。
 
-### Organizational
+### 組織層面
 
-This function will be implemented within the existing phosphor-state-manager
-repository. x86-power-control, an alternative to phosphor-state-manager, could
-also implement this logic.
+此功能將在現有的 phosphor-state-manager 儲存庫中實作。作為 phosphor-state-manager
+替代方案的 x86-power-control，也可以實作這套邏輯。
 
-## Testing
+## 測試
 
-- Ensure a power on request is properly queued and executed when it is made
-  prior to the BMC being `Ready`.
+- 確保在 BMC 達到 `Ready` 之前提出的開機請求，能被正確排隊並在適當時機
+  執行。

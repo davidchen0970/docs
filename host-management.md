@@ -1,14 +1,13 @@
-# Host Management with OpenBMC
+# 使用 OpenBMC 進行 Host 管理
 
-This document describes the host-management interfaces of the OpenBMC object
-structure, accessible over REST.
+本文件說明 OpenBMC 物件結構中可透過 REST 存取的 host-management 介面。
 
-Note: Authentication
+注意：認證
 
-See the details on authentication at
-[REST-cheatsheet](https://github.com/openbmc/docs/blob/master/REST-cheatsheet.md#establish-rest-connection-session).
+關於認證的詳細資訊請參閱
+[REST-cheatsheet](https://github.com/openbmc/docs/blob/master/REST-cheatsheet.md#establish-rest-connection-session)。
 
-This document uses token based authentication method:
+本文件使用 token 認證方式：
 
 ```bash
 export bmc=xx.xx.xx.xx
@@ -18,34 +17,29 @@ curl -k -H "X-Auth-Token: $token" https://${bmc}/xyz/openbmc_project/...
 
 ## Inventory
 
-The system inventory structure is under the `/xyz/openbmc_project/inventory`
-hierarchy.
+系統 inventory 結構位於 `/xyz/openbmc_project/inventory` 階層之下。
 
-In OpenBMC the inventory is represented as a path which is hierarchical to the
-physical system topology. Items in the inventory are referred to as inventory
-items and are not necessarily FRUs (field-replaceable units). If the system
-contains one chassis, a motherboard, and a CPU on the motherboard, then the path
-to that inventory item would be:
+在 OpenBMC 中，inventory 以路徑表示，該路徑與實體系統拓撲呈階層對應。
+inventory 中的項目稱為 inventory 項目（inventory items），且不一定是 FRU
+（field-replaceable units，現場可更換單元）。若系統含有一個機殼（chassis）、
+一塊主機板，以及主機板上的一顆 CPU，則該 inventory 項目的路徑會是：
 
 `inventory/system/chassis0/motherboard0/cpu0`
 
-The properties associated with an inventory item are specific to that item. Some
-common properties are:
+與 inventory 項目關聯的屬性取決於該項目本身。一些常見的屬性包括：
 
-- `Version`: A code version associated with this item.
-- `Present`: Indicates whether this item is present in the system (True/False).
-- `Functional`: Indicates whether this item is functioning in the system
-  (True/False).
+- `Version`：與此項目相關聯的程式碼版本。
+- `Present`：表示此項目是否存在於系統中（True/False）。
+- `Functional`：表示此項目在系統中是否正常運作（True/False）。
 
-The usual `list` and `enumerate` REST queries allow the system inventory
-structure to be accessed. For example, to enumerate all inventory items and
-their properties:
+一般性的 `list` 與 `enumerate` REST 查詢可用來存取系統 inventory 結構。
+例如，要列舉所有 inventory 項目及其屬性：
 
 ```bash
 curl -k -H "X-Auth-Token: $token" https://${bmc}/xyz/openbmc_project/inventory/enumerate
 ```
 
-To list the properties of one item:
+要列出某個項目的屬性：
 
 ```bash
 curl -k -H "X-Auth-Token: $token" https://${bmc}/xyz/openbmc_project/inventory/system/chassis/motherboard
@@ -53,33 +47,26 @@ curl -k -H "X-Auth-Token: $token" https://${bmc}/xyz/openbmc_project/inventory/s
 
 ## Sensors
 
-The system sensor structure is under the `/xyz/openbmc_project/sensors`
-hierarchy.
+系統 sensor 結構位於 `/xyz/openbmc_project/sensors` 階層之下。
 
-This interface allows monitoring of system attributes like temperature or
-altitude, and are represented similar to the inventory, by object paths under
-the top-level `sensors` object name. The path categorizes the sensor and shows
-what the sensor represents, but does not necessarily represent the physical
-topology of the system.
+此介面可監控如溫度或高度等系統屬性，並以類似 inventory 的方式表示：即頂層
+`sensors` 物件名稱之下的物件路徑。路徑用於對 sensor 分類並顯示該 sensor
+所代表的意義，但不一定代表系統的實體拓撲。
 
-For example, all temperature sensors are under `sensors/temperature`. CPU
-temperature sensors would be `sensors/temperature/cpu[n]`.
+例如，所有溫度 sensor 都位於 `sensors/temperature` 之下。CPU 溫度 sensor
+會是 `sensors/temperature/cpu[n]`。
 
-These are some common properties:
+以下是一些常見屬性：
 
-- `Value`: Current value of the sensor
-- `Unit`: Unit of the value and "Critical" and "Warning" values
-- `Scale`: The scale of the value and "Critical" and "Warning" values
-- `CriticalHigh` & `CriticalLow`: Sensor device upper/lower critical threshold
-  bound
-- `CriticalAlarmHigh` & `CriticalAlarmLow`: True if the sensor has exceeded the
-  critical threshold bound
-- `WarningHigh` & `WarningLow`: Sensor device upper/lower warning threshold
-  bound
-- `WarningAlarmHigh` & `WarningAlarmLow`: True if the sensor has exceeded the
-  warning threshold bound
+- `Value`：sensor 的目前值
+- `Unit`：值以及 "Critical" 和 "Warning" 值的單位
+- `Scale`：值以及 "Critical" 和 "Warning" 值的比例尺度
+- `CriticalHigh` 與 `CriticalLow`：sensor 裝置的上／下臨界（critical）門檻邊界
+- `CriticalAlarmHigh` 與 `CriticalAlarmLow`：若 sensor 已超過臨界門檻邊界則為 True
+- `WarningHigh` 與 `WarningLow`：sensor 裝置的上／下警告（warning）門檻邊界
+- `WarningAlarmHigh` 與 `WarningAlarmLow`：若 sensor 已超過警告門檻邊界則為 True
 
-A temperature sensor might look like:
+一個溫度 sensor 可能看起來像這樣：
 
 ```bash
     curl -k -H "X-Auth-Token: $token" https://${bmc}/xyz/openbmc_project/sensors/temperature/ocp_zone
@@ -105,18 +92,18 @@ A temperature sensor might look like:
     }
 ```
 
-Note the value of this sensor is 34.625C (34625 \* 10^-3).
+請注意此 sensor 的值為 34.625C（34625 \* 10^-3）。
 
-Unlike IPMI, there are no "functional" sensors in OpenBMC; functional states are
-represented in the inventory.
+不同於 IPMI，OpenBMC 中沒有「functional」sensor；功能狀態是以 inventory
+來表示。
 
-To enumerate all sensors in the system:
+要列舉系統中的所有 sensor：
 
 ```bash
 curl -k -H "X-Auth-Token: $token" https://${bmc}/xyz/openbmc_project/sensors/enumerate
 ```
 
-List properties of one inventory item:
+列出某個 inventory 項目的屬性：
 
 ```bash
 curl -k -H "X-Auth-Token: $token" https://${bmc}/xyz/openbmc_project/sensors/temperature/outlet
@@ -124,24 +111,22 @@ curl -k -H "X-Auth-Token: $token" https://${bmc}/xyz/openbmc_project/sensors/tem
 
 ## Event Logs
 
-The event log structure is under the `/xyz/openbmc_project/logging/entry`
-hierarchy. Each event is a separate object under this structure, referenced by
-number.
+事件記錄（event log）結構位於 `/xyz/openbmc_project/logging/entry` 階層之下。
+每個事件都是此結構下一個獨立的物件，以編號參照。
 
-BMC and host firmware on POWER-based servers can report event logs to the BMC.
-Typically, these event logs are reported in cases where host firmware cannot
-start the OS, or cannot reliably log to the OS.
+在 POWER 架構的伺服器上，BMC 與 host 韌體皆可向 BMC 回報事件記錄。通常，
+這些事件記錄是在 host 韌體無法啟動 OS，或無法可靠地記錄到 OS 的情況下回報。
 
-The properties associated with an event log are as follows:
+與事件記錄關聯的屬性如下：
 
-- `Message`: The type of event log (e.g.
-  "xyz.openbmc_project.Inventory.Error.NotPresent").
-- `Resolved` : Indicates whether the event has been resolved.
-- `Severity`: The level of problem ("Info", "Error", etc.).
-- `Timestamp`: The date of the event log in epoch time.
-- `Associations`: A URI to the failing inventory part.
+- `Message`：事件記錄的類型（例如
+  "xyz.openbmc_project.Inventory.Error.NotPresent"）。
+- `Resolved` ：表示該事件是否已解決。
+- `Severity`：問題的層級（"Info"、"Error" 等）。
+- `Timestamp`：事件記錄的日期，以 epoch 時間表示。
+- `Associations`：指向故障 inventory 零件的 URI。
 
-To list all reported event logs:
+要列出所有已回報的事件記錄：
 
 ```bash
     curl -k -H "X-Auth-Token: $token" https://${bmc}/xyz/openbmc_project/logging/entry
@@ -160,7 +145,7 @@ To list all reported event logs:
     }
 ```
 
-To read a specific event log:
+要讀取特定的事件記錄：
 
 ```bash
     curl -k -H "X-Auth-Token: $token" https://${bmc}/xyz/openbmc_project/logging/entry/1
@@ -183,106 +168,102 @@ To read a specific event log:
     }
 ```
 
-To delete an event log (log 1 in this example), call the `Delete` method on the
-event:
+要刪除事件記錄（此範例中為 log 1），請對該事件呼叫 `Delete` 方法：
 
 ```bash
 curl -k -H "X-Auth-Token: $token" -H "Content-Type: application/json" -X POST -d '{"data" : []}' https://${bmc}/xyz/openbmc_project/logging/entry/1/action/Delete
 ```
 
-To clear all event logs, call the top-level `DeleteAll` method:
+要清除所有事件記錄，請呼叫頂層的 `DeleteAll` 方法：
 
 ```bash
 curl -k -H "X-Auth-Token: $token" -H "Content-Type: application/json" -X POST -d '{"data" : []}' https://${bmc}/xyz/openbmc_project/logging/action/DeleteAll
 ```
 
-## Host Boot Options
+## Host 開機選項
 
-With OpenBMC, the Host boot options are stored as D-Bus properties under the
-`control/host0/boot` path. Properties include
-[`BootMode`](https://github.com/openbmc/phosphor-dbus-interfaces/blob/master/yaml/xyz/openbmc_project/Control/Boot/Mode.interface.yaml),
-[`BootSource`](https://github.com/openbmc/phosphor-dbus-interfaces/blob/master/yaml/xyz/openbmc_project/Control/Boot/Source.interface.yaml)
-and if the host is based on x86 CPU also
-[`BootType`](https://github.com/openbmc/phosphor-dbus-interfaces/blob/master/yaml/xyz/openbmc_project/Control/Boot/Type.interface.yaml).
+在 OpenBMC 中，Host 開機選項是以 D-Bus 屬性儲存在 `control/host0/boot` 路徑
+之下。屬性包括
+[`BootMode`](https://github.com/openbmc/phosphor-dbus-interfaces/blob/master/yaml/xyz/openbmc_project/Control/Boot/Mode.interface.yaml)、
+[`BootSource`](https://github.com/openbmc/phosphor-dbus-interfaces/blob/master/yaml/xyz/openbmc_project/Control/Boot/Source.interface.yaml)，
+以及若 host 採用 x86 CPU，還包括
+[`BootType`](https://github.com/openbmc/phosphor-dbus-interfaces/blob/master/yaml/xyz/openbmc_project/Control/Boot/Type.interface.yaml)。
 
-- Set boot mode:
+- 設定開機模式：
 
 ```bash
 curl -k -H "X-Auth-Token: $token" -H "Content-Type: application/json" -X PUT https://${bmc}/xyz/openbmc_project/control/host0/boot/attr/BootMode -d '{"data": "xyz.openbmc_project.Control.Boot.Mode.Modes.Regular"}'
 ```
 
-- Set boot source:
+- 設定開機來源：
 
 ```bash
 curl -k -H "X-Auth-Token: $token" -H "Content-Type: application/json" -X PUT https://${bmc}/xyz/openbmc_project/control/host0/boot/attr/BootSource -d '{"data": "xyz.openbmc_project.Control.Boot.Source.Sources.Default"}'
 ```
 
-- Set boot type (valid only if host is based on the x86 CPU):
+- 設定開機類型（僅當 host 採用 x86 CPU 時有效）：
 
 ```bash
 curl -k -H "X-Auth-Token: $token" -H "Content-Type: application/json" -X PUT https://${bmc}/xyz/openbmc_project/control/host0/boot/attr/BootType -d '{"data": "xyz.openbmc_project.Control.Boot.Type.Types.EFI"}'
 ```
 
-Also there are boolean
+此外還有布林值的
 [`Enable`](https://github.com/openbmc/phosphor-dbus-interfaces/blob/master/yaml/xyz/openbmc_project/Object/Enable.interface.yaml)
-properties that control if the boot source override is persistent or one-time,
-and if the override is enabled or not.
+屬性，用以控制開機來源覆寫（override）是永久生效還是僅一次性生效，以及該
+覆寫是否啟用。
 
-- Set boot override one-time flag:
+- 設定開機覆寫的一次性（one-time）旗標：
 
 ```bash
 curl -k -H "X-Auth-Token: $token" -H "Content-Type: application/json" -X PUT https://${bmc}/xyz/openbmc_project/control/host0/boot/one_time/attr/Enabled -d '{"data": "true"}'
 ```
 
-- Enable boot override:
+- 啟用開機覆寫：
 
 ```bash
 curl -k -H "X-Auth-Token: $token" -H "Content-Type: application/json" -X PUT https://${bmc}/xyz/openbmc_project/control/host0/boot/attr/Enabled -d '{"data": "true"}'
 ```
 
-## Host State Control
+## Host 狀態控制
 
-The host can be controlled through the `host` object. The object implements a
-number of actions including power on and power off. These correspond to the IPMI
-`power on` and `power off` commands.
+Host 可以透過 `host` 物件來控制。該物件實作了多種動作，包括開機（power on）
+與關機（power off）。這些動作對應到 IPMI 的 `power on` 與 `power off` 指令。
 
-Assuming you have logged in, the following will power on the host:
+假設你已登入，以下指令將開啟 host 電源：
 
 ```bash
 curl -k -H "X-Auth-Token: $token" -H "Content-Type: application/json" -d '{"data": "xyz.openbmc_project.State.Host.Transition.On"}' -X PUT https://${bmc}/xyz/openbmc_project/state/host0/attr/RequestedHostTransition
 ```
 
-To power off the host:
+要關閉 host 電源：
 
 ```bash
 curl -k -H "X-Auth-Token: $token" -H "Content-Type: application/json" -d '{"data": "xyz.openbmc_project.State.Host.Transition.Off"}' -X PUT https://${bmc}/xyz/openbmc_project/state/host0/attr/RequestedHostTransition
 ```
 
-To issue a hard power off (accomplished by powering off the chassis):
+要執行強制關機（hard power off，透過關閉機殼電源來達成）：
 
 ```bash
 curl -k -H "X-Auth-Token: $token" -H "Content-Type: application/json" -X PUT -d '{"data":"xyz.openbmc_project.State.Chassis.Transition.Off"}' https://${bmc}//xyz/openbmc_project/state/chassis0/attr/RequestedPowerTransition
 ```
 
-To reboot the host:
+要重新啟動 host：
 
 ```bash
 curl -k -H "X-Auth-Token: $token" -H "Content-Type: application/json" -X PUT -d '{"data":"xyz.openbmc_project.State.Host.Transition.Reboot"}' https://${bmc}/xyz/openbmc_project/state/host0/attr/RequestedHostTransition
 ```
 
-More information about Host State Management can be found here:
+關於 Host 狀態管理的更多資訊請見此處：
 <https://github.com/openbmc/phosphor-dbus-interfaces/tree/master/yaml/xyz/openbmc_project/State>
 
-## Host Clear GARD
+## Host 清除 GARD
 
-On OpenPOWER systems, the host maintains a record of bad or non-working
-components on the GARD partition. This record is referenced by the host on
-subsequent boots to determine which parts should be ignored.
+在 OpenPOWER 系統上，host 會在 GARD 分割區中維護一份關於損壞或無法運作元件
+的記錄。host 在後續開機時會參考這份記錄，以決定應忽略哪些零件。
 
-The BMC implements a function that simply clears this partition. This function
-can be called as follows:
+BMC 實作了一個可清除此分割區的功能。該功能可如下呼叫：
 
-- Method 1: From the BMC command line:
+- 方法 1：從 BMC 命令列：
 
 ```bash
   busctl call org.open_power.Software.Host.Updater \
@@ -290,54 +271,50 @@ can be called as follows:
     xyz.openbmc_project.Common.FactoryReset Reset
 ```
 
-- Method 2: Using the REST API:
+- 方法 2：使用 REST API：
 
 ```bash
 curl -k -H "X-Auth-Token: $token" -H "Content-Type: application/json" -X POST -d '{"data":[]}' https://${bmc}/org/open_power/control/gard/action/Reset
 ```
 
-Implementation: <https://github.com/openbmc/openpower-pnor-code-mgmt>
+實作： <https://github.com/openbmc/openpower-pnor-code-mgmt>
 
 ## Host Watchdog
 
-The host watchdog service is responsible for ensuring the host starts and boots
-within a reasonable time. On host start, the watchdog is started and it is
-expected that the host will ping the watchdog via the inband interface
-periodically as it boots. If the host fails to ping the watchdog within the
-timeout then the host watchdog will start a systemd target to go to the quiesce
-target. System settings will then determine the recovery behavior from that
-state, for example, attempting to reboot the system.
+host watchdog 服務負責確保 host 能在合理的時間內啟動並完成開機。當 host
+啟動時，watchdog 也會啟動，並預期 host 會在開機過程中透過 inband 介面定期對
+watchdog 送出 ping。若 host 未在逾時（timeout）時間內對 watchdog 送出 ping，
+則 host watchdog 會啟動一個 systemd target 以進入 quiesce target。之後系統
+設定將決定從該狀態開始的復原行為，例如嘗試重新啟動系統。
 
-The host watchdog utilizes the generic [phosphor-watchdog][1] repository. The
-host watchdog service provides 2 files as configuration options into
-phosphor-watchdog:
+host watchdog 使用通用的 [phosphor-watchdog][1] 存放庫。host watchdog 服務
+提供 2 個檔案作為 phosphor-watchdog 的設定選項：
 
 ```text
     /lib/systemd/system/phosphor-watchdog@poweron.service.d/poweron.conf
     /etc/default/obmc/watchdog/poweron
 ```
 
-`poweron.conf` contains the "Conflicts" relationships to ensure the watchdog
-service is stopped at the correct times. `poweron` contains the required
-information for phosphor-watchdog (more information on these can be found in the
-[phosphor-watchdog][1] repository).
+`poweron.conf` 包含「Conflicts」關係，以確保 watchdog 服務在正確的時機被停止。
+`poweron` 則包含 phosphor-watchdog 所需的資訊（關於這些檔案的更多資訊可在
+[phosphor-watchdog][1] 存放庫中找到）。
 
-The 2 service files involved with the host watchdog are:
+與 host watchdog 相關的 2 個服務檔案為：
 
 ```text
     phosphor-watchdog@poweron.service
     obmc-enable-host-watchdog@0.service
 ```
 
-`phosphor-watchdog@poweron` starts the host watchdog service and
-`obmc-enable-host-watchdog` starts the watchdog timer. Both are run as a part of
-the `obmc-host-startmin@.target`. Service dependencies ensure the service is
-started before the enable is called.
+`phosphor-watchdog@poweron` 會啟動 host watchdog 服務，而
+`obmc-enable-host-watchdog` 會啟動 watchdog 計時器。兩者皆作為
+`obmc-host-startmin@.target` 的一部分執行。服務相依性確保服務會在 enable
+被呼叫之前啟動。
 
-The default watchdog timeout can be found within the [dbus interface
-specification][2] (Interval property).
+預設的 watchdog 逾時時間可在
+[dbus 介面規格][2]（Interval 屬性）中找到。
 
-The host controls the watchdog timeout and enable/disable once it starts.
+host 在啟動後會控制 watchdog 的逾時時間以及啟用／停用。
 
 [1]: https://github.com/openbmc/phosphor-watchdog
 [2]:

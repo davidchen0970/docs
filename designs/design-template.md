@@ -1,117 +1,102 @@
 ---
 
-# Document Guidelines - _Delete this section_
+# 文件準則 - _請刪除此章節_
 
-## Document Content
+## 文件內容
 
-- Not all new features need a design document. If a feature can be contributed
-  in a single reasonably small patchset that has little impact to any other
-  areas, it doesn't need a design discussion and documentation.
+- 並非所有新功能都需要設計文件。如果一個功能可以在單一、規模合理的
+  patchset 中貢獻，且對其他區域的影響很小，就不需要進行設計討論與撰寫文件。
 
-- The focus of the document is to define the problem we need to solve and
-  analyse the trade-offs of different solutions. You should concentrate on
-  interactions between components, though analysing the trade-offs often
-  requires you to explore how each might be implemented.
+- 文件的重點在於定義我們需要解決的問題，並分析不同解決方案的取捨。
+  你應該專注於元件之間的互動，雖然分析取捨往往需要你探討每個方案
+  可能的實作方式。
 
-- Write this document as an [argumentative essay][argumentative-essay]. Good
-  design proposals compel the reviewers agree with the proposal's conclusions.
+- 請以[論證式短文][argumentative-essay]的方式撰寫這份文件。好的設計提案
+  能讓審查者認同提案的結論。
 
 [argumentative-essay]: https://www.grammarly.com/blog/argumentative-essay/
 
-- This is not intended to be extensive documentation for a new feature.
+- 這份文件不打算作為新功能的完整文件。
 
-- You should get your design reviewed and merged before writing your code.
-  However you are free to prototype the implementation, but remember that you
-  may learn of new requirements during the design review process that could
-  result in a very different solution.
+- 你應該在撰寫程式碼之前，先讓你的設計通過審查並合併。不過你可以自由地
+  對實作做原型開發，但要記得，在設計審查過程中你可能會得知新的需求，
+  而導致一個非常不同的解決方案。
 
-## Document Formatting
+## 文件格式
 
-- Your spec should be in Markdown format, like this template.
+- 你的規格應採用 Markdown 格式，就像這份範本一樣。
 
-- Please wrap text at 79 columns.
+- 請將文字每行控制在 79 個欄位寬。
 
-- Please do not delete any of the sections in this template. If you have nothing
-  to say for a whole section, just write: None
+- 請不要刪除此範本中的任何章節。如果某個章節你完全沒有內容要寫，
+  就僅寫上：None
 
-- To view your .md file, see: https://stackedit.io/
+- 若要檢視你的 .md 檔案，請見：https://stackedit.io/
 
-- If you would like to provide a diagram with your spec, ASCII diagrams are
-  required. http://asciiflow.com/ is a very nice tool to assist with making
-  ASCII diagrams. Plain text will allow the review to proceed without having to
-  look at additional files which can not be viewed in Gerrit. It will also allow
-  inline feedback on the diagram itself.
+- 如果你想在規格中加入圖示，必須使用 ASCII 圖。
+  http://asciiflow.com/ 是一個非常好用的工具，可協助製作 ASCII 圖。
+  純文字可以讓審查持續進行，而不必檢視那些無法在 Gerrit 中顯示的額外檔案。
+  它也能讓你在圖示本身上提供行內回饋。
 
-- Once ready for review, submit to gerrit and set the topic of the review to
-  "design"
+- 準備好審查後，提交到 gerrit 並將審查的 topic 設為 "design"
 
 ---
 
-# Example design - this is the design title
+# 設計範例 - 這裡是設計標題
 
-Author: < Name and Discord nickname >
+作者（Author）: < 姓名與 Discord 暱稱 >
 
-Other contributors: < Name and/or Discord nickname or `None` >
+其他貢獻者（Other contributors）: < 姓名及／或 Discord 暱稱，或 `None` >
 
-Created: < Date initially created in Month D, Yr format (e.g. June 17, 2020 or
-Dec 19, 2019)>
+建立日期（Created）: < 最初建立的日期，採 Month D, Yr 格式（例如 June 17, 2020 或
+Dec 19, 2019）>
 
-## Problem Description
+## 問題描述（Problem Description）
 
-(1 paragraph) What are we doing and why? What problem are you trying to solve?
-What are the goals and NON-goals? Please make the objective understandable for
-someone unfamiliar with this project by including the necessary context, but
-keep it short. Elaborate on the details below in the Background and Requirements
-sections.
+（1 段）我們在做什麼、為什麼要做？你試圖解決什麼問題？目標與非目標
+（NON-goals）是什麼？請納入必要的脈絡，讓不熟悉這個專案的人也能理解
+目標，但要保持簡短。細節請在下面的背景與參考資料、需求章節中詳細說明。
 
-## Background and References
+## 背景與參考資料（Background and References）
 
-(1-2 paragraphs) What background context is necessary? You should mention
-related work inside and outside of OpenBMC. What other Open Source projects are
-trying to solve similar problems? Try to use links or references to external
-sources (other docs or Wikipedia), rather than writing your own explanations.
-Please include document titles so they can be found when links go bad. Include a
-glossary if necessary. Note: this is background; do not write about your design,
-specific requirements details, or ideas to solve problems here.
+（1-2 段）需要哪些背景脈絡？你應該提及 OpenBMC 內部與外部的相關工作。
+還有哪些其他 Open Source 專案試圖解決類似的問題？盡量使用連結或引用
+外部來源（其他文件或 Wikipedia），而不是自己撰寫說明。請一併包含文件
+標題，以便連結失效時仍能找到。如有必要請包含詞彙表。注意：這裡是背景
+說明；請不要在此撰寫你的設計、具體的需求細節或解決問題的想法。
 
-## Requirements
+## 需求（Requirements）
 
-(2-5 paragraphs) What are the constraints for the problem you are trying to
-solve? Who are the users of this solution? What is required to be produced? What
-is the scope of this effort? Your job here is to quickly educate others about
-the details you know about the problem space, so they can help review your
-implementation. Roughly estimate relevant details. How big is the data? What are
-the transaction rates? Bandwidth? How will the feature be configured, and what
-option class does it fall into? (see architecture/optionality.md)
+（2-5 段）你試圖解決的問題有哪些限制條件？這個解決方案的用戶是誰？
+需要產出什麼？這項工作的範圍有多大？你在這裡的任務是快速地讓其他人
+了解你所知道的問題領域細節，以便他們能協助審查你的實作。粗略估計相關
+細節。資料有多大？交易速率是多少？頻寬呢？這個功能將如何設定，它屬於
+哪一個 option class？（請見 architecture/optionality.md）
 
-## Proposed Design
+## 建議設計（Proposed Design）
 
-(2-5 paragraphs) A short and sweet overview of your implementation ideas. If you
-have alternative solutions to a problem, list them concisely in a bullet list.
-This should not contain every detail of your implementation, and do not include
-code. Use a diagram when necessary. Cover major structural elements in a very
-succinct manner. Which technologies will you use? What new components will you
-write? What technologies will you use to write them?
+（2-5 段）對你的實作想法做簡潔明瞭的概觀說明。如果你對某個問題有其他
+替代方案，請用精簡的項目清單列出。這裡不應包含實作的每個細節，也請不要
+放入程式碼。必要時使用圖示。以非常精簡的方式涵蓋主要的結構元素。你將
+使用哪些技術？你會撰寫哪些新的元件？你將使用哪些技術來撰寫它們？
 
-## Alternatives Considered
+## 曾考慮的替代方案（Alternatives Considered）
 
-(2 paragraphs) Include alternate design ideas here which you are leaning away
-from. Elaborate on why a design was considered and why the idea was rejected.
-Show that you did an extensive survey about the state of the art. Compares your
-proposal's features & limitations to existing or similar solutions.
+（2 段）在此納入你傾向不採用但曾考慮過的替代設計想法。詳細說明某個設計
+為何被考慮、以及這個想法為何被否決。展現你對最新技術發展狀況做過廣泛的
+調查。將你的提案功能與限制，跟現有或類似的解決方案做比較。
 
-## Impacts
+## 影響（Impacts）
 
-API impact? Security impact? Documentation impact? Performance impact? Developer
-impact? Upgradability impact?
+API 影響？安全影響？文件影響？效能影響？開發者影響？可升級性影響？
 
-### Organizational
+### 組織層面（Organizational）
 
-- Does this proposal require a new repository? (Yes, No)
-- Who will be the initial maintainer(s) of this repository?
-- Which repositories are expected to be modified to execute this design?
-- Make a list, and add listed repository maintainers to the gerrit review.
+- 這個提案是否需要一個新的 repository？(Yes, No)
+- 誰會是這個 repository 的初始維護者？
+- 預期需要修改哪些 repository 才能執行這個設計？
+- 製作一份清單，並將清單中列出的 repository 維護者加入 gerrit 審查。
 
-## Testing
+## 測試（Testing）
 
-How will this be tested? How will this feature impact CI testing?
+這將如何測試？這個功能將如何影響 CI 測試？

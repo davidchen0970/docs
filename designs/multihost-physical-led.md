@@ -1,38 +1,35 @@
-# Physical LED Design Support
+# 實體 LED 設計支援
 
-Author: Velumani T (Velu), [velumanit@hcl](mailto:velumanit@hcl.com) Jayashree D
-(Jayashree), [jayashree-d@hcl](mailto:jayashree-d@hcl.com)
+作者：Velumani T (Velu)，[velumanit@hcl](mailto:velumanit@hcl.com) Jayashree D
+(Jayashree)，[jayashree-d@hcl](mailto:jayashree-d@hcl.com)
 
-Other contributors: None
+其他貢獻者：無
 
-Created: July 10, 2022
+建立日期：2022 年 7 月 10 日
 
-## Problem Description
+## 問題說明
 
-The existing phosphor-led-sysfs design exposes one service per LED configuration
-in device tree. Hence, multiple services will be created for multiple GPIO pins
-configured for LEDs.
+現有的 phosphor-led-sysfs 設計會針對裝置樹（device tree）中的每個 LED 設定
+公開一個服務。因此，當有多個 GPIO 腳位被設定為 LED 時，就會建立多個服務。
 
-There are cases where multiple LEDs were configured in the device tree for each
-host and needs to be paired as a group of LEDs for the specified host in the
-multi host platform.
+在某些情況下，裝置樹中會為每個 host 設定多個 LED，並需要在多 host 平台上
+將它們配對成指定 host 的一組 LED。
 
-For example, Power LED and System Identification LED combines into a single
-bicolor blue-yellow LED per host. A total of 4 × LEDs will be placed along the
-front edge of the board in a grid. The grid will be 2 × rows of 2 × LEDs to
-match the layout of the card slots.
+舉例來說，電源 LED 與系統識別 LED 會合併為每個 host 一顆藍黃雙色 LED。
+總共會有 4 顆 × LED 沿著電路板前緣以網格方式排列。此網格為 2 列 ×
+每列 2 顆 × LED，以對應卡槽（card slot）的佈局。
 
-Depending on the status of each host, blue or yellow LED needs to be Blink, OFF
-or ON and other LEDs needs to be in OFF state. Therefore, bi-color LED needs to
-be paired as a group and exposed in the userspace.
+根據每個 host 的狀態，藍色或黃色 LED 需要為 Blink、OFF 或 ON，
+其他 LED 則需要處於 OFF 狀態。因此，雙色 LED 需要配對成一組，
+並暴露到使用者空間（userspace）。
 
-Based on the current design in phosphor-led-sysfs application, pairing groups
-will be difficult, since it exposes one service per LED. To abstract this method
-and also to create LEDs under a single service, a new application is proposed.
+根據 phosphor-led-sysfs 應用程式目前的設計，由於它對每個 LED 公開一個服務，
+要實作配對分組將會很困難。為了抽象化這個做法，同時也在單一服務下建立 LED，
+因此提出一個新的應用程式。
 
-## Background and References
+## 背景與參考
 
-The below diagram represents the overview for current physical LED design.
+下圖呈現目前實體 LED 設計的概觀。
 
 ```ascii
       KERNEL                 META-PHOSPHOR           PHOSPHOR-LED-SYSFS SERVICE
@@ -54,30 +51,29 @@ The below diagram represents the overview for current physical LED design.
    |    LED N   |                                             |
    |            |                                             |
    +------------+                                             V
-                                             +----------------------------------+
-                                             |                                  |
-                                             | Service 1 :                      |
-                                             |    /xyz/openbmc_project/<led1>   |
-                                             |                                  |
-                                             | Service 2 :                      |
-                                             |    /xyz/openbmc_project/<led2>   |
-                                             |          .......                 |
-                                             |          .......                 |
-                                             |                                  |
-                                             | Service N :                      |
-                                             |    /xyz/openbmc_project/<ledN>   |
-                                             |                                  |
-                                             +----------------------------------+
+                                            +----------------------------------+
+                                            |                                  |
+                                            | Service 1 :                      |
+                                            |    /xyz/openbmc_project/<led1>   |
+                                            |                                  |
+                                            | Service 2 :                      |
+                                            |    /xyz/openbmc_project/<led2>   |
+                                            |          .......                 |
+                                            |          .......                 |
+                                            |                                  |
+                                            | Service N :                      |
+                                            |    /xyz/openbmc_project/<ledN>   |
+                                            |                                  |
+                                            +----------------------------------+
 
-                                                 PHOSPHSOR-LED-SYSFS DAEMON
+                                                PHOSPHSOR-LED-SYSFS DAEMON
 
 ```
 
-The existing design uses sysfs entry as udev events for particular LED and
-triggers the necessary action to generate the dbus object path and interface for
-that specified service. It exposes one service per LED.
+現有設計使用 sysfs 項目作為特定 LED 的 udev 事件，並觸發必要的動作，
+以產生該指定服務的 dbus 物件路徑與介面。它對每個 LED 公開一個服務。
 
-### Example
+### 範例
 
 ```text
      busctl tree xyz.openbmc_project.LED.Controller.led1
@@ -96,15 +92,15 @@ that specified service. It exposes one service per LED.
 
 ```
 
-## Requirements
+## 需求
 
-- To support the systemd service to trigger script.
+- 支援 systemd 服務以觸發腳本。
 
-- Add DBUS API method for phosphor-led-sysfs daemon.
+- 為 phosphor-led-sysfs daemon 加入 DBUS API method。
 
-## Proposed Design
+## Proposed 設計
 
-The below diagram represents the overview for proposed physical LED design.
+下圖呈現所提出實體 LED 設計的概觀。
 
 ```ascii
       KERNEL                               PHOSPHOR-LED-SYSFS DAEMON
@@ -128,14 +124,13 @@ The below diagram represents the overview for proposed physical LED design.
    |            |           |  |           |   |               .....             | |
    |            |           |  |           |   |  /xyz/openbmc_project/led/<ledN>| |
    +------------+           |  +-----------+   +---------------------------------+ |
-                            +------------------------------------------------------+
+                             +------------------------------------------------------+
 
 ```
 
-This document proposes a new design for physical LED implementation.
+本文件提出一個用於實體 LED 實作的新設計。
 
-- Physical Leds are defined in the device tree under "leds" section and
-  corresponding GPIO pins are configured.
+- 實體 LED 在裝置樹的 "leds" 章節下定義，並設定對應的 GPIO 腳位。
 
 ```dts
         leds {
@@ -148,9 +143,9 @@ This document proposes a new design for physical LED implementation.
         };
 ```
 
-- Dbus API method will be created in the phosphor-led-sysfs repository under
-  **_xyz.openbmc_project.Led.Sysfs.Internal_** interface name to add or remove
-  the LED, which will be coming from each udev LED event.
+- 會在 phosphor-led-sysfs 儲存庫中建立 Dbus API method，介面名稱為
+  **_xyz.openbmc_project.Led.Sysfs.Internal_**，用於新增或移除 LED，
+  這些 LED 將來自各自的 udev LED 事件。
 
 ```text
     NAME                                   TYPE      SIGNATURE  RESULT/VALUE  FLAGS
@@ -161,27 +156,25 @@ This document proposes a new design for physical LED implementation.
 
 ```
 
-- udev event will be triggered for each LED and service will be invoked to run
-  the executable for each LED event.
+- 會為每個 LED 觸發 udev 事件，並呼叫服務為每個 LED 事件執行
+  對應的可執行檔。
 
-- Executable will call Dbus API method in the phosphor-led-sysfs repository to
-  pass LED name as argument from udev, after the primary service started.
+- 可執行檔會呼叫 phosphor-led-sysfs 儲存庫中的 Dbus API method，
+  在主服務（primary service）啟動後，將 LED 名稱作為引數從 udev 傳入。
 
-- Phosphor-led-sysfs will have a single systemd service (primary service)
-  **_(xyz.openbmc_project.LED.Controller.service)_** running by default at
-  system startup.
+- Phosphor-led-sysfs 將有一個單一的 systemd 服務（主服務）
+  **_(xyz.openbmc_project.LED.Controller.service)_**，預設在系統啟動時執行。
 
-- Once Dbus API method call invoked, phosphor-led-sysfs daemon will retrieve the
-  LED name as parameter and map the name with /sys/class/leds path in the
-  hardware. Next, the dbus object path and interface will be created under
-  single systemd service (xyz.openbmc_project.LED.Controller).
+- 一旦 Dbus API method 被呼叫，phosphor-led-sysfs daemon 會取得 LED 名稱
+  作為參數，並將該名稱與硬體中 /sys/class/leds 路徑對應。接著，
+  dbus 物件路徑與介面會在單一 systemd 服務
+  (xyz.openbmc_project.LED.Controller) 下建立。
 
-- The schema will be implemented in the phosphor-led-sysfs daemon. A group of
-  LEDs is paired for each host and the schema handles color control for that
-  group to activate one LED which must be Blink/ON/OFF state and set the
-  remaining LEDs in the group as OFF state.
+- Schema 會在 phosphor-led-sysfs daemon 中實作。會為每個 host 將一組 LED
+  配對，schema 負責處理該組的顏色控制，以啟動其中一顆必須為
+  Blink/ON/OFF 狀態的 LED，並將該組中剩餘的 LED 設為 OFF 狀態。
 
-**_Example_**
+**_範例_**
 
 ```text
    SERVICE        xyz.openbmc_project.LED.Controller
@@ -202,40 +195,34 @@ This document proposes a new design for physical LED implementation.
              `-/xyz/openbmc_project/led/physical/ledN
 ```
 
-## Alternatives Considered
+## 已考慮的替代方案
 
-### Approach 1
+### 做法 1
 
-When the udev event is initialized for the LED, it will save those LED names in
-a file utilizing the script. Phosphor-led-sysfs will monitor the file using
-inotify to handle the changes. By reading the file, all the LEDs name will be
-retrieved and dbus path will be created for all the LEDs under single systemd
-service.
+當為 LED 初始化 udev 事件時，會利用腳本將這些 LED 名稱儲存到檔案中。
+Phosphor-led-sysfs 會使用 inotify 監控該檔案以處理變更。透過讀取檔案，
+可取得所有 LED 名稱，並在單一 systemd 服務下為所有 LED 建立 dbus 路徑。
 
-inotify will monitor the file continuously and it needs to communicate between
-udev events and phosphor-led-sysfs application. Since, udev events can be
-generated before systemd service, inotify does not need to monitor the file
-afterwards and also it is not a well used mechanism to communicate.
+inotify 會持續監控該檔案，且需要在 udev 事件與 phosphor-led-sysfs
+應用程式之間進行通訊。由於 udev 事件可能在 systemd 服務之前就產生，
+inotify 之後並不需要監控該檔案，而且它也不是一個常用的通訊機制。
 
-Executable for Dbus method is a better way to communicate with the application
-after the system startup and populate the dbus path for LEDs under single
-service.
+在系統啟動後，用來呼叫 Dbus method 的可執行檔是與應用程式通訊、
+並在單一服務下為 LED 建立 dbus 路徑的較佳方式。
 
-## Impacts
+## 影響
 
-These changes will have API impact since the dbus objects will exposes multiple
-LEDs path in single service. The systemd service will have single name
-**_xyz.openbmc_project.LED.Controller_** instead of multiple services.
+這些變更會對 API 造成影響，因為 dbus 物件會在單一服務中暴露多個 LED
+路徑。systemd 服務將使用單一名稱
+**_xyz.openbmc_project.LED.Controller_**，而不再是多個服務。
 
-## Testing
+## 測試
 
-The proposed design is tested in a multiple hosts platform.
+所提出的設計已在多 host 平台上經過測試。
 
-**_Manual Test_** - The physical LEDs status will be tested using busctl
-commands in the hardware.
+**_手動測試_** — 實體 LED 狀態會使用 busctl 指令在硬體上測試。
 
-**_Robot Test_** - The physical LEDs will be tested under robotframework using
-REST API in the system LEDs suite.
+**_Robot 測試_** — 實體 LED 會在 robotframework 下，使用系統 LED
+測試套件（system LEDs suite）中的 REST API 進行測試。
 
-**_Unit Test_** - The proposed code can be covered by the unit tests which are
-already present.
+**_單元測試_** — 所提出的程式碼可由既有已存在的單元測試涵蓋。

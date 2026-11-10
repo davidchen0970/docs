@@ -1,7 +1,6 @@
-# Subtree Architecture
+# Subtree 架構
 
-In the past, meta-layer repositories were added to the repo as subtrees. This is
-no longer the case. Although the individual meta-\* trees still exist in gerrit
-and github for the sake of keeping a complete history, they should not be used,
-and new meta layers will simply be checked in within the openbmc/openbmc code
-tree.
+過去，meta-layer 存放庫是以 subtree 的方式加入本 repo。現在已經不再是這樣了。
+雖然各個 meta-\* tree 為了保留完整的歷史紀錄，仍然存在于 gerrit 和 github 上，
+但已經不應該再使用它們，新的 meta layer 只會直接簽入（check in）到
+openbmc/openbmc 程式碼 tree 當中。

@@ -1,104 +1,85 @@
-# OpenBMC Technical Oversight Forum (TOF)
+# OpenBMC 技術監督論壇（TOF）
 
-This is a working document and subject to change.
+本文件為進行中的文件，內容可能變更。
 
-The OpenBMC TOF or Technical Oversight Forum represents the technical leadership
-of the OpenBMC project.
+OpenBMC TOF，亦即技術監督論壇（Technical Oversight Forum），代表 OpenBMC
+專案的技術領導層。
 
-The TOF handles the processes around accepting new features into OpenBMC,
-creating new subprojects (git repositories), approving subproject maintainers,
-handling and enforcement of subproject maintainer issues, and many other
-technical leadership concerns related to OpenBMC. This source of this document
-is in the [OpenBMC documentation repository](https://github.com/openbmc/docs).
-The TOF updates and maintains this document, using the process documented
-within, and it can be considered authoritative unless directly overridden by the
-TSC.
+TOF 負責處理與 OpenBMC 相關的各項程序，包括接受新功能、建立新的子專案（git
+ repository）、核准子專案維護者、處理並執行針對子專案維護者的問題，以及許多其他
+與 OpenBMC 相關的技術領導事務。本文件的來源位於
+[OpenBMC 文件 repository](https://github.com/openbmc/docs)。
+TOF 依本文件所載的程序進行更新與維護，除非由 TSC 直接覆寫，否則本文件即屬權威文件。
 
-## Working Principles
+## 運作原則
 
-- Decision making is a spectrum between building broad consensus, in which
-  everyone has agreement, and providing guidance quickly, even when there are
-  strongly differing view-points. This group should intend to work towards broad
-  consensus, with a balance towards moving forward when there is minor
-  disagreement.
-- Members within this forum are representatives of the development community as
-  a whole and not as representatives for the entities they are employed by. As
-  such, decisions should be made based on merits of the decision at hand and not
-  on impacts to various member entities.
-- Encouraging progress, experimentation, and decision making within the project
-  is the core purpose of the TOF and not to create processes and barriers to
-  development. Velocity should be favored over perfection, except as a rationale
-  for ignoring well-reasoned issues.
+- 決策是一個光譜，一端是建立廣泛共識、使所有人都能同意，另一端是即使存在嚴重分歧的
+  觀點，也能迅速提供指引。本團隊應以追求廣泛共識為目標，並在僅有輕微異議時適度取捨、
+  往前推進。
+- 本論壇的成員是整個開發社群的代表，而非其所屬僱用機構的代表。因此，決策應依據當下
+  決策本身的優劣來判斷，而不應考量對各成員機構的影響。
+- 鼓勵進步、實驗以及專案內的決策，是 TOF 的核心目的，而非為了製造流程與開發障礙。
+  應優先講求速度而非完美，但不得以此為理由而忽略有理有據的問題。
 
-## Role and responsibilities
+## 角色與職責
 
-Issues the TOF handle include:
+TOF 處理的問題包括：
 
-- Approval of new bitbake meta layers.
-- Approval of new subprojects.
-- Supervising subproject maintainers.
-- Resolving subproject maintainer disputes.
-- Guidance and oversight of the technical direction of OpenBMC.
+- 核准新的 bitbake meta layer。
+- 核准新的子專案。
+- 監督子專案維護者。
+- 解決子專案維護者之間的爭議。
+- 針對 OpenBMC 的技術方向提供指引與監督。
 
-## Current members
+## 現任成員
 
-The current TOF members and terms are maintained in the
+現任 TOF 成員及其任期維護於
 [TOF membership](https://github.com/openbmc/docs/blob/master/tof/membership-and-voting.md#terms-and-elections)
-doc.
+文件中。
 
-The TOF shall have a minimum of 5 and maximum of 9 members at any given time.
+TOF 於任何時間成員人數最少 5 人、最多 9 人。
 
-The chair rotates month to month.
+主席職位按月輪替。
 
-Chair responsibilities:
+主席的職責：
 
-- Preparing the agenda.
-- Taking meeting minutes.
-- Documenting decisions on GitHub.
+- 準備議程。
+- 記錄會議記錄。
+- 在 GitHub 上記錄各項決定。
 
-Members are elected by community contributors yearly. The voting process will be
-determined by the TOF at a later date and updated in this document. TOF
-candidates should have a breadth of knowledge about the OpenBMC project. Ideal
-candidates will also have a public history of fostering collaboration between
-teams.
+成員由社群貢獻者每年選舉產生。投票程序將由 TOF 於日後決定並更新至本文件。TOF
+候選人應對 OpenBMC 專案具備廣泛的知識。理想的候選人還應有促進團隊間合作、且 publicly
+ 可查的紀錄。
 
-Resignation of TOF members will be handled as an empty/reduced seat until the
-next voting session.
+TOF 成員辭職時，其席位將視為空缺／遞減席位，直至下一次投票為止。
 
 ## Github issues
 
-The TOF tracks any ongoing decisions using GitHub issues in the
-[TOF repository](https://github.com/openbmc/technical-oversight-forum/issues).
-Issues can be opened by anyone, including TOF members themselves. Issues can be
-requests for process or technical changes, or solicitations for the opinion of
-the TOF. When an issue is opened the TOF will respond to a proposal or a
-solicitation, or add it to the next TOF meeting agenda for TOF discussion.
+TOF 使用
+[TOF repository](https://github.com/openbmc/technical-oversight-forum/issues)
+中的 GitHub issues 來追蹤所有進行中的決定。任何人都可以開啟 issue，TOF
+成員本身亦然。issue 可以是要求變更流程或技術內容，或是徵詢 TOF
+的意見。當 issue 開啟後，TOF 會回覆該提案或徵詢意見的要求，或將其列入下一次 TOF
+會議的議程以進行討論。
 
-Once an issue has a proposal, TOF members have 8 days to vote on the proposal in
-one of three ways: for, against, or “needs discussion”. After 8 days, if the
-proposal has at least three votes for and no other votes, the proposal is
-approved. Alternatively, if the proposal has at least three votes against and no
-other votes, the proposal is rejected and closed. Any other vote count results
-in the issue being put on the next TOF meeting agenda. To ensure proposals do
-not stagnate, if the initial 8 days elapses and the minimum number of votes has
-not been met, the proposal is extended by an additional 6 days and then put onto
-the next TOF meeting agenda after 2 weeks.
+一旦 issue 有提案後，TOF 成員有 8 天時間以三種方式之一對提案投票：贊成、反對或「需要討論」。
+8 天後，若提案至少有 3 票贊成且無其他票數，則提案獲准。反之，若提案至少有 3 票反對且無其他票數，
+則提案遭否決並關閉。任何其他票數結果都會使該 issue 被列入下一次 TOF 會議議程。為確保提案不會停滯，
+若最初的 8 天已過而仍未達最低投票數，則提案將延長額外 6 天，並在 2 週後列入下一次 TOF 會議議程。
 
-Issue vote indicators by reacting to the top post:
+透過對頂部貼文做出反應來表示 issue 投票指標：
 
-- For - 👍 (`:+1:`)
-- Against - 👎 (`:-1:`)
-- Needs discussion - 👀 (`:eyes:`)
+- 贊成 - 👍 (`:+1:`)
+- 反對 - 👎 (`:-1:`)
+- 需要討論 - 👀 (`:eyes:`)
 
-## Meetings
+## 會議
 
-The TOF meets bi-weekly. Any requests for consideration by the TOF should be
-submitted via a GitHub issue using the process documented earlier in this
-document.
+TOF 每隔兩週舉行會議。任何要求 TOF 審議的請求，都應依照本文件前述程序，透過 GitHub issue 提交。
 
-Meetings require a quorum of the TOF to be present; quorum is defined as:
+會議需要 TOF 達到法定人數（quorum）才能召開；法定人數定義如下：
 
-| Active TOF membership | Quorum |
+| 現行 TOF 成員人數 | 法定人數 |
 | --------------------- | ------ |
 | 5                     | 4      |
 | 6                     | 5      |
@@ -106,18 +87,12 @@ Meetings require a quorum of the TOF to be present; quorum is defined as:
 | 8                     | 5      |
 | 9                     | 6      |
 
-During the meeting, the TOF discusses proposals under dispute and votes on them.
-A proposal is rejected if it does not reach majority approval or there is more
-than one dissenting vote.
+會議期間，TOF 會討論有爭議的提案並對其投票。若提案未達到過半數贊成，或反對票超過一票，則該提案遭否決。
 
-It is the responsibility of the TOF chairperson to make a public record of the
-decisions of the meeting.
+TOF 主席有責任公開記錄會議的各項決定。
 
-## Discord channel
+## Discord 頻道
 
-The TOF has a private Discord channel for forum member coordination and, in rare
-situations, potentially sensitive topics. Sensitive topics would be topics
-having security or privacy concerns, such as those involving actions of an
-individual developer. The TOF chairperson is responsible for coordinating the
-public posting of any information or decisions that do not need to remain
-private, using the same process as public issues.
+TOF 設有一個私人的 Discord 頻道，供論壇成員協調運作，並在少數情況下處理可能敏感的主題。
+敏感主題是指涉及安全或隱私疑慮的主題，例如涉及個別開發者行為的事項。對於無需保密的資訊或決定，
+TOF 主席有責任依照與公開 issue 相同的程序，協調將其對外公開。

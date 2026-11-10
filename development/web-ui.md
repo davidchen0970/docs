@@ -1,112 +1,103 @@
-# OpenBMC Web User Interface Development
+# OpenBMC Web 使用者介面開發
 
-**Document Purpose:** How to customize, build, and run the OpenBMC Web UI
+**文件目的：** 如何客製化、建置與執行 OpenBMC Web UI
 
-**Audience:** Developer familiar with HTML, CSS and JS
+**目標讀者：** 熟悉 HTML、CSS 與 JS 的開發者
 
-**Prerequisites:** Current Linux, Mac, or Windows system
+**前置條件：** 目前的 Linux、Mac 或 Windows 系統
 
 ## Webui-vue
 
-The [webui-vue](https://github.com/openbmc/webui-vue) repository will replace
-phosphor-webui once it is deprecated. Webui-vue uses the
-[Vue.js](https://vuejs.org/) framework to interact with the BMC via the Redfish
-API.
+[webui-vue](https://github.com/openbmc/webui-vue) 儲存庫將在 phosphor-webui
+被淘汰後取代它。Webui-vue 使用 [Vue.js](https://vuejs.org/) 框架，透過 Redfish
+API 與 BMC 互動。
 
-Visit [README.md](https://github.com/openbmc/webui-vue/blob/master/README.md) to
-learn more about why the Vue.js application was created, features needed to
-reach parity and why it is replacing the Angular.JS application.
+請造訪
+[README.md](https://github.com/openbmc/webui-vue/blob/master/README.md)，進一步了解
+為何要建立這個 Vue.js 應用程式、要達到功能對等所需的功能，以及為何它要取代
+Angular.JS 應用程式。
 
-Visit
-[CONTRIBUTING.md](https://github.com/openbmc/webui-vue/blob/master/CONTRIBUTING.md)
-to find information on project set-up, design information, and contributing
-processes.
+請造訪
+[CONTRIBUTING.md](https://github.com/openbmc/webui-vue/blob/master/CONTRIBUTING.md)，
+尋找專案設定、設計資訊與貢獻流程的相關資訊。
 
-Visit the [OpenBMC Web UI Style Guide](https://openbmc.github.io/webui-vue/) to
-find information on:
+請造訪 [OpenBMC Web UI 樣式指南](https://openbmc.github.io/webui-vue/)，尋找以下資訊：
 
-- Coding Standards
-- Guidelines
-- Unit Testing
-- Components Usage
-- Quick Start References
+- 程式碼規範
+- 指導方針
+- 單元測試
+- 元件使用方式
+- 快速上手參考
 
-Visit the
-[OpenBMC Web UI Themes Guide - How to customize](https://openbmc.github.io/webui-vue/customization/theme.html)
-to learn how to create custom builds to meet your branding and customization
-needs for:
+請造訪
+[OpenBMC Web UI 佈景主題指南 - 如何客製化](https://openbmc.github.io/webui-vue/customization/theme.html)，
+了解如何建立自訂建置，以滿足你在以下方面的品牌與客製化需求：
 
-- Routing
-- Navigation
-- State Store
-- Theming
+- 路由
+- 導覽
+- 狀態儲存
+- 佈景主題
 
-### Load Web UI against QEMU
+### 針對 QEMU 載入 Web UI
 
-Connect to Web UI in QEMU
+連線到 QEMU 中的 Web UI
 
-1. You will need the QEMU session running per instructions in the "Download and
-   Start QEMU Session" section of
-   [dev-environment](https://github.com/openbmc/docs/blob/master/development/dev-environment.md).
+1. 你需要按照
+   [dev-environment](https://github.com/openbmc/docs/blob/master/development/dev-environment.md)
+   中「Download and Start QEMU Session」一節的說明，執行一個 QEMU 工作階段。
 
-2. Assuming you used the default of 2443 for the HTTPS port in your QEMU
-   session, you will point your web browser to <https://localhost:2443>.
+2. 假設你在 QEMU 工作階段中對 HTTPS 埠使用了預設值 2443，則請將瀏覽器指向
+   <https://localhost:2443>。
 
-3. Login with default username and password and verify basic Web UI features are
-   working as expected.
+3. 以預設的使用者名稱與密碼登入，並確認基本的 Web UI 功能如預期般運作。
 
-**Note** You will need to approve the security exception in your browser to
-connect. OpenBMC is running with a self-signed SSL certificate.
+**注意** 你需要在瀏覽器中核准安全性例外狀況才能連線。OpenBMC 是以自簽憑證
+（self-signed SSL certificate）執行。
 
 ## Phosphor-webui
 
-The [phosphor-webui](https://github.com/openbmc/phosphor-webui) repository
-provides a web-based interface for an OpenBMC. It uses the
-[AngularJS](https://angularjs.org/) framework to interact with the BMC via REST
-API calls. It allows users to view hardware information, update firmware, set
-network settings, and much more.
+[phosphor-webui](https://github.com/openbmc/phosphor-webui) 儲存庫為 OpenBMC
+提供了網頁式的介面。它使用 [AngularJS](https://angularjs.org/) 框架，透過 REST
+API 呼叫與 BMC 互動。它讓使用者能夠檢視硬體資訊、更新韌體、設定網路設定等等。
 
-See directions below to learn
-[how to customize phosphor-webui](#customize-phosphor-webui).
+請參考下方的說明，了解
+[如何客製化 phosphor-webui](#customize-phosphor-webui)。
 
-Phosphor-webui was built on AngularJS and AngularJS goes End of Life June
-30, 2021.
+Phosphor-webui 是以 AngularJS 建置，而 AngularJS 將於 2021 年 6 月 30 日終止支援
+（End of Life）。
 
-### Customize Phosphor-webui
+### 客製化 Phosphor-webui
 
-1. Clone the repository
+1. 複製儲存庫
 
    ```bash
    git clone https://github.com/openbmc/phosphor-webui.git
    ```
 
-2. Install appropriate packages and start web UI
+2. 安裝適當的套件並啟動 Web UI
 
-   Follow the directions in the phosphor-webui
-   [README](https://github.com/openbmc/phosphor-webui/blob/master/README.md) to
-   install the required packages and start the web UI. You can use the
-   development environment created in
+   請遵循 phosphor-webui
+   [README](https://github.com/openbmc/phosphor-webui/blob/master/README.md)
+   中的說明，安裝所需的套件並啟動 Web UI。你可以使用在
    [dev-environment](https://github.com/openbmc/docs/blob/master/development/dev-environment.md)
-   or your own system assuming you install the required packages noted in the
-   README.
+   中建立開發環境，或使用了你自己的系統——前提是你要安裝 README 中提到的所需套件。
 
-3. Customize the web UI login screen and verify
+3. 客製化 Web UI 登入畫面並驗證
 
-   Kill your npm run from the previous step using Ctrl^C. Grab a png that you
-   will use to represent your customized version of OpenBMC. Feel free to use
-   any .png you wish for this step.
+   使用 Ctrl^C 終止上一步驟的 npm run。取得一個 png，你將用它來代表你客製化
+   版本的 OpenBMC。這一步驟你可以隨意使用任何你想要的 .png。
 
    ```bash
    wget http://www.pngmart.com/files/3/Free-PNG-Transparent-Image.png
    ```
 
-   Copy your new .png into the appropriate directory
+   將你的新 .png 複製到適當的目錄
 
    ```bash
    cp Free-PNG-Transparent-Image.png app/assets/images/
    ```
 
-   Point to that new image in the web UI HTML
+   在 Web UI 的 HTML 中指向該新圖片
 
    ```bash
    vi app/login/controllers/login-controller.html
@@ -114,22 +105,20 @@ Phosphor-webui was built on AngularJS and AngularJS goes End of Life June
    <img src="../../assets/images/Free-PNG-Transparent-Image.png" class="login__logo" alt="OpenBMC logo" role="img"/>
    ```
 
-   Start up the server with your change
+   帶著你的變更啟動伺服器
 
    ```bash
    npm run-script server
    ```
 
-   Load web browser at <https://localhost:8080> and verify your new image is on
-   the login screen.
+   在瀏覽器中載入 <https://localhost:8080>，並確認登入畫面上有你的新圖片。
 
-   Kill your npm run using Ctrl^C.
+   使用 Ctrl^C 終止你的 npm run。
 
-4. Customize the header with the new image and verify The header is on every
-   page in the web UI. It has a smaller version of the logo in it which we are
-   changing with this step.
+4. 以新圖片客製化頁首（header）並驗證。頁首出現在 Web UI 的每個頁面上。它含有
+   一個較小尺寸的標誌，我們在這一步驟中要將它換掉。
 
-   Similar to the previous step, modify the appropriate HTML for the header:
+   與上一步驟類似，修改頁首對應的 HTML：
 
    ```bash
    vi app/common/directives/app-header.html
@@ -137,23 +126,18 @@ Phosphor-webui was built on AngularJS and AngularJS goes End of Life June
    <div class="logo__wrapper"><img src="../../assets/images/Free-PNG-Transparent-Image.png" class="header__logo" alt="company logo"/></div>
    ```
 
-   Start up the server with your change
+   帶著你的變更啟動伺服器
 
    ```bash
    npm run-script server
    ```
 
-   Browse to `https://localhost:8080` and verify your new image is on the
-   header.
+   瀏覽至 `https://localhost:8080`，並確認頁首上有你的新圖片。
 
-   Note that you will need to log in to view the header. Point the web UI to
-   your QEMU session by typing the QEMU session (e.g. localhost:2443) in the
-   "BMC HOST OR BMC IP ADDRESS" field.
+   請注意，你需要登入才能看到頁首。在「BMC HOST OR BMC IP ADDRESS」欄位中輸入
+   你的 QEMU 工作階段（例如 localhost:2443），將 Web UI 指向你的 QEMU 工作階段。
 
-   Note that in the HTML where you're replacing the images, there is also the
-   corresponding text that goes with the images. Changing the text to match with
-   your logo is also something you can easily do to customize your creation of
-   an OpenBMC system.
+   請注意，在你替換圖片的 HTML 中，還有與圖片相對應的文字。將文字改成與你的
+   標誌相符，也是你能輕鬆做到、用以客製化你所建立的 OpenBMC 系統的一件事。
 
-And that's it! You've downloaded, customized, and run the OpenBMC phosphor-webui
-code!
+就這樣！你已經下載、客製化並執行了 OpenBMC phosphor-webui 程式碼！

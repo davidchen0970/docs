@@ -1,143 +1,91 @@
-# Fail Boot on Hardware Errors
+# 硬體錯誤時中止開機
 
-Author: Andrew Geissler (geissonator)
+作者：Andrew Geissler (geissonator)
 
-Other contributors:
+其他貢獻者：
 
-Created: Feb 20, 2020 Updated: Apr 12, 2022
+建立日期：2020 年 2 月 20 日 更新日期：2022 年 4 月 12 日
 
-## Problem Description
+## 問題說明
 
-Some groups, for example a manufacturing team, have a requirement for the BMC
-firmware to halt a system if an error log is created which calls out a piece of
-hardware. The reason behind this is to ensure a system is not shipped to a
-customer if it has any type of hardware issue. It also ensures when an error is
-found, it is identified quickly and all activity stops until the issue is fixed.
-If the system has a hardware issue once shipped from manufacturing, then the BMC
-firmware behavior should be to report the error, but allow the system to
-continue to boot and operate.
+有些團隊，例如製造團隊，會要求 BMC 韌體在產生指認（call out）某項硬體元件的錯誤記錄時，中止系統運作。這樣做的原因是確保只要有硬體問題，就不會將系統出貨給客戶。它也能確保一旦發現錯誤，就能立即識別出來，並停止所有動作直到問題修復為止。如果系統在離開製造階段出貨之後才發生硬體問題，則 BMC 韌體的行為應該是回報錯誤，但允許系統繼續開機並運作。
 
-OpenBMC firmware needs a mechanism to support this use case.
+OpenBMC 韌體需要一個機制來支援這個使用案例。
 
-## Background and References
+## 背景與參考
 
-Within IBM, this function has been enabled/disabled by what is called
-manufacturing flags. They were bits the user could set in registry variables
-which the firmware would then query. These registry variables were only settable
-by someone with admin authority to the system. These flags were not used outside
-of manufacturing and test.
+在 IBM 內部，這個功能是由稱為「製造旗標」（manufacturing flags）的設定來啟用／停用。這些旗標是由使用者在 registry 變數中設定的位元，韌體會接著查詢這些變數。這些 registry 變數只能由對系統具有 admin 權限的人員設定。這些旗標不會在製造與測試之外使用。
 
-Extensions within phosphor-logging may process logs that do not always come
-through the standard phosphor-logging interfaces (for example logs sent down by
-the host). In these cases the system must still halt if those logs contain
-hardware callouts.
+phosphor-logging 內的擴充元件（extensions）可能會處理並非總是透過標準 phosphor-logging 介面傳入的記錄（例如主機（host）傳下來的記錄）。在這些情況下，如果那些記錄包含硬體指認（hardware callouts），系統仍必須中止。
 
-[This][1] email thread was sent on this topic to the list.
+一封關於這個主題的 [郵件][1] 討論串已寄到郵件清單。
 
-## Requirements
+## 需求
 
-- Provide a mechanism to cause the OpenBMC firmware to halt a system if a
-  phosphor-logging log is created with a inventory callout
-  - The mechanism to enable/disable this feature does not need to be an external
-    API (i.e. Redfish). It can simply be a busctl command one runs in an ssh to
-    the BMC
-  - The halt must be obvious to the user when it occurs
-    - The log which causes the halt must be identifiable
-  - The halt must only stop the chassis/host instance that encountered the error
-  - The halt must allow the host firmware the opportunity to gracefully shut
-    itself down
-  - The halt must stop the host (run `obmc-host-stop@X.target`) associated with
-    the error and attempt to leave system in the fail state (i.e. chassis power
-    remains on if it is on)
-  - The chassis/host instance pair will not be allowed to power on until the log
-    that caused the halt is resolved or deleted
-    - A BMC reset will clear this power on prevention
-- Ensure the mechanism used to halt firmware on inventory callouts can also be
-  utilized by phosphor-logging extensions to halt firmware for other causes
-  - These causes will be defined within the extensions documentation
-- Quiesce the associated host during this failure
+- 提供一個機制，讓 OpenBMC 韌體在產生帶有 inventory callout 的 phosphor-logging 記錄時中止系統運作
+  - 啟用／停用這個功能的機制不需要是外部 API（例如 Redfish）。它可以只是一個在 ssh 登入 BMC 後執行的 busctl 指令
+  - 中止發生時，必須讓使用者明顯察覺
+    - 造成中止的那筆記錄必須可以被識別
+  - 中止必須只停止遇到該錯誤的 chassis／host 實例
+  - 中止必須讓 host 韌體有機會優雅地（gracefully）自行關機
+  - 中止必須停止與該錯誤關聯的 host（執行 `obmc-host-stop@X.target`），並設法讓系統停留在失敗狀態（例如若 chassis 電源原本開啟，則維持開啟）
+  - 在造成中止的那筆記錄被解決或刪除之前，不允許該 chassis／host 實例對（pair）開機
+    - 重設 BMC 會清除這個開機阻止
+- 確保這個用於在 inventory callout 時中止韌體的機制，也能被 phosphor-logging 擴充元件利用，以針對其他原因中止韌體
+  - 這些原因將在各擴充元件的文件中定義
+- 在這種失敗期間讓相關聯的 host 進入靜止狀態（quiesce）
 
-**Special Note:** Initially the associated host and chassis will be hard coded
-to chassis0 and host0. More work throughout the BMC stack is required to handle
-multiple chassis and hosts. This design allows that type of feature to be
-enabled at a later time.
+**特別說明：** 初期，相關聯的 host 與 chassis 會硬編碼（hard coded）為 chassis0 與 host0。整個 BMC 堆疊還需要更多工作才能處理多個 chassis 與 host。本設計允許此類功能在稍後再啟用。
 
-## Proposed Design
+## 建議設計
 
-Create a [phosphor-settingsd][2] setting,
-`xyz.openbmc_project.Logging.Settings`. Within this create a boolean property
-called QuiesceOnHwError. This property will be hosted under the
-xyz.openbmc_project.Settings service.
+建立一個 [phosphor-settingsd][2] 設定，`xyz.openbmc_project.Logging.Settings`。在其內建立一個名為 QuiesceOnHwError 的布林屬性。這個屬性將由 xyz.openbmc_project.Settings 服務提供（host）。
 
-Define a new D-Bus interface which will indicate an error has been created which
-will prevent the boot of a chassis/host instance:
+定義一個新的 D-Bus 介面，用來表示已產生一筆會阻止某個 chassis／host 實例開機的錯誤：
 `xyz.openbmc_project.Logging.ErrorBlocksTransition`
 
-This interface will be hosted under a instance based D-Bus object
-`/xyz/openbmc_project/logging/blockX` where X is the instance of the
-chassis/host pair being blocked.
+這個介面將由一個基於實例（instance based）的 D-Bus 物件提供：
+`/xyz/openbmc_project/logging/blockX`，其中 X 是被阻止的 chassis／host 實例對的實例編號。
 
-When an error is created via a phosphor-logging interface, the software will
-check to see if the error has a callout, and if so it will check the new
-`xyz.openbmc_project.Logging.Settings.QuiesceOnHwError`. If this is true then
-phosphor-logging will create a `/xyz/openbmc_project/logging/blockX` D-Bus
-object with a `xyz.openbmc_project.Logging.ErrorBlocksTransition` interface
-under it. A mapper [association][3] between the log and this new D-Bus object
-will be created. The corresponding host instance will be put in quiesce by
-phosphor-logging.
+當透過 phosphor-logging 介面產生錯誤時，軟體會檢查該錯誤是否有 callout，若有則會檢查新的
+`xyz.openbmc_project.Logging.Settings.QuiesceOnHwError`。如果此值為 true，則 phosphor-logging 會在
+`/xyz/openbmc_project/logging/blockX` 建立一個 D-Bus 物件，其下帶有 `xyz.openbmc_project.Logging.ErrorBlocksTransition`
+介面。並會在這筆記錄與這個新 D-Bus 物件之間建立一個 mapper [association][3]。對應的 host 實例將由
+phosphor-logging 使其進入靜止狀態（quiesce）。
 
-The blocked state can be exited by rebooting the BMC or clearing the log
-responsible for the blocking. Other system specific policies could be placed in
-the appropriate targets (for example if a chassis power off should clear the
-block)
+可以透過重啟 BMC 或清除造成阻止的那筆記錄來脫離阻止狀態。其他系統專屬的政策可以放在適當的 targets 中（例如，若 chassis 關機應該要清除阻止）。
 
-See the phosphor-logging [callout][4] design for more information on callouts.
+關於 callouts 的更多資訊，請參閱 phosphor-logging 的 [callout][4] 設計。
 
-A new `obmc-host-graceful-quiesce@.target` systemd target will be started. This
-new target will ensure a graceful shutdown of the host is initated and then
-start the `obmc-host-quiesce@.target` which will stop the host and move the host
-state to Quiesced.
+將啟動一個新的 `obmc-host-graceful-quiesce@.target` systemd target。這個新的 target 會確保對 host 發起優雅關機，接著啟動 `obmc-host-quiesce@.target`，後者會停止 host 並將 host 狀態移至 Quiesced。
 
-obmcutil will be enhanced to look for these block interfaces and notify the user
-via the `obmcutil state` command if a block is enabled and what log is
-associated with it.
+obmcutil 將被增強，以尋找這些 block 介面，並在 block 啟用時透過 `obmcutil state` 指令通知使用者，以及哪個記錄與之關聯。
 
-The goal is to build upon this concept when future design work is done to allow
-developers to associate certain error logs with causing a halt to the system
-until a log is handled.
+目標是當未來的設計工作允許開發者將某些錯誤記錄與「在記錄被處理前中止系統」建立關聯時，能基於這個概念進一步建構。
 
-## Host Errors
+## Host 錯誤
 
-In certain scenarios, it is desirable to also halt the boot, and prevent it from
-rebooting, when the host sends down certain errors to the BMC.
+在某些情境下，當 host 將某些錯誤傳給 BMC 時，也希望能中止開機並阻止其重新開機。
 
-These errors may be of SEL format, or may be OEM specific, such as the [PEL
-format][5] used by IBM.
+這些錯誤可能是 SEL 格式，也可能是 OEM 專屬格式，例如 IBM 使用的 [PEL 格式][5]。
 
-The interfaces provided within phosphor-logging to handle the hardware callout
-scenarios can be repurposed for this use case.
+phosphor-logging 內用於處理硬體 callout 情境的介面，可以重新用途（repurposed）應用於這個使用案例。
 
-## Alternatives Considered
+## 已考量的替代方案
 
-Currently this feature is a part of the base phosphor-logging design. If no one
-other then IBM sees value, we could roll this into the PEL-specific portion of
-phosphor-logging.
+目前這個功能是 phosphor-logging 基礎設計的一部分。如果除了 IBM 之外沒有人認為它有價值，我們可以將它併入 phosphor-logging 中 PEL 專屬的部分。
 
-## Impacts
+## 影響
 
-This will require some additional checking on reported logs but should have
-minimal overhead.
+這將需要對回報的記錄進行一些額外檢查，但應該只有極小的額外負擔（overhead）。
 
-There will be no changes to system behavior unless a user turns on this new
-setting.
+除非使用者開啟這個新設定，否則不會改變系統行為。
 
-## Testing
+## 測試
 
-Unit tests will be run to ensure logic to detect errors with logs and verify
-both possible values of the new setting.
+將執行單元測試（unit tests），以確保偵測記錄中錯誤的邏輯，並驗證新設定的兩種可能值。
 
-Test cases will need to look for this new blocking D-Bus object and handle
-appropriately.
+測試案例將需要尋找這個新的阻止用 D-Bus 物件並適當處理。
 
 [1]: https://lists.ozlabs.org/pipermail/openbmc/2020-February/020575.html
 [2]: https://github.com/openbmc/phosphor-settingsd

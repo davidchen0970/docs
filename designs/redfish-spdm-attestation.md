@@ -1,179 +1,153 @@
-# Redfish SPDM Attestation Support
+# Redfish SPDM 認證（Attestation）支援
 
-Author: Zhichuang Sun
+作者：Zhichuang Sun
 
-Other contributors: Jerome Glisse, Ed Tanous, Manojkiran Eda
+其他貢獻者：Jerome Glisse、Ed Tanous、Manojkiran Eda
 
-Created: June 27th, 2023 Last Updated: Oct 30th, 2023
+建立日期：2023 年 6 月 27 日 最後更新：2023 年 10 月 30 日
 
-## Problem Description
+## 問題描述
 
-Redfish added schema for
-[ComponentIntegrity](https://redfish.dmtf.org/redfish/schema_index), which
-allows users to use [SPDM](https://www.dmtf.org/standards/spdm) or
+Redfish 新增了
+[ComponentIntegrity](https://redfish.dmtf.org/redfish/schema_index)
+的 schema，讓使用者可以使用 [SPDM](https://www.dmtf.org/standards/spdm) 或
 [TPM](https://trustedcomputinggroup.org/resource/trusted-platform-module-tpm-summary/)
-to authenticate device identity, hardware configuration and firmware integrity.
-It would be useful to add SPDM attestation support in BMCWeb, which provides
-unified interface for device security attestation in data centers, and provide a
-generic implementation for the SPDM D-Bus Daemon.
+來驗證裝置身分、硬體設定與韌體完整性。在 BMCWeb 中加入 SPDM
+認證支援會很有幫助，這能為資料中心的裝置安全認證提供統一的介面，並為 SPDM
+D-Bus Daemon 提供一套通用的實作。
 
-This design focuses on SPDM.
+本設計聚焦於 SPDM。
 
-## Background and References
+## 背景與參考資料
 
-SPDM (Security Protocols and Data Models) is a spec published by
-[DMTF](https://www.dmtf.org/sites/default/files/standards/documents/DSP0274_1.3.0.pdf).
-It is designed for secure attestation of devices. GitHub repo
-[libspdm](https://github.com/DMTF/libspdm) provides an open-source
-implementation of the SPDM protocol. Redfish Schema
+SPDM（Security Protocols and Data Models）是由
+[DMTF](https://www.dmtf.org/sites/default/files/standards/documents/DSP0274_1.3.0.pdf)
+發布的規範。它是為了裝置的安全認證而設計。GitHub 上的
+[libspdm](https://github.com/DMTF/libspdm)
+儲存庫提供了 SPDM 協定的開源實作。Redfish Schema
 [ComponentIntegrity](https://redfish.dmtf.org/schemas/v1/ComponentIntegrity.v1_2_1.json)
-adds support for doing SPDM-based device attestation over Redfish API.
+新增了透過 Redfish API 進行 SPDM 裝置認證的支援。
 
-## Requirements
+## 需求
 
-This feature aims at supporting SPDM attestation through Redfish API and
-providing system administrators and operators an easy way to remotely verify the
-identity and integrity of devices.
+此功能目標在於透過 Redfish API 支援 SPDM 認證，並為系統管理人員與維運人員提供一種簡便的方式， remotely（遠端）驗證裝置的身分與完整性。
 
-This design includes:
+本設計包含：
 
-- New D-Bus interfaces for Redfish resources `ComponentIntegrity` and
-  `TrustedComponent`.
-- BMCWeb changes for supporting the above Redfish resources.
-- Design for SPDM Attestation D-Bus Daemon, demonstrating how to fetch the
-  attestation results over D-Bus.
+- 為 Redfish 資源 `ComponentIntegrity` 與 `TrustedComponent` 新增的 D-Bus
+  介面。
+- 為支援上述 Redfish 資源而進行的 BMCWeb 變更。
+- SPDM Attestation D-Bus Daemon 的設計，示範如何透過 D-Bus 取得認證結果。
 
-## Proposed Design
+## 建議設計
 
-### Attestation related D-Bus Interfaces
+### 認證相關的 D-Bus 介面
 
-There are three type of information we will need from an attestation daemon on
-D-Bus:
+在 D-Bus 上，我們需要從認證 daemon 取得三類資訊：
 
-1. Basic information, like attestation protocol, enablement status, update
-   timestamp, etc.
-2. Identity information, e.g., device identity certificates.
-3. Measurements information, e.g., measurements of the component firmware,
-   hardware configuration, etc.
+1. 基本資訊，例如認證協定、啟用狀態、更新時間戳記等。
+2. 身分資訊，例如裝置身分憑證。
+3. 量測（Measurements）資訊，例如元件韌體、硬體設定等的量測值。
 
-So far, phosphor-dbus-interfaces lacks interfaces defined for attestation
-purpose. Thus, we propose three new interfaces:
+到目前為止，phosphor-dbus-interfaces 缺乏為認證用途定義的介面。因此我們提出三個新介面：
 
 - `Attestation.ComponentIntegrity`
 - `Attestation.IdentityAuthentication`
 - `Attestation.MeasurementSet`
 
-`Attestation.ComponentIntegrity` provides basic component integrity information,
-including the protocol to measure the integrity, last updated time, attestation
-enablement status, etc. There are also associations proposed for this interface,
-including a link to the trusted component that the component integrity object is
-reporting, and a link to the systems that the component integrity object is
-protecting. Note, the "trusted component" in this doc refers to a trusted
-device, such as a TPM, an integrated Root of Trust (ROT).
+`Attestation.ComponentIntegrity`
+提供基本的元件完整性資訊，包括用以量測完整性的協定、最後更新時間、認證啟用狀態等。這個介面也提出了幾項關聯（associations），包括指向該元件完整性物件所回報之受信任元件（trusted component）的連結，以及指向該元件完整性物件所保護之系統（systems）的連結。請注意，本文件中的「受信任元件（trusted component）」指的是一台受信任的裝置，例如 TPM、整合式的信任根（Root of Trust，ROT）。
 
-`Attestation.IdentityAuthentication` provides identity verification information.
-Two associations are proposed to link it to the requester and the responder's
-certificates.
+`Attestation.IdentityAuthentication`
+提供身分驗證資訊。我們提出了兩項關聯，將它連結到要求端（requester）與回應端（responder）的憑證。
 
-`Attestation.MeasurementSet` defines the dbus method to get SPDM measurements.
-It can be extended to measurements fetched using other protocol in the future.
+`Attestation.MeasurementSet`
+定義了取得 SPDM 量測值的 D-Bus 方法。未來它可以延伸支援使用其他協定取得的量測值。
 
-The proposed Phosphor D-Bus Interfaces is here:
-[component-integrity](https://gerrit.openbmc.org/c/openbmc/phosphor-dbus-interfaces/+/64354).
+這裡是建議的 Phosphor D-Bus Interfaces：
+[component-integrity](https://gerrit.openbmc.org/c/openbmc/phosphor-dbus-interfaces/+/64354)。
 
-### TrustedComponent related D-Bus Interfaces
+### TrustedComponent 相關的 D-Bus 介面
 
-We also propose to add one Inventory interface for `TrustedComponent`, namely
-`Inventory.Item.TrustedComponent`. `TrustedComponent` represents a trusted
-hardware component, typically known as Root of Trust(ROT). It can be an
-externally attached security chip, like a TPM, or a hardware IP integrated into
-a device. It can securely measure the integrity information of a device.
+我們也提議為 `TrustedComponent` 新增一個 Inventory 介面，也就是
+`Inventory.Item.TrustedComponent`。`TrustedComponent`
+代表一個受信任的硬體元件，通常稱為信任根（Root of Trust，ROT）。它可以是一顆外接的安全晶片，例如 TPM，或是整合進裝置中的硬體
+IP。它能安全地量測裝置的完整性資訊。
 
-`Inventory.Item.TrustedComponent` interface defines the following properties
+`Inventory.Item.TrustedComponent` 介面定義了以下屬性
 
-- `AttachmentType`, which gives information on whether this trusted component is
-  integrated into the device or is discrete from the device.
+- `AttachmentType`，提供這個受信任元件是整合在裝置內部、還是與裝置分離（discrete）的資訊。
 
-A `TrustedComponent` is typically associated with other hardware components
-which it is protecting. It should also be associated with the component
-integrity object reported by this `TrustedComponent`.
+一個 `TrustedComponent`
+通常會與它所保護的其他硬體元件產生關聯。它也應該與這個 `TrustedComponent`
+所回報的元件完整性物件（component integrity object）產生關聯。
 
-The proposed Phosphor D-Bus Interfaces for `TrustedComponent` is here:
-[trusted-component](https://gerrit.openbmc.org/c/openbmc/phosphor-dbus-interfaces/+/64355).
+這裡是為 `TrustedComponent` 建議的 Phosphor D-Bus Interfaces：
+[trusted-component](https://gerrit.openbmc.org/c/openbmc/phosphor-dbus-interfaces/+/64355)。
 
 ### SPDM Attestation D-Bus Daemon
 
-[Experimental support for SPDM exists for `bmcweb`](https://github.com/openbmc/bmcweb/compare/master...sunzc:bmcweb:spdm),
-which adds routes in the BMCWeb for `ComponentIntegrity` and `TrustedComponent`
-to support it. But BMCWeb collects the information from D-Bus. The SPDM
-Attestation D-Bus Daemon does the actual work.
+[`bmcweb` 已有實驗性的 SPDM
+支援](https://github.com/openbmc/bmcweb/compare/master...sunzc:bmcweb:spdm)，
+它在 BMCWeb 中為 `ComponentIntegrity` 與 `TrustedComponent`
+新增了路由（routes）來支援此功能。但 BMCWeb
+是從 D-Bus 收集資訊，實際的工作由 SPDM Attestation D-Bus Daemon 負責。
 
-SPDM protocol needs to be bound to a transport layer protocol, which transmits
-SPDM messages between the BMC and the device. The transport layer protocol can
-be MCTP, PCIe-DOE, or even TCP socket. For MCTP, the lower physical layer can be
-PCI-VDM, SMBus/I2C, and so on. Note,
-[`libspdm` already provides transport layer protocol binding](https://github.com/DMTF/libspdm/blob/main/include/internal/libspdm_common_lib.h#L445-L446)
-with message encoding/decoding support. The device send/receive function is left
-for SPDM daemon to implement If the transport layer is using standard MCTP,
-PCIe-DOE, or TCP setting up the transport layer connection could be easy. In
-this design, we only consider SPDM over standard MCTP,TCP & PCIe-DOE connection.
+SPDM 協定需要綁定到一個傳輸層協定，由該協定在 BMC 與裝置之間傳送 SPDM
+訊息。傳輸層協定可以是 MCTP、PCIe-DOE，甚至 TCP socket。若是 MCTP，下層的實體層可以是 PCI-VDM、SMBus/I2C
+等。請注意，[`libspdm` 已提供傳輸層協定綁定](https://github.com/DMTF/libspdm/blob/main/include/internal/libspdm_common_lib.h#L445-L446)，
+並具備訊息編碼／解碼的支援。裝置的傳送／接收函式則留給 SPDM daemon 去實作。若傳輸層使用標準的
+MCTP、PCIe-DOE 或 TCP，設定傳輸層連線可能會很簡單。在本設計中，我們只考慮 SPDM over 標準
+MCTP、TCP 與 PCIe-DOE 連線。
 
-For SPDM-over-MCTP, SPDM daemon can query the mctpd for information about MCTP
-endpoint, including the endpoint id(eid) and upper layer responder, and create a
-connection only for endpoint that has SPDM as its upper layer responder.
+對於 SPDM-over-MCTP，SPDM daemon 可以向 mctpd 查詢 MCTP
+端點（endpoint）的資訊，包括端點 id（eid）與上層回應端（upper layer responder），並且只為那些以上層回應端為
+SPDM 的端點建立連線。
 
-For SPDM-over-TCP, SPDM daemon can query [entity-manager][entity-source] for
-information about remote TCP endpoints, including the `hostname / ip-address` &
-`port` details from the `SpdmTcpResponder` interface and create a connection
-either by using the reach out model (or) reach down model as stated in the [SPDM
-over TCP specification][spdm-tcp-spec]
+對於 SPDM-over-TCP，SPDM daemon 可以向
+[entity-manager][entity-source] 查詢遠端 TCP 端點的資訊，包括來自
+`SpdmTcpResponder` 介面的 `hostname / ip-address` 與 `port`
+詳細資料，並依照 [SPDM over TCP 規範][spdm-tcp-spec]
+所述的 reach out 模型或 reach down 模型來建立連線。
 
 [entity-source]: https://github.com/openbmc/entity-manager
 [spdm-tcp-spec]:
   https://www.dmtf.org/sites/default/files/standards/documents/DSP0287_1.0.0.pdf
 
-For SPDM-over-PCIe-DOE, SPDM daemon need the PCIe device BDF to handle DOE
-mailbox discovery. Given that not all PCIe devices support DOE support SPDM, we
-cannot query about whether a DOE capable device supports SPDM. Therefore, we
-need a way to pass the device info to the dameon. However, PCIe device
-BDF(Bus:Device:Function) info are dynamically assigned during system boot. The
-same device may get assigned different BDF on different machine. What the daemon
-needs should be the PCIe device ID, which is identified by `VendorId:DeviceId`.
-For the convenience of configuration, we should pass PCIe device ID to the
-daemon, so that the daemon can enumerate all the PCIe devices and find the
-matching devices by their device ID. There are different ways to pass PCIe
-device ID info to the dameon, e.g., configuration file, command line parameters.
+對於 SPDM-over-PCIe-DOE，SPDM daemon 需要 PCIe 裝置的 BDF 來處理 DOE
+mailbox 的探索（discovery）。由於並非所有支援 DOE 的 PCIe 裝置都支援
+SPDM，我們無法查詢一個具備 DOE 能力的裝置是否支援 SPDM。因此我們需要某種方式將裝置資訊傳給
+daemon。然而，PCIe 裝置的 BDF（Bus:Device:Function）資訊是在系統開機期間動態指派的。同一個裝置在不同的機器上可能會被指派不同的
+BDF。daemon 所需要的應該是 PCIe 裝置 ID，它以 `VendorId:DeviceId`
+來識別。為了設定的便利性，我們應該把 PCIe 裝置 ID 傳給 daemon，讓 daemon
+可以列舉所有 PCIe 裝置，並依裝置 ID 找到符合的裝置。將 PCIe 裝置 ID 資訊傳給 daemon 的方式有很多種，例如設定檔、命令列參數。
 
-For PCIe DOE devices, SPDM daemon can enumerage all PCI devices under sysfs and
-find out all BDFs with matching `VendorId:DeviceId`. SPDM daemon also needs to
-query `InventoryManager` to get all PCI device inventory paths. By querying
-`InventoryManager` managed objects and checking object interface
-`xyz.openbmc_project.Inventory.Item.PCIeDevice`, which has property
-`FunctionXVendorId` and `FunctionXDeviceId` (X represents numbers from 0 to 7),
-we can find all PCI device inventory paths with matching `VendorId:DeviceId`. So
-far, there is no universal way to map a given device's BDF to its inventory
-path. It is up to the vendor to do the association.
+對於 PCIe DOE 裝置，SPDM daemon 可以在 sysfs 下列舉所有 PCI
+裝置，找出所有 `VendorId:DeviceId` 相符的 BDF。SPDM daemon
+也需要查詢 `InventoryManager` 以取得所有 PCI 裝置的 inventory 路徑。透過查詢
+`InventoryManager`
+管理的物件並檢查物件介面 `xyz.openbmc_project.Inventory.Item.PCIeDevice`，它有屬性
+`FunctionXVendorId` 與 `FunctionXDeviceId`（X 代表 0 到 7 的數字），我們就能找出所有
+`VendorId:DeviceId`
+相符的 PCI 裝置 inventory 路徑。到目前為止，尚沒有一種通用的方式可以將某個裝置的 BDF 對應到它的 inventory 路徑。這部分的關聯要由供應商自行處理。
 
-For MCTP devices detection, the community has been working on `mctpreactor`
-daemon in dbus-sensors to handle the configuration. The proposed
-[implementation](https://gerrit.openbmc.org/c/openbmc/dbus-sensors/+/69111); the
-related [PR discussion](https://github.com/CodeConstruct/mctp/pull/17). SPDM
-daemon will monitor `mctpd` for `InterfacesAdded` signals providing the
-`xyz.openbmc_project.MCTP.Endpoint` interface, which exposes the message types
-supported by the endpoint in the `SupportedMessageTypes` member. SPDM daemon set
-up a connection with the SPDM-capable endpoints to get certificates and
-measurements. For signals sent before SPDM daemon launches, SPDM daemon should
-query the `mctpd` for any detected endpoints after it gets launched.
+關於 MCTP 裝置偵測，社群一直在 dbus-sensors 中開發 `mctpreactor`
+daemon 來處理設定。相關的[實作](https://gerrit.openbmc.org/c/openbmc/dbus-sensors/+/69111)；以及相關的
+[PR 討論](https://github.com/CodeConstruct/mctp/pull/17)。SPDM daemon
+會監聽 `mctpd` 提供 `xyz.openbmc_project.MCTP.Endpoint`
+介面的 `InterfacesAdded` 訊號，該介面在 `SupportedMessageTypes`
+成員中公開端點所支援的訊息類型。SPDM daemon
+會與具備 SPDM 能力的端點建立連線，以取得憑證與量測值。對於在 SPDM daemon
+啟動之前就已發送的訊號，SPDM daemon 應在自己啟動後向 `mctpd`
+查詢任何已偵測到的端點。
 
-For Network based device detection , SPDM daemon would monitor for
-`InterfacesAdded` signal provided by
-`xyz.openbmc_project.Configuration.SpdmTcpResponder` interface, which exposes
-the `Hostname` & `Port` of the remote entity. For signals sent before SPDM
-daemon launches, SPDM daemon should query the `entity-manager` for any detected
-endpoints after it gets launched.
+關於網路型裝置偵測，SPDM daemon
+會監聽由`xyz.openbmc_project.Configuration.SpdmTcpResponder`
+介面提供的 `InterfacesAdded` 訊號，該介面公開遠端實體的 `Hostname` 與
+`Port`。對於在 SPDM daemon 啟動之前就已發送的訊號，SPDM daemon
+應在自己啟動後向 `entity-manager` 查詢任何已偵測到的端點。
 
-Below is a high-level diagram showing the relationship between different
-components.
+下圖是一個高階示意圖，展示各元件之間的關係。
 
 ```ascii
     +------+            +---------+
@@ -181,173 +155,130 @@ components.
     +--+---+            |Manager  |
        |                +---^-----+           +-------+
        |                    |                 |PCIe   |
-    +--v---+            +---+---+------------>|Device |
-    |BMCWeb+----------->|SPDM   |             +-------+
-    +------+            |Daemon |
-                        +---+---+------------>+-------+
-                            |                 |MCTP   |
-                        +---v---+             |Device |
-                        |mctpd  |             +-------+
-                        +-------+
+     +--v---+            +---+---+------------>|Device |
+     |BMCWeb+----------->|SPDM   |             +-------+
+     +------+            |Daemon |
+                         +---+---+------------>+-------+
+                             |                 |MCTP   |
+                         +---v---+             |Device |
+                         |mctpd  |             +-------+
+                         +-------+
 ```
 
-A reference D-Bus Daemon workflow would be like this:
+一個參考的 D-Bus Daemon 工作流程如下：
 
-0. (Probing phase) Entity Manager will parse the configuration file for trusted
-   components; mctpd finish discovery of mctp endpoints. These are prerequisites
-   for SPDM daemon.
-1. Check transport layer protocol. For MCTP, it queries mctpd to gather all eids
-   that support SPDM; For PCIe-DOE, it performs DOE mailbox discovery with the
-   PCIe device ID; For TCP, it queries entity-manager to gather the remote IP
-   address & Port.
-2. For each endpoint, which could be MCTP, PCIe-DOE or TCP, SPDM daemon query
-   Entity Manager for the matching trusted component configuration. It then
-   creates and initializes the corresponding D-Bus object for `TrustedComponent`
-   and `ComponentIntegrity` with device specific information.
-3. Create the associations between the above objects and associations with other
-   objects, e.g., protected components, active software images;
-4. Set up a connection between the BMC and each SPDM-capable device;
-5. Initialize the SPDM context on top of the connection.
-6. Exchange SPDM messages to get device certificates.
-7. Create device certificate objects and create certificate associations for
-   trusted component object and component integrity object.
-8. Wait on D-Bus and serve any runtime `SPDMGetSignedMeasurements` requests.
+0. （探索階段，Probing phase）Entity Manager 會解析受信任元件的設定檔；mctpd
+   完成 MCTP 端點的探索。這些是 SPDM daemon 的前置條件。
+1. 檢查傳輸層協定。若是 MCTP，它向 mctpd 查詢以蒐集所有支援 SPDM 的 eid；若是
+   PCIe-DOE，它依 PCIe 裝置 ID 執行 DOE mailbox 探索；若是
+   TCP，它向 entity-manager 查詢以蒐集遠端 IP 位址與 Port。
+2. 對每個端點（可能是 MCTP、PCIe-DOE 或 TCP），SPDM daemon 向 Entity
+   Manager 查詢符合的受信任元件設定。接著它建立並初始化對應的 D-Bus
+   物件，用於 `TrustedComponent` 與 `ComponentIntegrity`，並帶入裝置專屬的資訊。
+3. 在上述物件之間建立關聯，並與其他物件建立關聯，例如受保護的元件、作用中的軟體映像（active software images）；
+4. 在 BMC 與每個具備 SPDM 能力的裝置之間建立連線；
+5. 在連線之上初始化 SPDM context。
+6. 交換 SPDM 訊息以取得裝置憑證。
+7. 建立裝置憑證物件，並為受信任元件物件與元件完整性物件建立憑證關聯。
+8. 在 D-Bus 上等待，並處理任何執行期的 `SPDMGetSignedMeasurements` 請求。
 
-### Device Certificate
+### 裝置憑證
 
-In OpenBMC, there is a
-[certificate manager](https://github.com/openbmc/phosphor-certificate-manager),
-which allows users to install or replace server/client certificates. However,
-the existing certificates manager is designed for managing server/client
-certificates for HTTPS/LDAP services. It's not suitable for device certificates.
-Existing cert manager has several limitations:
+在 OpenBMC 中，有一個
+[certificate manager](https://github.com/openbmc/phosphor-certificate-manager)，
+它讓使用者可以安裝或取代伺服器／用戶端憑證。然而，現有的憑證管理器是為管理 HTTPS/LDAP 服務的伺服器／用戶端憑證而設計的，並不適用於裝置憑證。現有的憑證管理器有幾項限制：
 
-- Each manager can only manage one certificate.
-- Each manager assumes access to both the private key and the public key (e.g.,
-  for completing CSR request).
+- 每個管理器只能管理一個憑證。
+- 每個管理器都假設同時能取得私密金鑰（private key）與公開金鑰（public key）（例如為了完成 CSR 請求）。
 
-Device certificates have different requirements:
+裝置憑證有不同的需求：
 
-- Device certificate manager manages several certificates for a group of
-  devices, for example, four GPUs would have four certificates.
-- Device certificate does not assume private key access. It is used for identity
-  authentication only. It does not provide CSR signing services. The private key
-  should never leave the device Root of Trust(RoT) component.
+- 裝置憑證管理器會為一組裝置管理多個憑證，例如四顆 GPU 就會有四張憑證。
+- 裝置憑證不假設能取得私密金鑰。它只用於身分驗證。它不提供 CSR 簽署服務。私密金鑰不應離開裝置的信任根（Root of Trust，RoT）元件。
 
-For device certificates, we only need to create/replace certificate objects, no
-need for a global cert manager that "manages" the device certificates. SPDM
-D-Bus daemon can simply talk to the devices, get the certificates from them, and
-create D-Bus object for the certificates.
+對於裝置憑證，我們只需要建立／取代憑證物件，不需要一個「管理」裝置憑證的全域憑證管理器。SPDM D-Bus daemon 可以直接與裝置溝通、向它們取得憑證，並為這些憑證建立 D-Bus 物件。
 
-In Redfish, device certificates are under Chassis, and are accessible via
-`/redfish/v1/Chassis/{ChassisId}/Certificates/`. Existing cert manager
-constructs cert path following the pattern
-`"/xyz/openbmc_project/certs/{type}/{endpoint}".` To comply with it, we propose
-to put device certificates under
-`/xyz/openbmc_project/certs/chassis/{ChassisId}/{certsId}`. So that for all
-device certificates on a chassis, we can find those certificates with its
-chassisId on D-Bus.
+在 Redfish 中，裝置憑證位於 Chassis 之下，可透過 `/redfish/v1/Chassis/{ChassisId}/Certificates/` 存取。現有的憑證管理器依模式 `"/xyz/openbmc_project/certs/{type}/{endpoint}"` 來建構憑證路徑。為了符合這個模式，我們提議把裝置憑證放在 `/xyz/openbmc_project/certs/chassis/{ChassisId}/{certsId}`。如此一來，對於某個機箱（chassis）上的所有裝置憑證，我們就能在 D-Bus 上依其 chassisId 找到這些憑證。
 
-### BMCWeb Support
+### BMCWeb 支援
 
-In BMCWeb, we need to add routes handler for `ComponentIntegrity`,
-`TrustedComponent` and `Certificates`. The corresponding URI are specified as
-follows according to Redfish spec:
+在 BMCWeb 中，我們需要為 `ComponentIntegrity`、`TrustedComponent` 與 `Certificates` 新增路由處理常式（routes handler）。根據 Redfish 規範，對應的 URI 定義如下：
 
 - `/redfish/v1/ComponentIntegrity/`
 - `/redfish/v1/Chassis/{ChassisId}/TrustedComponents/`
 
-The TrustedComponent represents a ROT or TPM, and its associated certificates
-should be represented as subordinate resources under TrustedComponent. For the
-proper URI structure for certificates, please refer to the [Redfish Data Model
-Specification][1]. Look for the CertificatesCollection row in the specification.
+TrustedComponent 代表一個 ROT 或 TPM，與它關聯的憑證應以附屬資源（subordinate resources）的形式呈現在 TrustedComponent 之下。關於憑證正確的 URI 結構，請參考 [Redfish Data Model Specification][1]。在規範中尋找 CertificatesCollection 那一列。
 
 - `/redfish/v1/Chassis/{ChassisId}/TrustedComponents/{TrustedComponentId}/`
   `Certificates`
 - `/redfish/v1/Chassis/{ChassisId}/TrustedComponents/{TrustedComponentId}/`
   `Certificates/{CertificateId}`
 
-On the D-Bus Daemon side, we propose that the dbus objects are organized in the
-following way:
+在 D-Bus Daemon 端，我們建議 D-Bus 物件以下列方式組織：
 
 - `/xyz/openbmc_project/component_integrity/{component_integrity_id}`
 - `/xyz/openbmc_project/trusted_components/{trusted_component_id}`
 - `/xyz/openbmc_project/certs/devices/{chassis_id}/{cert_id}`
 
-In BMCWeb, we can reconstruct the following redfish URI by querying the
-associated Chassis from the trusted component:
+在 BMCWeb 中，我們可以透過從受信任元件查詢其關聯的 Chassis，重建出以下的 Redfish URI：
 
 - `/redfish/v1/Chassis/{ChassisId}/TrustedComponents/{TrustedComponentId}`
 
-## Alternatives Considered
+## 曾考慮的替代方案
 
-Alternative way to manage device certificates would be modifying existing
-[phosphor-certificate-manager](https://github.com/openbmc/phosphor-certificate-manager).
+管理裝置憑證的另一種方式是修改現有的
+[phosphor-certificate-manager](https://github.com/openbmc/phosphor-certificate-manager)。
 
-Device certificates management has two steps:
+裝置憑證管理有兩個步驟：
 
-- Step 1: fetch device certificate by exchange SPDM messages with device.
-- Step 2: create or update a dbus certificate object.
+- 步驟 1：透過與裝置交換 SPDM 訊息來取得裝置憑證。
+- 步驟 2：建立或更新一個 D-Bus 憑證物件。
 
-Step 1 can only be handled by the SPDM daemon. Step 2 is simple enough to be
-handled by the D-Bus daemon, too. It would be a over-kill to modify existing
-phosphor-certificate-manager for the sole purpose.
+步驟 1 只能由 SPDM daemon 處理。步驟 2 足夠簡單，也可以由 D-Bus daemon 處理。僅為了這個單一目的去修改現有的 phosphor-certificate-manager 會是過度工程（over-kill）。
 
-## Impacts
+## 影響
 
-This change will:
+此變更要：
 
-- Create a SPDM daemon that can do SPDM attestation for SPDM-capable devices
-  over PCIe DOE, MCTP or TCP.
-- Add `ComponentIntegrity` and `TrustedComponent` related D-Bus interfaces in
-  phosphor-dbus-interfaces.
-- Extend existing certificate service in BMCWeb.
-- Add SPDM support in BMCWeb with new routes.
+- 建立一個 SPDM daemon，能為具備 SPDM 能力的裝置透過 PCIe DOE、MCTP 或 TCP 執行 SPDM 認證。
+- 在 phosphor-dbus-interfaces 中新增 `ComponentIntegrity` 與 `TrustedComponent` 相關的 D-Bus 介面。
+- 延伸 BMCWeb 中現有的憑證服務。
+- 在 BMCWeb 中新增 SPDM 支援及新路由。
 
-### Organizational
+### 組織層面
 
-This repository requires creating a new repository for the SPDM daemon. In
-addition, the following repositories are expected to be modified to execute this
-design:
+此功能需要為 SPDM daemon 建立一個新的儲存庫。此外，預期會修改以下儲存庫以執行本設計：
 
 - <https://github.com/openbmc/bmcweb>
 - <https://github.com/openbmc/phosphor-dbus-interfaces>
 
-## Testing
+## 測試
 
-### Unit Test
+### 單元測試
 
-For the BMCWeb changes, unit test can be done with the Redfish Service
-Validator.
+對於 BMCWeb 的變更，可以使用 Redfish Service Validator 進行單元測試。
 
-For the SPDM Attestation D-Bus Daemon, unit tests should cover the following
-cases:
+對於 SPDM Attestation D-Bus Daemon，單元測試應涵蓋以下情境：
 
-- Set up a transport layer connection with the device.
-- Unit tests should be implemented to ensure the infrastructure functions
-  reliably, regardless of the underlying transport mechanisms.
-- SPDM connection setup, including get capabilities, negotiate algorithms.
-- Get device certificates from device and create D-Bus object.
-- `SPDMGetSignedMeasurements` method test.
-- Enumerate trusted component D-Bus objects and check properties and
-  associations.
-- Enumerate component integraty D-Bus objects and check properties and
-  associations.
+- 與裝置建立傳輸層連線。
+- 應實作單元測試以確保基礎設施函式可靠運作，無論底層的傳輸機制為何。
+- SPDM 連線的建立，包括取得能力（get capabilities）、協商演算法（negotiate algorithms）。
+- 從裝置取得裝置憑證並建立 D-Bus 物件。
+- `SPDMGetSignedMeasurements` 方法測試。
+- 列舉受信任元件的 D-Bus 物件並檢查屬性與關聯。
+- 列舉元件完整性的 D-Bus 物件並檢查屬性與關聯。
 
-### Integration Test
+### 整合測試
 
-BMCWeb/D-Bus Daemon integration test should cover the following type of
-requests:
+BMCWeb/D-Bus Daemon 整合測試應涵蓋以下幾類請求：
 
-- Get a collection of `ComponentIntegrity` resources.
-- Get a collection of `TrustedComponent` resource.
-- Get properties of a `ComponentIntegrity` resources.
-- Get properties of a `TrustedComponent` resource.
-- Follow the resources link to get the device certificates and verify that they
-  are correctly structured as subordinate resources under the TrustedComponent.
-- Get properties of `Certificate` resource and verify responses match with leaf
-  certificate in the certificate chain.
-- Call Action on the `ComponentIntegrity` resource to get measurements.
+- 取得一組 `ComponentIntegrity` 資源（collection）。
+- 取得一組 `TrustedComponent` 資源（collection）。
+- 取得某個 `ComponentIntegrity` 資源的屬性。
+- 取得某個 `TrustedComponent` 資源的屬性。
+- 沿著資源連結（resources link）取得裝置憑證，並驗證它們是否正確地以附屬資源的形式呈現在 TrustedComponent 之下。
+- 取得 `Certificate` 資源的屬性，並驗證回應與憑證鏈（certificate chain）中的末端憑證（leaf certificate）相符。
+- 對 `ComponentIntegrity` 資源呼叫 Action（動作）以取得量測值。
 
 [1]:
   https://www.dmtf.org/sites/default/files/standards/documents/DSP0268_2024.4.html#resource-collection-uris-in-redfish-v16-and-later

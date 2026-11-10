@@ -1,53 +1,46 @@
-# How to configure the server TLS certificates for authentication
+# 如何設定伺服器 TLS 憑證以進行驗證
 
-Author: Zbigniew Kurzynski <zbigniew.kurzynski@intel.com>
+作者：Zbigniew Kurzynski <zbigniew.kurzynski@intel.com>
 
-Created: May 8, 2020
+建立日期：2020 年 5 月 8 日
 
-Related documents:
+相關文件：
 
-- [Redfish TLS User Authentication](https://github.com/openbmc/docs/blob/master/designs/redfish-tls-user-authentication.md)
+- [Redfish TLS 使用者驗證](https://github.com/openbmc/docs/blob/master/designs/redfish-tls-user-authentication.md)
 
-## Introduction
+## 簡介
 
-With help of this guidebook you should be able to create both client and server
-certificates signed by a CA that can be used to authenticate user requests to an
-OpenBMC server. You will also learn how to enable and test the OpenBMC TLS
-authentication.
+透過本指南，你應該能夠建立由 CA 簽署的用戶端與伺服器憑證，用來驗證送往 OpenBMC 伺服器的使用者要求。你也會學到如何啟用並測試 OpenBMC 的 TLS 驗證。
 
-## Certificates
+## 憑證
 
-For a certificate to be marked as valid, it (and every certificate in the chain)
-has to meet these conditions:
+若要讓憑證被標記為有效，它（以及鏈中的每一張憑證）都必須符合以下條件：
 
-- `KeyUsage` contains required purpose `digitalSignature` and `keyAgreement`
-  (see rfc 3280 4.2.1.3)
-- `ExtendedKeyUsage` contains required purpose `clientAuth` for client
-  certificate and `serverAuth` for server certificate (see rfc 3280 4.2.1.13)
-- public key meets minimal bit length requirement
-- certificate has to be in its validity period
-- `notBefore` and `notAfter` fields have to contain valid time
-- has to be properly signed by certificate authority
-- certificate is well-formed according to X.509
-- issuer name has to match CA's subject name for client certificate
-- issuer name has to match the fully qualified domain name of your OpenBMC host
+- `KeyUsage` 包含所需用途 `digitalSignature` 與 `keyAgreement`
+  （請參閱 rfc 3280 4.2.1.3）
+- `ExtendedKeyUsage` 對用戶端憑證包含所需用途 `clientAuth`，對伺服器憑證包含
+  `serverAuth`（請參閱 rfc 3280 4.2.1.13）
+- 公鑰符合最小位元長度要求
+- 憑證必須處於其有效期限內
+- `notBefore` 與 `notAfter` 欄位必須包含有效的時間
+- 必須由憑證授權中心（certificate authority）正確簽署
+- 憑證依 X.509 而言格式正確
+- 對用戶端憑證而言，發行者名稱必須與 CA 的主體名稱相符
+- 發行者名稱必須與你 OpenBMC 主機的完整網域名稱相符
 
-If you already have certificates you can skip to
-[Enable TLS authentication](#enable-tls-authentication) or go to
-[Verify certificates](#verify-certificates) and check if they meet the above
-requirements.
+如果你已經有憑證，可以直接跳到
+[啟用 TLS 驗證](#enable-tls-authentication)，或前往
+[驗證憑證](#verify-certificates)並檢查它們是否符合上述要求。
 
-### Prepare configuration files
+### 準備設定檔
 
-To generate certificates with required parameters some modification must be made
-to the default openssl configuration file.
+若要產生具備所需參數的憑證，必須對預設的 openssl 設定檔做一些修改。
 
-First create a new folder named `ca` and create a configuration file using the
-default configuration as a template (we do not want to change the original one).
-The location of the configuration file may vary depending on the operating
-system. For Ubuntu it is usually `/usr/lib/ssl/openssl.cnf`, but can also can be
-at `/etc/ssl/openssl.cnf`. For Cygwin it might be
-`/etc/defaults/etc/pki/tls/openssl.cnf` or `/etc/pki/tls/openssl.cnf`.
+首先建立一個名為 `ca` 的新資料夾，並以預設設定檔作為範本來建立設定檔
+（我們不想更動原本的那一份）。設定檔的位置會依作業系統而異。
+在 Ubuntu 上通常是 `/usr/lib/ssl/openssl.cnf`，但也可能在 `/etc/ssl/openssl.cnf`。
+在 Cygwin 上可能是 `/etc/defaults/etc/pki/tls/openssl.cnf`
+或 `/etc/pki/tls/openssl.cnf`。
 
 ```bash
 mkdir ~/ca
@@ -55,14 +48,14 @@ cd ~/ca
 cp /usr/lib/ssl/openssl.cnf openssl-client.cnf
 ```
 
-Then open the client `~/ca/openssl-client.cnf` file in your favorite editor, for
-example `vi`.
+接著用你最喜歡的編輯器（例如 `vi`）開啟用戶端設定檔
+`~/ca/openssl-client.cnf`。
 
 ```bash
 vi ~/ca/openssl-client.cnf
 ```
 
-Find the sections listed below and add or choose the presented values.
+找到下列各區塊，並加入或選擇所示的值。
 
 ```bash
 [ req ]
@@ -76,14 +69,13 @@ extendedKeyUsage = clientAuth
 keyUsage = digitalSignature, keyAgreement
 ```
 
-Now create a server configuration `openssl-server.cnf` by copying the client
-file
+現在透過複製用戶端檔案來建立伺服器設定檔 `openssl-server.cnf`
 
 ```bash
 cp ~/ca/openssl-client.cnf openssl-server.cnf
 ```
 
-and changing values presented in the sections listed below.
+並修改下列各區塊中所示的值。
 
 ```bash
 [ usr_cert ]
@@ -93,9 +85,8 @@ extendedKeyUsage = serverAuth
 extendedKeyUsage = serverAuth
 ```
 
-Create two additional configuration files `myext-client.cnf` and
-`myext-server.cnf` for the client and server certificates respectively. Without
-these files no extensions are added to the certificate.
+分別為用戶端與伺服器憑證建立另外兩個設定檔 `myext-client.cnf`
+與 `myext-server.cnf`。若沒有這些檔案，就不會有任何擴充屬性被加入憑證中。
 
 ```bash
 cat << END > myext-client.cnf
@@ -115,90 +106,82 @@ authorityKeyIdentifier = keyid
 END
 ```
 
-### Create a new CA certificate
+### 建立新的 CA 憑證
 
-First we need to create a private key to sign the CA certificate.
+首先我們需要建立一個私密金鑰來簽署 CA 憑證。
 
 ```bash
 openssl genrsa -out CA-key.pem 2048
 ```
 
-Now we can create a CA certificate, using the previously generated key. You will
-be prompted for information which will be incorporated into the certificate,
-such as Country, City, Company Name, etc.
+現在我們可以使用先前產生的金鑰來建立 CA 憑證。系統會提示你輸入一些會被
+納入憑證的資訊，例如國家、城市、公司名稱等。
 
 ```bash
 openssl req -new -config openssl-client.cnf -key CA-key.pem -x509 -days 1000 -out CA-cert.pem
 ```
 
-### Create client certificate signed by given CA certificate
+### 建立由指定 CA 憑證簽署的用戶端憑證
 
-To create a client certificate, a signing request must be created first. For
-this another private key will be needed.
+要建立用戶端憑證，必須先建立簽署要求（signing request）。
+為此需要另一個私密金鑰。
 
-Generate a new key that will be used to sign the certificate signing request:
+產生一個將用來簽署憑證簽署要求的新金鑰：
 
 ```bash
 openssl genrsa -out client-key.pem 2048
 ```
 
-Generate a certificate signing request.
+產生憑證簽署要求。
 
-You will be prompted for the same information as during CA generation, but
-provide **the OpenBMC system user name** for the `CommonName` attribute of this
-certificate. In this example, use **root**.
+系統會提示你輸入與產生 CA 時相同的資訊，但請為此憑證的 `CommonName`
+屬性提供 **OpenBMC 系統使用者名稱**。在本範例中使用 **root**。
 
 ```bash
 openssl req -new -config openssl-client.cnf -key client-key.pem -out signingReqClient.csr
 ```
 
-Sign the certificate using your `CA-cert.pem` certificate with following
-command:
+使用你的 `CA-cert.pem` 憑證，並以下列命令簽署憑證：
 
 ```bash
 openssl x509 -req -extensions my_ext_section -extfile myext-client.cnf -days 365 -in signingReqClient.csr -CA CA-cert.pem -CAkey CA-key.pem -CAcreateserial -out client-cert.pem
 ```
 
-The file `client-cert.pem` now contains a signed client certificate.
+檔案 `client-cert.pem` 現在包含一張已簽署的用戶端憑證。
 
-### Create server certificate signed by given CA certificate
+### 建立由指定 CA 憑證簽署的伺服器憑證
 
-For convenience we will use the same CA generated in paragraph
-[Create a new CA certificate](#create-a-new-ca-certificate), although a
-different one could be used.
+為了方便起見，我們將使用在
+[建立新的 CA 憑證](#create-a-new-ca-certificate)一節中所產生的同一個 CA，
+不過也可以使用另一個不同的 CA。
 
-Generate a new key that will be used to sign the server certificate signing
-request:
+產生一個將用來簽署伺服器憑證簽署要求的新金鑰：
 
 ```bash
 openssl genrsa -out server-key.pem 2048
 ```
 
-Generate a certificate signing request. You will be prompted for the same
-information as during CA generation, but provide **the fully qualified domain
-name of your OpenBMC server** for the `CommonName` attribute of this
-certificate. In this example it will be `bmc.example.com`. A wildcard can be
-used to protect multiple host, for example a certificate configured for
-`*.example.com` will secure `www.example.com`, as well as `mail.example.com`,
-blog.example.com, and others.
+產生憑證簽署要求。系統會提示你輸入與產生 CA 時相同的資訊，但請為此憑證的
+`CommonName` 屬性提供 **你 OpenBMC 伺服器的完整網域名稱**。在本範例中它會是
+`bmc.example.com`。可以使用萬用字元（wildcard）來保護多部主機，例如一張設定為
+`*.example.com` 的憑證將能保護 `www.example.com`、`mail.example.com`、
+blog.example.com 以及其他主機。
 
 ```bash
 openssl req -new -config openssl-server.cnf -key server-key.pem -out signingReqServer.csr
 ```
 
-Sign the certificate using your `CA-cert.pem` certificate with following
-command:
+使用你的 `CA-cert.pem` 憑證，並以下列命令簽署憑證：
 
 ```bash
 openssl x509 -req -extensions my_ext_section -extfile myext-server.cnf -days 365 -in signingReqServer.csr -CA CA-cert.pem -CAkey CA-key.pem -CAcreateserial -out server-cert.pem
 ```
 
-The file `server-cert.pem` now contains a signed server certificate.
+檔案 `server-cert.pem` 現在包含一張已簽署的伺服器憑證。
 
-### Verify certificates
+### 驗證憑證
 
-To verify the signing request and both certificates you can use following
-commands.
+若要驗證簽署要求與兩張憑證，你可以使用下列命令。
 
 ```bash
 openssl x509 -in CA-cert.pem -text -noout
@@ -208,21 +191,18 @@ openssl req -in signingReqClient.csr -noout -text
 openssl req -in signingReqServer.csr -noout -text
 ```
 
-Below are example listings that you can compare with your results. Pay special
-attention to attributes like:
+以下是範例清單，你可以拿來與自己的結果比較。請特別注意以下屬性：
 
-- Validity in both certificates,
-- `Issuer` in `client-cert.pem`, it must match to `Subject` in `CA-cert.pem`,
-- Section _X509v3 extensions_ in `client-cert.pem` it should contain proper
-  values,
-- `Public-Key` length, it cannot be less than 2048 bits.
-- `Subject` CN in `client-cert.pem`, it should match existing OpenBMC user name.
-  In this example it is **root**.
-- `Subject` CN in `server-cert.pem`, it should match OpenBMC host name. In this
-  example it is **bmc.example.com**. (see rfc 3280 4.2.1.11 for name
-  constraints)
+- 兩張憑證中的 Validity（有效期限），
+- `client-cert.pem` 中的 `Issuer`，它必須與 `CA-cert.pem` 中的 `Subject` 相符，
+- `client-cert.pem` 中的 _X509v3 extensions_ 區塊，它應該包含正確的值，
+- `Public-Key` 長度，不可小於 2048 位元。
+- `client-cert.pem` 中 `Subject` 的 CN，它應該與既有的 OpenBMC 使用者名稱相符。
+  在本範例中是 **root**。
+- `server-cert.pem` 中 `Subject` 的 CN，它應該與 OpenBMC 主機名稱相符。在本
+  範例中是 **bmc.example.com**。（關於名稱限制，請參閱 rfc 3280 4.2.1.11）
 
-Below are fragments of generated certificates that you can compare with.
+以下是可供比較的憑證產生片段。
 
 ```text
 CA-cert.pem
@@ -329,14 +309,13 @@ server-cert.pem
 
 ```
 
-## Installing CA certificate on OpenBMC
+## 在 OpenBMC 上安裝 CA 憑證
 
-The CA certificate can be installed via Redfish Service. The file `CA-cert.pem`
-can not be uploaded directly but must be sent embedded in a valid JSON string,
-which requires `\`, `"`, and control characters must be escaped. This means all
-content is placed in a single string on a single line by encoding the line
-endings as `\n`. The command below prepares a whole POST body and puts it into a
-file named: `install_ca.json`.
+CA 憑證可以透過 Redfish Service 安裝。檔案 `CA-cert.pem` 無法直接上傳，
+必須內嵌在有效的 JSON 字串中送出，這需要跳脫 `\`、`"` 以及控制字元。
+這意味著所有內容必須以將換行符號編碼為 `\n` 的方式，放置於單一行中的單一
+字串內。下面的命令會準備好整個 POST 主體，並將其放入名為
+`install_ca.json` 的檔案。
 
 ```bash
 cat << END > install_ca.json
@@ -347,32 +326,30 @@ cat << END > install_ca.json
 END
 ```
 
-To install the CA certificate on the OpenBMC server post the content of
-`install_ca.json` with this command:
+若要在 OpenBMC 伺服器上安裝 CA 憑證，請用此命令送出
+`install_ca.json` 的內容：
 
-Where `${bmc}` should be `bmc.example.com`. It is convenient to export it as an
-environment variable.
+其中 `${bmc}` 應該是 `bmc.example.com`。將它匯出為環境變數會比較方便。
 
 ```bash
 curl --user root:0penBmc -d @install_ca.json -k -H "Content-Type: application/json" -X POST https://${bmc}/redfish/v1/Managers/bmc/Truststore/Certificates
 
 ```
 
-Credentials `root:0penBmc` can be replaced with any system user name and
-password of your choice but with proper access rights to resources used here.
+憑證 `root:0penBmc` 可以替換成任何你選用的系統使用者名稱與密碼，
+但必須具備此處所用資源的適當存取權限。
 
-After successful certificate installation you should get positive HTTP response
-and a new certificate should be available under this resource collection.
+憑證成功安裝後，你應該會收到成功的 HTTP 回應，並且在這個資源集合下應該
+可以取得一張新的憑證。
 
 ```bash
 curl --user root:0penBmc -k https://${bmc}/redfish/v1/Managers/bmc/Truststore/Certificates
 
 ```
 
-An auto-generated self-signed server certificate is already present on OpenBMC
-by default. To use the certificate signed by our CA it must be replaced.
-Additionally we must upload to OpenBMC the private key that was used to sign the
-server certificate. A proper message mody can be prepared the with this command:
+OpenBMC 預設已經存在一張自動產生的自簽伺服器憑證。若要使用由我們自己的
+CA 簽署的憑證，就必須將它替換掉。此外我們還必須將用來簽署伺服器憑證的
+私密金鑰上傳到 OpenBMC。可以使用這個命令準備好適當的訊息主體：
 
 ```bash
 cat << END > replace_cert.json
@@ -387,62 +364,59 @@ cat << END > replace_cert.json
 END
 ```
 
-To replace the server certificate on the OpenBMC server post the content of
-`replace_cert.json` with this command:
+若要替換 OpenBMC 伺服器上的伺服器憑證，請用此命令送出
+`replace_cert.json` 的內容：
 
 ```bash
 curl --user root:0penBmc -d @replace_cert.json -k -H "Content-Type: application/json" -X POST https://${bmc}/redfish/v1/CertificateService/Actions/CertificateService.ReplaceCertificate/
 
 ```
 
-## Enable TLS authentication
+## 啟用 TLS 驗證
 
-To check current state of the TLS authentication method use this command:
+若要檢查 TLS 驗證方式的目前狀態，請使用這個命令：
 
 ```bash
 curl --user root:0penBmc -k https://${bmc}/redfish/v1/AccountService
 ```
 
-and verify that the attribute `Oem->OpenBMC->AuthMethods->TLS` is set to true.
+並確認屬性 `Oem->OpenBMC->AuthMethods->TLS` 設為 true。
 
-To enable TLS authentication use this command:
+若要啟用 TLS 驗證，請使用這個命令：
 
 ```bash
 curl --user root:0penBmc  -k -X PATCH -H "Content-Type: application/json" --data '{"Oem": {"OpenBMC": {"AuthMethods": { "TLS": true} } } }' https://${bmc}/redfish/v1/AccountService
 ```
 
-To disable TLS authentication use this command:
+若要停用 TLS 驗證，請使用這個命令：
 
 ```bash
 curl --user root:0penBmc  -k -X PATCH -H "Content-Type: application/json" --data '{"Oem": {"OpenBMC": {"AuthMethods": { "TLS": false} } } }' https://${bmc}/redfish/v1/AccountService
 ```
 
-Other authentication methods like basic authentication can be enabled or
-disabled as well using the same mechanism. All supported authentication methods
-are available under attribute `Oem->OpenBMC->AuthMethods` of the
-`/redfish/v1/AccountService` resource.
+其他驗證方式（例如 basic authentication）也可以使用相同的機制啟用或停用。
+所有支援的驗證方式都可以在 `/redfish/v1/AccountService` 資源的屬性
+`Oem->OpenBMC->AuthMethods` 下取得。
 
-## Using TLS to access OpenBMC resources
+## 使用 TLS 存取 OpenBMC 資源
 
-If TLS is enabled, valid CA certificate was uploaded and the server certificate
-was replaced it should be possible to execute curl requests using only client
-certificate, key, and CA like below.
+如果 TLS 已啟用、有效的 CA 憑證已上傳且伺服器憑證已替換，那麼應該就能只
+使用用戶端憑證、金鑰與 CA 來執行 curl 要求，如下所示。
 
 ```bash
 curl --cert client-cert.pem --key client-key.pem -vvv --cacert CA-cert.pem https://${bmc}/redfish/v1/SessionService/Sessions
 ```
 
-## Common mistakes during TLS configuration
+## TLS 設定過程中的常見錯誤的常見錯誤
 
-- Invalid date and time on OpenBMC,
+- OpenBMC 上的日期與時間無效，
 
-- Testing Redfish resources, like `https://${bmc}/redfish/v1` which are always
-  available without any authentication will always result with success, even
-  when TLS is disabled or certificates are invalid.
+- 測試 Redfish 資源（例如 `https://${bmc}/redfish/v1`），這類資源無需任何
+  驗證即可存取，因此不論 TLS 是否停用或憑證是否無效，結果永遠都會成功。
 
-- Certificates do not meet the requirements. See paragraphs
-  [Verify certificates](#verify-certificates).
+- 憑證不符合要求。請參閱
+  [驗證憑證](#verify-certificates)一節。
 
-- Attempting to load the same certificate twice will end up with an error.
+- 嘗試載入同一張憑證兩次會導致錯誤。
 
-- Not having phosphor-bmcweb-cert-config in the build.
+- 建置中未包含 phosphor-bmcweb-cert-config。

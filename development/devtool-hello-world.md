@@ -1,39 +1,37 @@
-# OpenBMC Hello World using devtool
+# 使用 devtool 開發 OpenBMC Hello World
 
-**Document Purpose:** Walk through compiling and running an OpenBMC application
-in QEMU.
+**文件目的：** 帶領你完成在 QEMU 中編譯並執行一個 OpenBMC 應用程式。
 
-**Prerequisites:** Completed Development Environment Setup
-[Document](https://github.com/openbmc/docs/blob/master/development/dev-environment.md)
+**前置條件：** 已完成開發環境設定
+[文件](https://github.com/openbmc/docs/blob/master/development/dev-environment.md)
 
-## Clone and Build a Repo
+## Clone 並 Build 一個 Repo
 
-devtool is a command line tool provided by the yocto distribution that allows
-you to extract a targeted repositories source code into your local bitbake
-environment and modify it.
+devtool 是 yocto 發行版所提供的一款命令列工具，讓你可以將目標 repo
+的原始碼萃取到本地的 bitbake 環境中並加以修改。
 
-Today we'll be extracting the
+今天我們要使用 devtool 來萃取
 [phosphor-state-manager](https://github.com/openbmc/phosphor-state-manager.git)
-repository using devtool and modifying it.
+repo 並對它進行修改。
 
-This assumes you have followed the first tutorial and are in the bitbake
-environment, right after doing the ". setup" command.
+這裡假設你已經依照第一篇教學完成操作，並且正處於 bitbake 環境中，也就是
+才剛執行完 ". setup" 命令的狀態。
 
-1. Use devtool to extract source code
+1. 使用 devtool 萃取原始碼
 
    ```bash
    devtool modify phosphor-state-manager
    ```
 
-   The above command will output the directory the source code is contained in.
+   上述命令會輸出存放原始碼的目錄。
 
-2. Modify a source file and add a cout
+2. 修改一個原始碼檔案並加入一個 cout
 
    ```bash
    vi workspace/sources/phosphor-state-manager/bmc_state_manager_main.cpp
    ```
 
-   Your diff should look something like this:
+   你的 diff 看起來應該類似這樣：
 
    ```bash
    +#include <iostream>
@@ -50,76 +48,72 @@ environment, right after doing the ". setup" command.
        {
    ```
 
-3. Rebuild the flash image which will now include your change
+3. 重新 build 開機映像檔，它現在會包含你的修改
 
-   This will be a much faster build as bitbake will utilize all of the cache
-   from your previous build, only building what is new.
+   這次的 build 會快很多，因為 bitbake 會充分利用你前一次 build
+   的快取，只編譯新增的部分。
 
    ```bash
    bitbake obmc-phosphor-image
    ```
 
-   Follow the steps in the first tutorial to load your new image into a QEMU
-   session and boot it up.
+   依照第一篇教學的步驟，把你的新映像檔載入到 QEMU session
+   並開機。
 
-4. Confirm your "Hello World" made it into the new image
+4. 確認你的 "Hello World" 已進到新映像檔中
 
-   After you login to your QEMU session, verify the message is in the journal
+   登入你的 QEMU session 後，確認 journal 中有這則訊息
 
    ```bash
    journalctl | grep "Hello World"
    ```
 
-   You should see something like this:
+   你應該會看到類似這樣的內容：
 
    ```bash
    <date> romulus phosphor-bmc-state-manager[1089]: Hello World
    ```
 
-You made a change, rebuilt the flash image to contain that change, and then
-booted that image up and verified the change made it in!
+你完成了一項修改，重新 build 出包含該修改的開機映像檔，接著把該映像檔開機並確認修改確實生效了！
 
-## Loading an Application Directly Into a Running QEMU
+## 直接把應用程式載入到執行中的 QEMU
 
-In this section we're going to modify the same source file, but instead of fully
-re-generating the flash image and booting QEMU again, we're going to just build
-the required binary and copy it into the running QEMU session and launch it.
+在這一節中，我們會修改同樣的原始碼檔案，但這次不再完整地重新產生開機映像檔
+並重新啟動 QEMU，而是只 build 出所需的 binary，把它複製到正在執行的 QEMU
+session 中並啟動它。
 
-1. Modify your hello world
+1. 修改你的 hello world
 
    ```bash
    vi workspace/sources/phosphor-state-manager/bmc_state_manager_main.cpp
    ```
 
-   Change your cout to "Hello World Again"
+   把你的 cout 改成 "Hello World Again"
 
-2. Bitbake only the phosphor-state-manager repository
+2. 只 Bitbake phosphor-state-manager 這個 repo
 
-   Within bitbake, you can build only the repository (and it's dependencies)
-   that you are interested in. In this case, we'll just rebuild the
-   phosphor-state-manager repo to pick up your new hello world change.
+   在 bitbake 中，你可以只 build 你有興趣的那個 repo（以及它的相依套件）。
+   在這裡，我們只重新 build phosphor-state-manager repo，以取得你新的 hello
+   world 修改。
 
    ```bash
    bitbake phosphor-state-manager
    ```
 
-   Your new binary will be located at the following location relative to your
-   bitbake directory:
+   你的新 binary 會位於相對於你 bitbake 目錄的以下位置：
    `./workspace/sources/phosphor-state-manager/oe-workdir/package/usr/bin/phosphor-bmc-state-manager`
 
-3. Create a safe file system for your application
+3. 為你的應用程式建立一個安全的檔案系統
 
-   Now is time to load your Hello World application in to QEMU virtual hardware.
-   The OpenBMC overrides the PATH variable to always look in /usr/local/bin/
-   first so you could simply scp your application in to /usr/local/bin, run it
-   and be done. That works fine for command line tests, but when you start
-   launching your applications via systemd services you will hit problems since
-   application paths are hardcoded in the service files. Let's start our journey
-   doing what the professionals do and create an overlay file system. Overlays
-   will save you time and grief. No more renaming and recovering original files,
-   no more forgetting which files you messed with during debug, and of course,
-   no more bricking the system. Log in to the QEMU instance and run these
-   commands.
+   現在是把你的 Hello World 應用程式載入到 QEMU
+   虛擬硬體的時候了。OpenBMC 會覆寫 PATH
+   變數，讓它一律優先尋找 /usr/local/bin/，所以你可以乾脆把應用程式 scp
+   進到 /usr/local/bin，執行它就結束了。對於命令列測試這樣做沒問題，但當你
+   開始透過 systemd service 啟動應用程式時就會遇到問題，因為應用程式路徑是
+   硬編碼在 service 檔案裡的。讓我們從專業人士的做法開始，建立一個 overlay
+   檔案系統。Overlay 能幫你省下時間與麻煩：不必再重新命名並還原原始檔案，
+   不必再忘記你在除錯時動過哪些檔案，當然，也不必再把系統搞掛。登入 QEMU
+   實例並執行這些命令。
 
    ```bash
    mkdir -p /tmp/persist/usr
@@ -127,65 +121,64 @@ the required binary and copy it into the running QEMU session and launch it.
    mount -t overlay -o lowerdir=/usr,upperdir=/tmp/persist/usr,workdir=/tmp/persist/work/usr overlay /usr
    ```
 
-4. scp this binary onto your QEMU instance
+4. 用 scp 把這個 binary 傳到你的 QEMU 實例上
 
-   If you used the default ports when starting QEMU then here is the scp command
-   to run from your phosphor-state-manager directory. If you chose your own port
-   then substitute that here for the 2222.
+   如果你啟動 QEMU 時使用的是預設連接埠，那麼以下是從你的
+   phosphor-state-manager 目錄執行的 scp 命令。如果你選擇了自己的連接埠，
+   就在這裡把 2222 換掉。
 
    ```bash
    scp -P 2222 ./workspace/sources/phosphor-state-manager/oe-workdir/package/usr/bin/phosphor-bmc-state-manager root@127.0.0.1:/usr/bin/
    ```
 
-## Run the Application in QEMU
+## 在 QEMU 中執行應用程式
 
-1. Stop the BMC state manager service
+1. 停止 BMC state manager service
 
    ```bash
    systemctl stop xyz.openbmc_project.State.BMC.service
    ```
 
-2. Run the application in your QEMU session:
+2. 在你的 QEMU session 中執行應用程式：
 
    ```bash
    phosphor-bmc-state-manager
    ```
 
-   You'll see your "Hello World Again" message displayed. Ctrl^C to end that
-   application. In general, this is not how you will test new applications.
-   Instead, you'll be using systemd services.
+   你會看到你的 "Hello World Again" 訊息顯示出來。按 Ctrl^C
+   結束該應用程式。一般來說，這並不是你測試新應用程式的方式。實際上你會使用
+   systemd service。
 
-3. Start application via systemd service
+3. 透過 systemd service 啟動應用程式
 
-   OpenBMC uses systemd to manage its applications. There will be later
-   tutorials on this, but for now just run the following to restart the BMC
-   state service and have it pick up your new application:
+   OpenBMC 使用 systemd 來管理它的應用程式。之後會有相關的教學，但目前先執行
+   以下命令來重新啟動 BMC state service，讓它載入你的新應用程式：
 
    ```bash
    systemctl restart xyz.openbmc_project.State.BMC.service
    ```
 
-   Since systemd started your service, the "Hello World Again" will not be
-   output to the console, but it will be in the journal. Later tutorials will
-   discuss the journal but for now just run:
+   由於是 systemd 啟動你的 service，"Hello World Again"
+   不會輸出到控制台，但它會出現在 journal 中。後續的教學會討論 journal，但目前
+   先執行：
 
    ```bash
    journalctl | tail
    ```
 
-   You should see something like this in one of the journal entries:
+   你應該會在某一筆 journal 條目中看到類似這樣的內容：
 
    ```bash
    <date> romulus phosphor-bmc-state-manager[1089]: Hello World Again
    ```
 
-That's it! You customized an existing BMC application, built it using devtool,
-and ran it within QEMU by both regenerating the entire flash image and patching
-it on via scp!
+完成了！你客製化了一個現有的 BMC 應用程式，使用 devtool 建置它，並且透過
+重新產生整個開機映像檔以及用 scp 打補丁這兩種方式，都在 QEMU
+中執行了它！
 
-## Advanced Workflow
+## 進階工作流程
 
-Once you've got a good handle on the above, there are some more advanced tools
-and wrappers you can utilize to optimize this flow. See the
-[workflow document](https://amboar.github.io/notes/2022/01/13/openbmc-development-workflow.html)
-for more information.
+當你已經熟練掌握上面的內容後，還有一些更進階的工具與包裝腳本可以利用，以最佳化
+這個流程。請參閱
+[工作流程文件](https://amboar.github.io/notes/2022/01/13/openbmc-development-workflow.html)
+以取得更多資訊。

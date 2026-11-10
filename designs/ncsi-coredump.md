@@ -1,67 +1,55 @@
 # NC-SI core dump
 
-Author: DelphineCCChiu (<Delphine_CC_Chiu@wiwynn.com>)
+作者：DelphineCCChiu (<Delphine_CC_Chiu@wiwynn.com>)
 
-Created: 03/12/2024
+建立日期：03/12/2024
 
-## Problem Description
+## 問題描述
 
-NIC core-dump is essential for NIC issue debugging, and it could be retrieved
-via both in-band and out of band method. The design here is providing the
-solution for NIC out of band dumping from BMC over NC-SI protocol.
+NIC core-dump 對於偵錯 NIC 問題至關重要，可以透過帶內（in-band）與帶外（out of band）兩種方式取得。本設計提供的是從 BMC 透過 NC-SI 協定進行 NIC 帶外 dump 的解決方案。
 
-## Background and References
+## 背景與參考資料
 
-NC-SI command for dump retrieval: Reference: NC-SI spec v1.2: section: 8.4.114
+用於取得 dump 的 NC-SI 指令：參考 NC-SI spec v1.2，章節 8.4.114
 <https://www.dmtf.org/sites/default/files/standards/documents/DSP0222_1.2.0.pdf>
 
-NC-SI over MCTP:
+NC-SI over MCTP：
 <https://www.dmtf.org/sites/default/files/standards/documents/DSP0261_1.3.0.pdf>
 
-## Requirements
+## 需求
 
-This feature requires Linux kernel to support transferring new NC-SI command
-(0x4D) in net/ncsi module
+此功能需要 Linux kernel 在 net/ncsi 模組中支援傳輸新的 NC-SI 指令（0x4D）
 <https://github.com/torvalds/linux/commits/master/net/ncsi>
 
-## Proposed Design
+## 提案設計
 
-### Interface
+### 介面
 
-This design will reuse existing phosphor-debug-collector module:
-<https://github.com/openbmc/phosphor-debug-collector> and extend the dump
-creation interface with a new "NC-SICoreDump" dump type.
+本設計將沿用現有的 phosphor-debug-collector 模組：
+<https://github.com/openbmc/phosphor-debug-collector>，並擴展 dump 建立介面，新增一個「NC-SICoreDump」dump 類型。
 
-The D-Bus interface for dump creation will be:"xyz.openbmc_project.Dump.Manager
+用於建立 dump 的 D-Bus 介面為："xyz.openbmc_project.Dump.Manager
 /xyz/openbmc_project/dump/bmc xyz.openbmc_project.Dump.Create"
 
-To indicate which NC-SI link to target, The CreateDump method need one
-additional input parameter: "NICTarget". An EID or network interface, such as
-eth0 could be a valid value.
+為了指出要以哪一條 NC-SI link 為目標，CreateDump 方法需要一個額外的輸入參數："NICTarget"。有效的值可以是 EID 或網路介面，例如 eth0。
 
-### Dump Retrieval
+### Dump 取得
 
-Using standard NC-SI command: Retrieve Data From NC(0x4D) to get the dumps by
-NC-SI over RBT or NC-SI over MCTP protocol. All NC-SI dump procedure will be
-implemented in ncsi-netlink and ncsi-mctp utility in phosphor-networkd:
+使用標準 NC-SI 指令：Retrieve Data From NC(0x4D)，透過 NC-SI over RBT 或 NC-SI over MCTP 協定來取得 dump。所有 NC-SI dump 程序都會在 phosphor-networkd 的 ncsi-netlink 與 ncsi-mctp 工具程式中實作：
 <https://github.com/openbmc/phosphor-networkd/blob/master/src/ncsi_netlink_main.cpp>
 
-### Integrate with phosphor-debug-collector
+### 與 phosphor-debug-collector 整合
 
-Since phosphor-debug-collector using shell scripts for data collection, a new
-collector script named "ncsicoredump" will be added. This script will help to
-call ncsi-netlink or ncsi-mctp by different NICTarget and generate dump file
-under specific folder.
+由於 phosphor-debug-collector 使用 shell 腳本進行資料蒐集，因此會新增一個名為 "ncsicoredump" 的 collector 腳本。這個腳本會協助根據不同的 NICTarget 呼叫 ncsi-netlink 或 ncsi-mctp，並在特定資料夾下產生 dump 檔案。
 
-The following block diagram illustrate entire dump procedure and relationship
-between modules:
+下方的區塊圖說明了整體 dump 程序以及各模組之間的關係：
 
 ```text
 
                            +----------------+           +-----------+
                            |                |           |           |
-              ------------->  Dump manager  +-----------> DumpEntry |
-               CreateDump  |                |           |           |
+             ------------->  Dump manager  +-----------> DumpEntry |
+              CreateDump  |                |           |           |
                            +--------+-------+           +-----------+
                                     |
                                     |
@@ -84,19 +72,19 @@ between modules:
                                     |                          |
                                     |                          |
                                     |                          |
-      +------------+       +--------v-------+          +-------v------+        +------------+
-      |            |       |                |          |              |        |            |
-      |  DumpFile  <-------+  NCSI-NetLink  |          |  NCSI-MCTP   +-------->  DumpFile  |
-      |            |       |                |          |              |        |            |
-      +------------+       +--------^-------+          +-------^------+        +------------+
+       +------------+       +--------v-------+          +-------v------+        +------------+
+       |            |       |                |          |              |        |            |
+       |  DumpFile  <-------+  NCSI-NetLink  |          |  NCSI-MCTP   +-------->  DumpFile  |
+       |            |       |                |          |              |        |            |
+       +------------+       +--------^-------+          +-------^------+        +------------+
                                     |                          |
-    --------------------------------+--------------------------+-----------------------------
-        Kernel                      |Netlink                   |MCTP
-                           +--------v-------+         +--------v-------+
-                           |                |         |                |
-                           |Net/NC-SI module|         |   I2C driver   |
-                           |                |         |                |
-                           +--------^-------+         +--------^-------+
+     --------------------------------+--------------------------+-----------------------------
+         Kernel                      |Netlink                   |MCTP
+                            +--------v-------+         +--------v-------+
+                            |                |         |                |
+                            |Net/NC-SI module|         |   I2C driver   |
+                            |                |         |                |
+                            +--------^-------+         +--------^-------+
                                     |                          |
                                     |NC-SI                     |SMBUS
                                     |                          |
@@ -108,17 +96,14 @@ between modules:
 
 ```
 
-## Alternatives Considered
+## 曾考量的替代方案
 
-We shall block duplicated dump procedure by the reception ordering of NC-SI
-command(0x4d) shall be maintained. Since the core dump will contain up to 2
-crash dump inside, we only support core dump now by it's sufficient for current
-usage.
+由於 NC-SI 指令（0x4d）的接收順序必須維持一致，我們應以此來阻擋重複的 dump 程序。因為 core dump 內部最多會包含兩份 crash dump，我們目前僅支援 core dump，對現階段的使用需求而言已經足夠。
 
-## Impacts
+## 影響
 
-None.
+無。
 
-## Testing
+## 測試
 
-Co-work with NIC vendor(Broadcom) for dump process/file validation.
+與 NIC 供應商（Broadcom）合作，驗證 dump 程序與 dump 檔案。

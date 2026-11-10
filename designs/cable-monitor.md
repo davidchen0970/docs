@@ -1,34 +1,29 @@
 # Cable Monitor
 
-Author: Jagpal Singh Gill <paligill@gmail.com>
+作者：Jagpal Singh Gill <paligill@gmail.com>
 
-Created: July 26, 2024
+建立日期：2024 年 7 月 26 日
 
-## Problem Description
+## 問題描述
 
-Cables are components that can be intentionally or unintentionally inserted or
-removed while a system is running. Additionally, the specific configuration of
-cables connected for a particular hardware setup may need to be determined at
-runtime based on datacenter deployments. Currently, there is no service
-available in openBMC that can be configured at runtime to monitor connected
-cables and compare them against the expected cables. Hence, there is no way to
-generate Redfish events based on this comparison.
+纜線是在系統執行期間可能被有意或意外插入、拔除的元件。此外，針對特定的
+硬體配置，實際連接的纜線組態可能需要根據資料中心的部署情況在執行時期
+決定。目前 openBMC 中沒有一種服務可以在執行時期設定以監控已連接的纜線，
+並將其與預期纜線進行比對。因此，就無法根據此比對結果產生 Redfish 事件。
 
-## Background and References
+## 背景與參考
 
-openBMC provides a GPIO monitoring framework through
-[phosphor-gpio-monitor](https://github.com/openbmc/phosphor-gpio-monitor), but
-this framework is too generic in its design that allows for watching a GPIO and
-running a related systemd target. For more information, please refer to the
-Alternative section.
+openBMC 透過
+[phosphor-gpio-monitor](https://github.com/openbmc/phosphor-gpio-monitor)
+提供了 GPIO 監控框架，但此框架的設計過於通用，僅能做到監看某個 GPIO
+並執行相關的 systemd target。更多資訊請參閱「替代方案」一節。
 
-## Requirements
+## 需求
 
-1. Able to support runtime configuration of cable connectivity.
-2. Able to monitor inventory interface events related to cables and generate
-   corresponding Redfish events.
+1. 能夠支援纜線連接關係的執行時期設定。
+2. 能夠監控與纜線相關的 inventory 介面事件，並產生對應的 Redfish 事件。
 
-## Proposed Design
+## 提議設計
 
 ### Cable Monitor
 
@@ -46,7 +41,7 @@ flowchart LR
 
 #### cable.conf
 
-The format of the runtime configuration is as under -
+執行時期設定的格式如下 -
 
 ##### JSON schema
 
@@ -76,7 +71,7 @@ The format of the runtime configuration is as under -
 }
 ```
 
-##### Example cablemonitor/cable-config.json
+##### cablemonitor/cable-config.json 範例
 
 ```json
 {
@@ -84,64 +79,59 @@ The format of the runtime configuration is as under -
 }
 ```
 
-The configuration lists the cables that should be connected and monitored.
+設定中列出了應該要連接並監控的纜線。
 
-This fulfills requirement #1.
+這滿足了需求 #1。
 
 #### cable-monitor
 
-The cable monitor is responsible for processing the cable-config.json file and
-parsing its contents. It uses this information to raise appropriate alerts based
-on expected cable connectivity and inventory item status. Additionally, it
-continuously monitors any changes in the cable inventory item status and raises
-or resolves alerts accordingly. This fulfills requirement #2.
+cable monitor 負責處理 cable-config.json 檔案並解析其內容。它利用這些
+資訊，根據預期的纜線連接關係以及 inventory 項目狀態來發出適當的警示。
+此外，它會持續監控纜線 inventory 項目狀態的任何變化，並據以發出或解除
+警示。這滿足了需求 #2。
 
-### Error Reporting
+### 錯誤回報
 
-A definition for
+已針對 Redfish 提出
 [missing cable](https://gerrit.openbmc.org/c/openbmc/phosphor-dbus-interfaces/+/74397)
-event is proposed for Redfish, which is based on
-[event logging design](https://github.com/openbmc/docs/blob/master/designs/event-logging.md).
+事件的定義，其依據為
+[event logging design](https://github.com/openbmc/docs/blob/master/designs/event-logging.md)。
 
-### Future Enhancements
+### 未來增強
 
-The cable monitor can be extended to support runtime cable configurations
-through the Redfish
-[Cable](https://redfish.dmtf.org/schemas/v1/Cable.v1_2_3.json) schema by using
-the CableStatus property.
+cable monitor 可以進一步擴充，透過 Redfish
+[Cable](https://redfish.dmtf.org/schemas/v1/Cable.v1_2_3.json) schema，
+使用 CableStatus 屬性來支援執行時期的纜線設定。
 
-## Alternatives Considered
+## 已考量的替代方案
 
 ### phosphor-gpio-monitor
 
-The phosphor-gpio-monitor does not currently support monitoring inventory items
-such as cable inventory items, although it could be extended to do so. However,
-this would not align with its intended purpose and nomenclature. Additionally,
-there is no support for runtime configuration in phosphor-gpio-monitor. Any
-change to add these features would result in a monolithic daemon that would need
-to be extended for every other inventory item type.
+phosphor-gpio-monitor 目前不支援監控像是纜線 inventory 項目這類 inventory
+項目，雖然它可以被擴充以支援此功能。然而，這並不符合其原本的目的與命名。
+此外，phosphor-gpio-monitor 也不支援執行時期設定。任何加入這些功能的改動，
+都會讓它變成一個單體式的 daemon，而且每當有其他 inventory 項目類型時都
+必須再度擴充。
 
-## Impacts
+## 影響
 
-### API Impacts
+### API 影響
 
-- A cable connect event api is being suggested as the source of Redfish event.
+- 建議以纜線連接事件 api 作為 Redfish 事件的來源。
 
-### Organizational
+### 組織面
 
-- Does this repository require a new repository? No.
-- Which repositories are expected to be modified to execute this design?
-  `dbus-sensors`
-- Make a list, and add listed repository maintainers to the gerrit review.
+- 此 repository 是否需要一個新的 repository？不需要。
+- 預期需要修改哪些 repository 來實作此設計？`dbus-sensors`
+- 列出一份清單，並將所列 repository 的維護者加入 gerrit review。
 
-## Testing
+## 測試
 
-### Unit Testing
+### 單元測試
 
-All the functional testing of the reference implementation will be performed
-using GTest.
+參考實作的所有功能測試都將使用 GTest 執行。
 
-### Integration Testing
+### 整合測試
 
-Integration testing for generating Redfish events will be carried out using the
-inventory item interface by creating and deleting cable inventory.
+產生 Redfish 事件的整合測試，將透過 inventory 項目介面建立與刪除纜線
+inventory 來進行。

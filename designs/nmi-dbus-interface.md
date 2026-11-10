@@ -1,96 +1,83 @@
-# Design proposal for issuing NMI on servers that use OpenBMC
+# 在使用 OpenBMC 的伺服器上發送 NMI 的設計提案
 
-Author: Lakshminarayana Kammath
+作者：Lakshminarayana Kammath
 
-Other contributors: Jayanth Othayoth
+其他貢獻者：Jayanth Othayoth
 
-Created: 2019-05-21
+建立日期：2019-05-21
 
-## Problem Description
+## 問題描述
 
-Currently, servers that use OpenBMC cannot have the ability to capture relevant
-debug data when the host is unresponsive or hung. These systems need the ability
-to diagnose the root cause of hang and perform recovery along with debugging
-data collected.
+目前，使用 OpenBMC 的伺服器無法在 host 無回應或當機時擷取相關的除錯
+資料。這些系統需要能夠診斷當機的根因，並在收集除錯資料的同時執行復原。
 
-## Background and References
+## 背景與參考資料
 
-There is a situation at customer places/lab where the host goes unresponsive
-causing system hang(<https://github.com/ibm-openbmc/dev/issues/457>). This means
-there is no way to figure out what went wrong with the host in a hung state. One
-has to recover the system with no relevant debug data captured.
+在客戶端／實驗室有發生 host 失去回應而導致系統當機的情形
+（<https://github.com/ibm-openbmc/dev/issues/457>）。這代表在 host 處於
+當機狀態時，完全無法找出問題出在哪裡，只能在沒有任何相關除錯資料的情況下
+復原系統。
 
-Whenever the host is unresponsive/running, Admin needs to trigger an NMI event
-which, in turn, triggers an architecture-dependent procedure that fires an
-interrupt on all the available processors on the system.
+無論 host 是無回應或在執行中，管理員都需要能夠觸發 NMI 事件，進而觸發
+一個與架構相關的程序，對系統上所有可用的處理器發出中斷。
 
-## Proposed Design for servers that use OpenBMC
+## 針對使用 OpenBMC 伺服器的提案設計
 
-This proposal aims to trigger NMI, which in turn will invoke an
-architecture-specific procedure that enables data collection followed by
-recovery of the Host. This will enable Host/OS development teams to analyze and
-fix any issues where they see host hang and unresponsive system.
+本提案旨在觸發 NMI，進而呼叫一個與架構相關的程序，該程序會先啟用資料
+收集，接著復原 Host。這將讓 Host／OS 開發團隊得以分析並修復任何出現
+host 當機與系統無回應的問題。
 
 ### D-Bus
 
-Introducing new D-Bus interface in the control.host namespace
-(/openbmc/phosphor-dbus-interfaces/xyz/openbmc_project/Control/Host/
-NMI.interface.yaml) and implement the new D-Bus back-end for respective
-processor specific targets.
+在 control.host 命名空間中引入新的 D-Bus 介面
+（/openbmc/phosphor-dbus-interfaces/xyz/openbmc_project/Control/Host/
+NMI.interface.yaml），並針對各處理器專屬的目標實作新的 D-Bus 後端。
 
-### BMC Support
+### BMC 支援
 
-Enable NMI D-Bus phosphor interface and support this via Redfish
+啟用 NMI D-Bus phosphor 介面，並透過 Redfish 提供支援。
 
-### Redfish Schema used
+### 使用的 Redfish Schema
 
-- Reference: DSP2046 2018.3,
-- ComputerSystem 1.6.0 schema provides an action called #ComputerSystem.Reset,
-  This action is used to reset the system. The ResetType parameter is used for
-  indicating the type of reset needs to be performed. In this case, we can use
-  An NMI type
-  - Nmi: Generate a Diagnostic Interrupt (usually an NMI on x86 systems) to
-    cease normal operations, perform diagnostic actions and typically halt the
-    system.
+- 參考：DSP2046 2018.3，
+- ComputerSystem 1.6.0 schema 提供了一個名為 #ComputerSystem.Reset 的
+  動作，此動作用於重設系統。ResetType 參數用來指出要執行的重設類型。
+  在本案中，我們可以使用 NMI 類型
+  - Nmi：產生一個診斷中斷（在 x86 系統上通常是 NMI），以停止正常運作、
+    執行診斷動作，並通常會使系統暫停。
 
-## High-Level Flow
+## 高階流程
 
-1. Host/OS is hung or unresponsive or one need to take kernel dump to debug some
-   error conditions.
-2. Admin/User can use the Redfish URI ComputerSystem.Reset that allows POST
-   operations and change the Action and ResetType properties to
-   {"Action":"ComputerSystem.Reset","ResetType":"Nmi"} to trigger NMI.
-3. Redfish URI will invoke a D-Bus NMI back-end call which will use an arch
-   specific back-end implementation of xyz.openbmc_project.Control.Host.NMI to
-   trigger an NMI on all the processors on the system.
-4. On receiving the NMI, the host will automatically invoke Architecture
-   specific actions. One such action could be; invoking the kdump followed by
-   the reboot.
+1. Host／OS 當機或無回應，或者需要擷取 kernel dump 以除錯某些錯誤情況。
+2. 管理員／使用者可以使用允許 POST 作業的 Redfish URI ComputerSystem.Reset，
+   並將 Action 與 ResetType 屬性變更為
+   {"Action":"ComputerSystem.Reset","ResetType":"Nmi"} 以觸發 NMI。
+3. Redfish URI 會呼叫 D-Bus NMI 後端呼叫，後端會使用
+   xyz.openbmc_project.Control.Host.NMI 與架構相關的後端實作，對系統上
+   所有處理器觸發 NMI。
+4. 收到 NMI 後，host 會自動呼叫與架構相關的動作。其中一種動作可以是
+   先呼叫 kdump，接著重新開機。
 
-- Note: NMI can be sent to the host in any state, not just at an unresponsive
-  state.
+- 注意：NMI 可以在任何狀態下傳送至 host，不限於無回應的狀態。
 
-## Alternatives Considered
+## 曾考慮的替代方案
 
-Extending the existing D-Bus interface state.Host namespace
-(/openbmc/phosphor-dbus-interfaces/xyz/openbmc_project/State/Host.interface.yaml)
-to support new RequestedHostTransition property called Nmi. D-Bus back-end can
-internally invoke processor-specific target to invoke NMI and do associated
-actions.
+擴充現有的 D-Bus 介面 state.Host 命名空間
+（/openbmc/phosphor-dbus-interfaces/xyz/openbmc_project/State/Host.interface.yaml），
+以支援一個名為 Nmi 的新 RequestedHostTransition 屬性。D-Bus 後端可以在內部
+呼叫處理器專屬的目標來觸發 NMI 並執行相關動作。
 
-There were strong reasons to move away from the above approach.
-phosphor-state-manager has always been focused on the states of the BMC,
-Chassis, and Host. NMI will be more of action against the host than a state.
+有強力的理由要放棄上述做法。phosphor-state-manager 一直以來都專注於 BMC、
+Chassis 與 Host 的「狀態」，而 NMI 比較像是對 host 的一種「動作」，而不是一種
+狀態。
 
-## Impacts
+## 影響
 
-This implementation only needs to make some changes to the system state when NMI
-is initiated irrespective of what host OS state is in, so it has minimal impact
-on the rest of the system.
+此實作只需要在 NMI 啟動時對系統狀態做些改變，不論 host OS 處於何種狀態都一樣，
+因此對系統其他部分的影響極小。
 
-## Testing
+## 測試
 
-Depending on the platform hardware design, this test requires a host OS kernel
-module driver to create hard lockup/hang and then check the scenario is good.
-Also, one can invoke NMI to get the crash dump and confirm HOST received NMI via
-console logs.
+根據平台硬體設計，本測試需要一個 host OS kernel 模組驅動程式來製造
+hard lockup／當機，然後檢查該情境是否正常。此外，也可以呼叫 NMI 以取得
+crash dump，並透過 console 記錄確認 HOST 已收到 NMI。

@@ -1,75 +1,52 @@
-# Using io_uring in BMCs for asynchronous sensor reads
+# 在 BMC 中使用 io_uring 進行非同步感測器讀取
 
-Author: Jerry Zhu ([jerryzhu@google.com](mailto:jerryzhu@google.com))
+作者：Jerry Zhu ([jerryzhu@google.com](mailto:jerryzhu@google.com))
 
-Other contributors:
+其他貢獻者：
 
 - Brandon Kim ([brandonkim@google.com](mailto:brandonkim@google.com), brandonk)
 - William A. Kennington III ([wak@google.com](mailto:wak@google.com), wak)
 
-Created: June 9, 2021
+建立日期：2021 年 6 月 9 日
 
-## Problem Description
+## 問題描述
 
-Currently, OpenBMC has code that performs I2C reads for sensors that may take
-longer than desired. These IO operations are currently synchronous, and
-therefore may block other functions such as IPMI. This project will involve
-going through OpenBMC repositories (specifically
-[phosphor-hwmon](https://github.com/openbmc/phosphor-hwmon)) that may have this
-drawback currently, and adding an asynchronous interface using the new io_uring
-library.
+目前，OpenBMC 中有些程式碼會為感測器執行 I2C 讀取，而這些讀取作業可能花費比預期更長的時間。這些 IO 作業目前是同步的，因此可能會阻塞其他功能，例如 IPMI。本專案將著手檢視目前可能存在此缺點的 OpenBMC 程式庫（特別是
+[phosphor-hwmon](https://github.com/openbmc/phosphor-hwmon)），並使用新的 io_uring
+程式庫加入非同步介面。
 
-## Background and References
+## 背景與參考資料
 
-io_uring is a new asynchronous framework for Linux I/O interface (added to 5.1
-Linux kernel, 5.10 is preferred). It is an upgrade from the previous
-asynchronous IO called AIO, which had its limitations in context of its usage in
-sensor reads for OpenBMC.
+io_uring 是 Linux I/O 介面的全新非同步框架（於 Linux kernel 5.1 加入，建議使用 5.10）。它是先前非同步 IO（稱為 AIO）的升級版本，而 AIO 在 OpenBMC 感測器讀取的使用情境下有其限制。
 
-[brandonkim@google.com](mailto:brandonkim@google.com) has previously created a
-method for preventing sensors from blocking all other sensor reads and D-Bus if
-they do not report failures quickly enough in the phosphor-hwmon repository
-([link to change](https://gerrit.openbmc.org/c/openbmc/phosphor-hwmon/+/24337)).
-Internal Google BMC efforts have also focused on introducing the io_uring
-library to its code.
+[brandonkim@google.com](mailto:brandonkim@google.com) 先前已建立了一種方法，可在感測器未能盡快回報失敗時，防止其阻塞 phosphor-hwmon 程式庫中所有其他的感測器讀取與 D-Bus
+（[變更連結](https://gerrit.openbmc.org/c/openbmc/phosphor-hwmon/+/24337)）。
+Google 內部 BMC 的工作也已著重於將 io_uring 程式庫引入其程式碼。
 
-## Requirements
+## 需求
 
-By using io_uring, the asynchronous sensor reads will need to maintain the same
-accuracy as the current, synchronous reads in each of the daemons. Potential
-OpenBMC repositories that will benefit from this library include:
+使用 io_uring 時，非同步感測器讀取必須在各 daemon 中維持與目前同步讀取相同的準確度。可能因這個程式庫而受惠的潛在 OpenBMC 程式庫包括：
 
 - [phosphor-hwmon](https://github.com/openbmc/phosphor-hwmon)
 - [phosphor-nvme](https://github.com/openbmc/phosphor-nvme)
 - [dbus-sensors](https://github.com/openbmc/dbus-sensors)
-- any other appropriate repository
+- 其他任何適當的程式庫
 
-The focus of this project is to add asynchronous sensor reads to the
-phosphor-hwmon repository, which is easier to implement than adding asynchronous
-sensor reads into dbus-sensors.
+本專案的重點是為 phosphor-hwmon 程式庫加入非同步感測器讀取，這比在 dbus-sensors 中加入非同步感測器讀取更容易實作。
 
-Users will need the ability to choose whether they want to utilize this new
-asynchronous method of reading sensors, or remain with the traditional,
-synchronous method. In addition, the performance improvement from using the new
-io_uring library will need to be calculated for each daemon.
+使用者將需要能夠選擇是否要使用這種新的非同步感測器讀取方式，或維持傳統的同步方式。此外，還需要針對每個 daemon 計算使用新 io_uring 程式庫所帶來的效能提升。
 
-## Proposed Design
+## 提案設計
 
-In the phosphor-hwmon repository, the primary files that will require
-modification are
+在 phosphor-hwmon 程式庫中，需要修改的主要檔案是
 [sensor.cpp](https://github.com/openbmc/phosphor-hwmon/blob/master/sensor.cpp)/[.hpp](https://github.com/openbmc/phosphor-hwmon/blob/master/sensor.hpp)
-and
-[mainloop.cpp](https://github.com/openbmc/phosphor-hwmon/blob/master/mainloop.cpp)/[.hpp](https://github.com/openbmc/phosphor-hwmon/blob/master/mainloop.hpp),
-as well the addition of a caching layer for the results from the sensor reads.
+以及
+[mainloop.cpp](https://github.com/openbmc/phosphor-hwmon/blob/master/mainloop.cpp)/[.hpp](https://github.com/openbmc/phosphor-hwmon/blob/master/mainloop.hpp)，
+另外還要為感測器讀取的結果加入一層快取。
 
-In mainloop.cpp currently, the `read()` function, which reads hwmon sysfs
-entries, iterates through all sensors and calls `_ioAccess->read(...)` for each
-one; this operation is potentially blocking.
+在目前的 mainloop.cpp 中，負責讀取 hwmon sysfs 條目的 `read()` 函式會遍歷所有感測器，並對每一個感測器呼叫 `_ioAccess->read(...)`；這個作業可能會阻塞。
 
-The refactor will maintain this loop over all sensors, but instead make the read
-operation non-blocking by using an io_uring wrapper. A caching layer will be
-used to store the read results, which will be the main access point for
-obtaining sensor reads in mainloop.cpp.
+重構將維持這個遍歷所有感測器的迴圈，但改用 io_uring 包裝器讓讀取作業變為非阻塞。將會使用一層快取來儲存讀取結果，而這層快取將是 mainloop.cpp 中取得感測器讀取值的主要存取點。
 
 ```ascii
                Interface Layer
@@ -110,61 +87,30 @@ obtaining sensor reads in mainloop.cpp.
 
 ```
 
-Using a flag variable (most likely to be placed in the .conf files of each hwmon
-sensor), users will be able to determine whether or not to utilize this new
-io_uring implementation for compatibility reasons.
+透過一個旗標變數（很可能會放在每個 hwmon 感測器的 .conf 檔案中），使用者將能基於相容性考量決定是否使用這個新的 io_uring 實作。
 
-## Detailed Design
+## 詳細設計
 
-The read cache is implemented using an `unordered_map` of {sensor hwmon path:
-read result}. The read result is a struct that keeps track of any necessary
-information for processing the read values and handling errors. Such information
-includes open file descriptor from the `open()` system call, number of retries
-remaining for reading this sensor when errors occur, etc.
+讀取快取使用一個 {感測器 hwmon 路徑: 讀取結果} 的 `unordered_map` 來實作。讀取結果是一個 struct，用來記錄處理讀取值與處理錯誤時所需的一切資訊。這類資訊包括來自 `open()` 系統呼叫的開啟檔案描述元、發生錯誤時讀取此感測器的剩餘重試次數等等。
 
-Each call to access the read value of a particular sensor in the read cache will
-not only return the cached value but will also submit a SQE (submission queue
-event) to io_uring for that sensor; this SQE acts as a read request that will be
-sent to the kernel. The implementation maintains a set of sensors that keeps
-track of any pre-existing submissions so that multiple SQEs for the same sensor
-do not get submitted and overlap; the set entries will be cleared upon
-successful return of the read result using the CQE (completion queue event). The
-CQE will then be processed, and its information will update the cache map.
+在讀取快取中，每次存取某個特定感測器讀取值的呼叫，不僅會回傳快取的值，也會為該感測器提交一個 SQE（submission queue event）給 io_uring；這個 SQE 就像一個會被送往核心的讀取請求。此實作維護著一組感測器集合，用來追蹤任何已存在的提交，以避免同一個感測器提交並重疊多個 SQE；當使用 CQE（completion queue event）成功回傳讀取結果時，該集合物件會被清除。接著 CQE 會被處理，其資訊會更新快取 map。
 
-The asynchronous nature of this implementation comes from sending all possible
-SQE requests, a non-blocking operation, at once instead of being blocked by slow
-sensor reads in the synchronous implementation. The kernel will process these
-requests, and before the next iteration of sensor reads the cache will attempt
-to process any returned CQEs, a non-blocking operation as well.
+此實作的非同步特性來自於一次送出所有可能的 SQE 請求（一個非阻塞作業），而不是像同步實作那樣被緩慢的感測器讀取阻塞。核心會處理這些請求，而在下一次感測器讀取迴圈迭代之前，快取會嘗試處理任何已回傳的 CQE，這同樣是一個非阻塞作業。
 
-Simply put, an access to some "Sensor A" in the read cache will create an
-underlying read request that makes a best effort to update the value of "Sensor
-A" before the next time the sensor read loop (currently 1 s by default) gets the
-value of "Sensor A" through the cache.
+簡而言之，存取讀取快取中某個「Sensor A」會在底層建立一個讀取請求，盡力在下一次感測器讀取迴圈（預設為 1 秒）透過快取取得「Sensor A」的值之前，先更新「Sensor A」的值。
 
-## Alternatives Considered
+## 已考慮的替代方案
 
-Linux does have a native asynchronous IO interface, simply dubbed AIO; however,
-there are a number of limitations. The biggest limitation of AIO is that it only
-supports true asynchronous IO for un-buffered reads. Furthermore, there are a
-number of ways that the IO submission can end up blocking - for example, if
-metadata is required to perform IO. Additionally, the memory costs of AIO are
-more expensive than those of io_uring.
+Linux 確實有一個原生的非同步 IO 介面，單純稱為 AIO；然而它有不少限制。AIO 最大的限制是它只對 un-buffered 讀取支援真正的非同步 IO。此外，IO 提交有多種情況最終可能會阻塞，例如當執行 IO 需要 metadata 時。另外，AIO 的記憶體成本比 io_uring 更為昂貴。
 
-For these primary reasons, the native AIO library will not be considered for
-this implementation of asynchronous reads.
+基於這些主要原因，本非同步讀取實作將不考慮使用原生 AIO 程式庫。
 
-## Impacts
+## 影響
 
-This project would impact all OpenBMC developers of openbmc/phosphor-hwmon
-initially. It has improved the latency performance of phosphor-hwmon; throughput
-has also been shown to increase (note that throughput profiling was more
-arbitrary than latency profiling). These performance changes will have to be
-calculated in further detail across different machines.
+這個專案最初會影響所有 openbmc/phosphor-hwmon 的 OpenBMC 開發者。它改善了 phosphor-hwmon 的延遲效能；吞吐量也已顯示有所提升（請注意，吞吐量量測比延遲量測更為隨機）。這些效能變化必須在不同機器上做更詳盡的計算。
 
-There will be no security impact.
+不會有任何安全性影響。
 
-## Testing
+## 測試
 
-The change will utilize the gTest framework to ensure the original functionality
-of the code in the repository modified stays the same.
+此項變更將使用 gTest 框架，以確保被修改程式庫中原有的程式碼功能維持不變。

@@ -1,261 +1,225 @@
-# Network Security Considerations
+# 網路安全性注意事項
 
-This describes network services provided by OpenBMC-based systems, some threats
-the BMC faces from its network interfaces, and steps OpenBMC takes to address
-these threats.
+本文說明基於 OpenBMC 的系統所提供的網路服務、BMC 從其網路介面所面臨的某些
+威脅，以及 OpenBMC 為因應這些威脅所採取的措施。
 
-This is only intended to be a guide; security is ultimately the responsibility
-of projects which choose to incorporate OpenBMC into their project. If you find
-a security vulnerability, please consider [how to report a security
-vulnerability][].
+本文僅作為指南之用；安全性最終仍是那些選擇將 OpenBMC 納入其專案的項目所應承擔
+的責任。若您發現安全性弱點，請參考[如何回報安全性弱點][]。
 
 [how to report a security vulnerability]:
   https://github.com/openbmc/docs/blob/master/security/how-to-report-a-security-vulnerability.md
 
-Threats to the BMC are classified using the [CIA triad][]. All threat types are
-significant; here is an example of each:
+對 BMC 的威脅以 [CIA 三要素][] 進行分類。所有威脅類型都相當重要；以下為各類型
+的範例：
 
-- Confidentiality: If an attacker can get data from the BMC, they may be able to
-  chain other vulnerabilities to establish a covert information channel to get
-  sensitive information from the host.
-- Integrity: If an attacker can modify BMC settings or data, they may be able to
-  gain additional access, and launch more attacks.
-- Availability: If an agent can overwhelm the BMC's resources, either by
-  accident or on purpose, the BMC will not be available to service its host
-  (denial of service).
+- 機密性（Confidentiality）：若攻擊者能從 BMC 取得資料，他們或許能串連其他弱點，
+  建立隱密資訊通道，從主機取得敏感資訊。
+- 完整性（Integrity）：若攻擊者能修改 BMC 的設定或資料，他們或許能取得額外存取權，
+  並發動更多攻擊。
+- 可用性（Availability）：若某代理（agent）能耗盡 BMC 的資源，無論是出於意外或刻意，
+  BMC 都將無法為其主機提供服務（阻斷服務攻擊）。
 
 [cia triad]: https://en.wikipedia.org/wiki/Information_security#Key_concepts
 
-This document is organized by how OpenBMC services connect to the network. The
-general flow is:
+本文依照 OpenBMC 服務連接到網路的方式來組織。一般的流程為：
 
-- The BMC is presumed to have a network adapter. The security considerations of
-  the NIC are important to the BMC security, but are outside the scope of this
-  document.
-- Network traffic then flows through the kernel, detailed below.
-- Finally, connections flow to various OpenBMC services.
+- 假設 BMC 具備網路轉接卡。NIC 的安全性注意事項對 BMC 安全性相當重要，但不在本文
+  討論範圍之內。
+- 網路流量接著會通過核心，詳見下文。
+- 最後，連線會流向各項 OpenBMC 服務。
 
-OpenBMC provides services on TCP and UDP ports. For example, the HTTPS protocol
-on port 443 is used to provide REST APIs and serve Web applications. These
-services are detailed below. Implicit is that all other ports are inactive.
+OpenBMC 在 TCP 與 UDP 埠上提供服務。例如，443 埠上的 HTTPS 協定用於提供 REST API
+以及提供網頁應用程式服務。這些服務詳見下文。隱含的前提是所有其他埠皆未啟用。
 
-OpenBMC also initiates network communications, for example, NTP, LDAP, etc.
-These are covered with their associated functions.
+OpenBMC 也會主動發起網路通訊，例如 NTP、LDAP 等。這些會在其相關功能中一併說明。
 
-## Kernel and ICMP messages
+## 核心與 ICMP 訊息
 
-Network traffic is handled by the Linux kernel. The exact kernel and device
-driver have security considerations which are important to BMC security, but are
-better addressed by the Linux kernel community. You can learn which kernel and
-patches are used from the kernel recipes typically found in the board support
-packages for the BMC referenced by your machine's configuration. For example, in
-the `https://github.com/openbmc/meta-aspeed` repository under
-`recipes-kernel/linux/linux-aspeed_git.bb`.
+網路流量由 Linux 核心處理。所使用的核心與裝置驅動程式有其安全性注意事項，對 BMC
+安全性相當重要，但較適合由 Linux 核心社群來處理。您可以從機板支援套件（board
+support packages）中的核心配方（recipes）得知所使用的核心與修補程式，這些套件由
+您機器的設定所參照的 BMC 使用。例如，在 `https://github.com/openbmc/meta-aspeed`
+儲存庫的 `recipes-kernel/linux/linux-aspeed_git.bb` 之下。
 
-Per [CVE 1999-0524][], responding to certain ICMP packets can give an attacker
-more information about the BMC's clock or subnet, which can help with subsequent
-attacks. OpenBMC responds to all ICMP requests.
+根據 [CVE 1999-0524][]，回應某些 ICMP 封包可能讓攻擊者取得更多關於 BMC 時鐘或子網路
+的資訊，有助於其後續攻擊。OpenBMC 會回應所有的 ICMP 要求。
 
 [cve 1999-0524]: https://nvd.nist.gov/vuln/detail/CVE-1999-0524
 
-General considerations for ICMP messages apply. For example, packet
-fragmentation and packet flooding vulnerabilities.
+適用於 ICMP 訊息的一般注意事項亦適用，例如封包碎片化（packet fragmentation）與
+封包洪氾（packet flooding）弱點。
 
-It is sometimes useful to filter and log network messages for debug and other
-diagnostic purposes. OpenBMC provides no support for this.
+為了除錯及其他診斷目的，有時會需要過濾並記錄網路訊息。OpenBMC 並未提供這方面的
+支援。
 
-## General considerations for services
+## 服務的一般注意事項
 
-Several services perform user identification and authentication:
+有幾項服務會執行使用者辨識與驗證：
 
-- Phosphor REST APIs
+- Phosphor REST API
 - Redfish REST API SessionService
-- Network IPMI
-- SSH secure shell
+- 網路 IPMI
+- SSH 安全外殼（secure shell）
 
-OpenBMC's [phosphor-user-manager][] provides the underlying authentication and
-authorization functions and ties into IPMI, Linux PAM, LDAP, and logging. Some
-of OpenBMC services use phosphor-user-manager.
+OpenBMC 的 [phosphor-user-manager][] 提供底層的驗證與授權功能，並與 IPMI、Linux PAM、
+LDAP 及記錄整合。部分 OpenBMC 服務會使用 phosphor-user-manager。
 
 [phosphor-user-manager]:
   https://github.com/openbmc/docs/blob/master/architecture/user-management.md
 
-Transport layer security (TLS) protocols are configured for each service at
-compile time, become part of the image, and cannot be changed dynamically. The
-protocols which use TLS include:
+傳輸層安全性（TLS）協定在編譯時期為每項服務進行設定，成為映像檔的一部分，且無法
+動態變更。使用 TLS 的協定包括：
 
-- RAKP for IPMI.
-- SSH for ssh and scp.
-- HTTPS for Web and REST APIs.
+- IPMI 的 RAKP。
+- ssh 與 scp 使用的 SSH。
+- 網頁與 REST API 使用的 HTTPS。
 
-Automated network agents (such as hardware management consoles) may malfunction
-in a way that the BMC continuously gets authentication failures, which may lead
-to denial of service. For example, a brief delay before reporting the failure,
-for example, of one second, may help prevent this problem or lessen its
-severity. See [OWASP Blocking Brute Force Attacks][].
+自動化網路代理（例如硬體管理主控台）可能以某種方式失靈，導致 BMC 持續發生驗證失敗，
+進而可能造成阻斷服務。例如，在回報失敗之前加入短暫延遲，例如一秒，或許有助於防止
+這個問題或減輕其嚴重性。請參閱 [OWASP Blocking Brute Force Attacks][]。
 
 [owasp blocking brute force attacks]:
   https://www.owasp.org/index.php/Blocking_Brute_Force_Attacks
 
-Network agents may fail to end a session properly, which causes the service to
-use resources to keep track of orphaned sessions. To help prevent this, services
-may limit the maximum number of concurrent sessions, or have a session
-inactivity timeout.
+網路代理可能無法正確結束工作階段，導致服務耗用資源來追蹤孤兒工作階段（orphaned
+sessions）。為協助防止這種情況，服務可以限制同時連線工作階段的數量上限，或設定
+工作階段閒置逾時。
 
-Services which are not required should be disabled to limit the BMC's attack
-surface. For example, a large scale data center may not need a Web interface.
-Services can be disabled in several ways:
+對於不需要的服務，應予以停用，以限制 BMC 的攻擊面。例如，大規模資料中心可能不需要
+網頁介面。可以透過幾種方式停用服務：
 
-1. Configure OpenBMC recipes to build the unwanted feature out of the BMC's
-   firmware image. This gives the BMC the advantage of a smaller attack surface.
-2. Implement something like the [Redfish ManagerNetworkProtocol][] properties
-   for IPMI, SSH, and other BMC services, possibly by using shell commands like
-   'systemctl disable ipmid' and 'systemctl stop ipmid'.
+1. 設定 OpenBMC 配方，將不需要的功能從 BMC 的韌體映像檔中建置移除。這能讓 BMC
+   享有較小攻擊面的優勢。
+2. 實作類似 [Redfish ManagerNetworkProtocol][] 屬性的機制，用於 IPMI、SSH 及其他
+   BMC 服務，可能透過使用類似 'systemctl disable ipmid' 與 'systemctl stop ipmid'
+   的 shell 指令來達成。
 
 [redfish managernetworkprotocol]:
   https://redfish.dmtf.org/schemas/ManagerNetworkProtocol.v1_4_0.json
 
-Network services should log all authentication attempts with their outcomes to
-satisfy basic monitoring and forensic analysis requirements. For example, as
-part of a real-time monitoring service, or to answer who accessed which services
-at what times.
+網路服務應該記錄所有驗證嘗試及其結果，以滿足基本的監控與鑑識分析需求。例如，作為
+即時監控服務的一部分，或用來回答何人在何時存取了哪些服務。
 
-OpenBMC does not have a firewall.
+OpenBMC 沒有防火牆。
 
-Laws may require products built on OpenBMC to have reasonable security built
-into them, for example, by not having a default password. See, for example, [CA
-Law SB-327].
+法規可能要求基於 OpenBMC 打造的產品必須內建合理的安全性，例如不具備預設密碼。
+請參閱 [CA Law SB-327]。
 
 [ca law sb-327]:
   https://leginfo.legislature.ca.gov/faces/billTextClient.xhtml?bill_id=201720180SB327
 
-## Services provided on TCP and UDP ports
+## 在 TCP 與 UDP 埠上提供的服務
 
-### TCP port 22 - Secure Shell (SSH) access to the BMC
+### TCP 埠 22 - 透過安全外殼（SSH）存取 BMC
 
-The Secure Shell (SSH) protocol is provided, including secure shell (ssh
-command) access to the BMC's shell, and secure copy (scp command) to the BMC's
-file system.
+提供安全外殼（SSH）協定，包含透過安全外殼（ssh 指令）存取 BMC 的 shell，以及透過
+安全複製（scp 指令）存取 BMC 的檔案系統。
 
-The default SSH server implementation is provided by Dropbear. All configuration
-is at compile-time with defaults for:
+預設的 SSH 伺服器實作由 Dropbear 提供。所有設定都在編譯時期完成，其預設值涵蓋：
 
-- Authentication provided by Linux PAM, where methods include username and
-  password, and SSH certificates (the `ssh-keygen` command).
-- Transport layer security (TLS) protocols offered.
+- 由 Linux PAM 提供的驗證，方法包含使用者名稱與密碼，以及 SSH 憑證（`ssh-keygen`
+  指令）。
+- 所提供的傳輸層安全性（TLS）協定。
 
-SSH access to the BMC's shell is not the intended way to operate the BMC, gives
-the operator more privilege than is needed, and may not be allowed on BMCs which
-service hosts that process sensitive data. However, BMC shell access may be
-needed to provision the BMC or to help diagnose problems during its operation.
+透過 SSH 存取 BMC 的 shell 並非操作 BMC 的預期方式，會賦予操作員超過所需的權限，
+且在服務處理敏感資料之主機的 BMC 上，可能不被允許。不過，在佈署（provision）BMC
+或在 BMC 運作期間協助診斷問題時，可能需要 BMC 的 shell 存取。
 
-### TCP port 443 - HTTPS REST APIs and Web application
+### TCP 埠 443 - HTTPS REST API 與網頁應用程式
 
-BMCWeb is the Web server for:
+BMCWeb 是以下項目的網頁伺服器：
 
-- The Redfish REST APIs.
-- The webui-vue Web interface.
-- The Phosphor D-Bus REST interface. And initiates WebSockets for:
-- Host KVM.
-- Virtual media.
-- Host serial console.
+- Redfish REST API。
+- webui-vue 網頁介面。
+- Phosphor D-Bus REST 介面。並為以下項目發起 WebSocket：
+- 主機 KVM。
+- 虛擬媒體。
+- 主機序列主控台。
 
-The [BMCWeb configuration][] controls which services are provided.
+[BMCWeb 設定][] 控制提供哪些服務。
 
-General security considerations for HTTP servers apply such as given by [OWASP
-Application Security][].
+適用於 HTTP 伺服器的一般安全性注意事項亦適用，例如 [OWASP Application Security][]
+所提供的內容。
 
-BMCWeb controls which HTTPS transport layer security (TLS) ciphers it offers via
-compile-time header file `include/ssl_key_handler.hpp` in the
-<https://github.com/openbmc/bmcweb> repository. The implementation is provided
-by OpenSSL.
+BMCWeb 透過 <https://github.com/openbmc/bmcweb> 儲存庫中編譯時期的標頭檔
+`include/ssl_key_handler.hpp` 來控制其提供的 HTTPS 傳輸層安全性（TLS）加密算法。
+實作由 OpenSSL 提供。
 
-BMCWeb provides appropriate HTTP response headers, for example, in header file
-`include/security_headers_middleware.hpp` and `crow/include/crow/websocket.h` in
-the <https://github.com/openbmc/bmcweb> repository.
+BMCWeb 提供適當的 HTTP 回應標頭，例如在 <https://github.com/openbmc/bmcweb>
+儲存庫中的標頭檔 `include/security_headers_middleware.hpp` 與
+`crow/include/crow/websocket.h`。
 
 [bmcweb configuration]: https://github.com/openbmc/bmcweb#configuration
 [owasp application security]:
   https://www.owasp.org/index.php/Category:OWASP_Application_Security_Verification_Standard_Project
 
-#### REST APIs
+#### REST API
 
-BMCWeb offers three authentication methods:
+BMCWeb 提供三種驗證方法：
 
-1. The Redfish SessionService, which takes a username and password and provides
-   an X-Auth token.
-2. The Phosphor D-Bus REST interface '/login' URI, which takes a username and
-   password and provides a session cookie. This method is deprecated in OpenBMC.
-3. Basic Access Authentication, which takes a username and password (often URL
-   encoded like `https://user:pass@host/...`) in an "Authorization" request
-   header, and returns no credentials. This method is deprecated by RFC 3986.
+1. Redfish SessionService，接受使用者名稱與密碼並提供 X-Auth 權杖。
+2. Phosphor D-Bus REST 介面的 '/login' URI，接受使用者名稱與密碼並提供工作階段
+   cookie。此方法在 OpenBMC 中已被棄用。
+3. 基本存取驗證（Basic Access Authentication），在 "Authorization" 要求標頭中接受
+   使用者名稱與密碼（常以 URL 編碼，例如 `https://user:pass@host/...`），且不回傳
+   任何憑證。此方法已被 RFC 3986 棄用。
 
-The username and password are presented to phosphor-user-manager for
-authentication.
+使用者名稱與密碼會提交給 phosphor-user-manager 進行驗證。
 
-The first two methods create the same kind of session but return different
-credentials. For example, you can create a Redfish session, and use your
-credentials to invoke Phosphor D-Bus REST APIs. Note, however, that the X-Auth
-tokens are required to use POST, PUT, PATCH, or DELETE methods.
+前兩種方法會建立相同類型的工作階段，但回傳不同的憑證。例如，您可以建立一個 Redfish
+工作階段，並使用您的憑證來呼叫 Phosphor D-Bus REST API。不過請注意，使用 POST、PUT、
+PATCH 或 DELETE 方法時需要 X-Auth 權杖。
 
-General security considerations for REST APIs apply:
+適用於 REST API 的一般安全性注意事項亦適用：
 <https://github.com/OWASP/CheatSheetSeries/blob/master/cheatsheets/REST_Security_Cheat_Sheet.md>
 
-Redfish provides security considerations in the "Security Detail" section of the
-"Redfish Specification" (document ID DSP0266) available from
-<https://www.dmtf.org/standards/redfish>.
+Redfish 在可於 <https://www.dmtf.org/standards/redfish> 取得的《Redfish Specification》
+（文件 ID DSP0266）的 "Security Detail" 章節中提供安全性注意事項。
 
-#### The webui-vue Web application
+#### webui-vue 網頁應用程式
 
-General considerations for Web applications such as given by [OWASP Web
-Application Security Guidance][] apply to OpenBMC. The webui-vue uses username
-and password-based authentication, and REST APIs for subsequent access.
+適用於網頁應用程式的一般注意事項，例如 [OWASP Web Application Security Guidance][]
+所提供的內容，適用於 OpenBMC。webui-vue 使用基於使用者名稱與密碼的驗證，並使用
+REST API 進行後續存取。
 
 [owasp web application security guidance]:
   https://www.owasp.org/index.php/Web_Application_Security_Guidance
 
-The web app also provides interfaces to use the host serial console, virtual
-media, and host KVM.
+此網頁應用程式也提供介面以使用主機序列主控台、虛擬媒體與主機 KVM。
 
-### TCP port 2200
+### TCP 埠 2200
 
-Access to the BMC's [host serial console][] is provided via the SSH protocol on
-port 2200.
+透過 2200 埠上的 SSH 協定，提供對 BMC [主機序列主控台][] 的存取。
 
 [host serial console]: https://github.com/openbmc/docs/blob/master/console.md
 
-This uses the same server implementation as port 22, including the same TLS
-mechanisms.
+這使用與 22 埠相同的伺服器實作，包括相同的 TLS 機制。
 
-How the host secures its console (for example, username and password prompts) is
-outside the scope of this document.
+主機如何保護其主控台（例如使用者名稱與密碼提示）不在本文討論範圍之內。
 
-### TCP and UDP ports 5355 - mDNS service discovery
+### TCP 與 UDP 埠 5355 - mDNS 服務探索
 
-General security considerations for service discovery apply. For example,
-described here: <https://attack.mitre.org/techniques/T1046/>
+適用於服務探索的一般安全性注意事項亦適用。例如，此處所述：
+<https://attack.mitre.org/techniques/T1046/>
 
-### UDP port 427 - SLP, Avahi
+### UDP 埠 427 - SLP、Avahi
 
-General security considerations for service discovery apply.
+適用於服務探索的一般安全性注意事項亦適用。
 
-### UDP port 623 - IPMI RCMP
+### UDP 埠 623 - IPMI RCMP
 
-The IPMI network-facing design is described here:
-<https://github.com/openbmc/docs/blob/master/architecture/ipmi-architecture.md>
-and the implementation is described here:
-<https://github.com/openbmc/phosphor-net-ipmid>. Note that host IPMI is outside
-the scope of this document.
+IPMI 的網路導向設計說明於此：
+<https://github.com/openbmc/docs/blob/master/architecture/ipmi-architecture.md>，
+其實作說明於此：<https://github.com/openbmc/phosphor-net-ipmid>。請注意，主機 IPMI
+不在本文討論範圍之內。
 
-General security considerations for IPMI apply. For example, described here:
+適用於 IPMI 的一般安全性注意事項亦適用。例如，此處所述：
 <https://www.us-cert.gov/ncas/alerts/TA13-207A>
 
-OpenBMC implements RCMP+ and IPMI 2.0. The phosphor-user-manager provides the
-underlying authentication mechanism.
+OpenBMC 實作了 RCMP+ 與 IPMI 2.0。phosphor-user-manager 提供底層的驗證機制。
 
-Supported IPMI ciphers can be found in the code, for example, by searching for
-function `isAlgorithmSupported`, or from the `ipmitool` command such as
-`ipmitool channel getciphers ipmi`.
+支援的 IPMI 加密算法可在程式碼中找到，例如搜尋 `isAlgorithmSupported` 函式，或從
+`ipmitool` 指令取得，例如 `ipmitool channel getciphers ipmi`。
 
-OpenBMC supports IPMI "serial over LAN" (SOL) connections (via
-`impitool sol activate`) which shares the host serial console socket.
+OpenBMC 支援 IPMI 的「序列線上」（serial over LAN，SOL）連線（透過
+`impitool sol activate`），會共用主機序列主控台的 socket。

@@ -1,97 +1,85 @@
-# Authorities List Management
+# Authorities 清單管理
 
 Author: Nan Zhou <nanzhoumails@gmail.com>
 
 Created: 12/01/2021
 
-## Problem Description
+## 問題描述
 
-There are use cases where a system has multiple root certificates installed to
-verify different clients. For example, In Google, a trust bundle file ( which is
-a list of authorities) is installed on BMC for mTLS authentication.
+有些使用案例會在系統上安裝多張根憑證（root certificate），用以驗證不同的
+client。舉例來說，在 Google，會在 BMC 上安裝一個 trust bundle 檔（也就是
+一組 authorities 清單）來進行 mTLS 驗證。
 
-The current phosphor-certificate-manager doesn't have good support to manage
-multiple root certificates:
+目前的 phosphor-certificate-manager 對於管理多張根憑證並沒有良好的支援：
 
-1. It only allows replacing a single Authority object in dbus; however, Google's
-   use case requires bulk replacement (see the ReplaceAll interface below)
+1. 它在 dbus 上只允許取代單一的 Authority 物件；然而 Google 的使用案例
+   需要批次取代（請見下方的 ReplaceAll 介面）
 
-2. It only extracts the first certificate given a PEM encoded file with multiple
-   certs; however, Google's trust bundle file contains multiple PEM encoded
-   certificates
+2. 當給定一個包含多張憑證的 PEM 編碼檔時，它只會擷取第一張憑證；然而 Google
+   的 trust bundle 檔包含多張以 PEM 編碼的憑證
 
-## Requirements
+## 需求
 
-Phosphor-certificate-manager (only the Authority Manager) and BMCWeb will
-support authorities list:
+Phosphor-certificate-manager（僅限 Authority Manager）與 BMCWeb 將支援
+authorities 清單：
 
-1. Bulk Installation: given a PEM file with multiple root certificates, it
-   validates & installs all of them and returns a list of created objects
+1. 批次安裝（Bulk Installation）：給定一個包含多張根憑證的 PEM 檔，它會驗證
+   並安裝其中的全部憑證，並回傳一組建立出來的物件清單
 
-2. Bulk Replacement: given a PEM file with multiple root certificates, it will
-   firstly delete all current root certificates and redo the installation
+2. 批次取代（Bulk Replacement）：給定一個包含多張根憑證的 PEM 檔，它會先刪除
+   目前所有的根憑證，然後重新執行安裝
 
-3. Redfish: BMCWeb will export all authorities as Redfish Certificate
+3. Redfish：BMCWeb 會將所有的 authorities 匯出為 Redfish Certificate
 
-4. Recovery at boot up: when the phosphor-certificate-manager gets instantiated,
-   if it finds a authorities list in the installation path, it will recover from
-   the list via a bulk installation
+4. 開機時的復原（Recovery）：當 phosphor-certificate-manager 被實例化時，如果
+   它在安裝路徑中找到一份 authorities 清單，它會透過批次安裝從該清單進行復原
 
-5. Atomic: Bulk Installation and Bulk Replacement are atomic; that is, if there
-   is an invalid certificate in the list, the service won't install any of the
-   certificates in the list
+5. 原子性（Atomic）：批次安裝與批次取代具備原子性；也就是說，如果清單中有一張
+   無效的憑證，服務就不會安裝清單中的任何一張憑證
 
-## Proposed Design
+## 擬議設計
 
-We propose two new interfaces:
+我們提出兩個新的介面：
 
 1. InstallAll
 2. ReplaceAll
 
 ### xyz.openbmc_project.Certs.InstallAll
 
-When certificate type is Authority, rather than just extract the first
-certificate, we will iterate through each certificate, validate it, create
-corresponding object in DBus, dump individual certificates into PEM files in the
-installation path, creates alias according to subject hash (requirements from
-boost's `ssl_context`) for each certificate, and finally copy the PEM file to
-the installation path(the PEM file will have a fixed name)
+當憑證類型為 Authority 時，我們不再只擷取第一張憑證，而是逐一遍歷每一張憑證、
+驗證它、在 DBus 上建立對應的物件、將各別憑證以 PEM 檔匯出到安裝路徑、依據
+subject hash 為每一張憑證建立 alias（這是來自 boost 的 `ssl_context` 之需求），
+最後將 PEM 檔複製到安裝路徑（該 PEM 檔會有一個固定的檔名）
 
-We return all created object paths as a vector of strings.
+我們會以字串向量（vector of strings）的形式回傳所有建立出來的物件路徑。
 
-For other types of certificates (server & client), the service throws a NOT
-ALLOWED error.
+對於其他類型的憑證（server 與 client），服務會拋出 NOT ALLOWED 錯誤。
 
 ### xyz.openbmc_project.Certs.ReplaceAll
 
-The new interface contains a ReplaceAll method which takes a path to the input
-PEM file.
+這個新介面包含一個 ReplaceAll 方法，它接受一個指向輸入 PEM 檔的路徑。
 
-The certificate manager will implement the new ReplaceAll interface. Upon
-invocation, it deletes all current authority objects, takes the input PEM, and
-redo the installation.
+憑證管理員（certificate manager）將實作這個新的 ReplaceAll 介面。當該方法被
+呼叫時，它會刪除目前所有的 authority 物件、取得輸入的 PEM 檔，然後重新執行
+安裝。
 
-For other types of certificate manager (server & client), the service throws a
-NOT ALLOWED error.
+對於其他類型的憑證管理員（server 與 client），服務會拋出 NOT ALLOWED 錯誤。
 
 ### xyz.openbmc_project.Certs.Replace
 
-No changes. Individual authority certificate can still be replaced respectively.
-It only extracts the first certificate even if the PEM contains multiple root
-certificates.
+沒有變更。各別的 authority 憑證仍然可以分別被取代。即使 PEM 檔中包含多張根憑證，
+它也只會擷取第一張憑證。
 
-## Impacts
+## 影響
 
-None besides new APIs are added
+除了新增 API 之外，沒有其他影響
 
-## Alternatives Considered
+## 曾考慮的替代方案
 
-We can also create a trust bundle interface (instead of using multiple
-Certificates) and implement its standalone manager daemon. It has less impact in
-existing codes. However, trust bundle isn't in BMCWeb, neither in Redfish
-schema.
+我們也可以建立一個 trust bundle 介面（而不是使用多張 Certificates），並實作它
+獨立的 manager 常駐程式（daemon）。這樣對既有程式碼的影響較小。然而，trust
+bundle 並不存在於 BMCWeb 中，Redfish schema 中也沒有。
 
-## Testing
+## 測試
 
-Enhance existing unit tests in phosphor-certificates-manager to test bulk
-installation and replacements.
+強化 phosphor-certificates-manager 中現有的單元測試，以測試批次安裝與批次取代。

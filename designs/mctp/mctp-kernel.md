@@ -1,119 +1,99 @@
-# OpenBMC in-kernel MCTP
+# OpenBMC 核心內 MCTP
 
-Author: Jeremy Kerr <jk@codeconstruct.com.au>
+作者：Jeremy Kerr <jk@codeconstruct.com.au>
 
-Please refer to the [MCTP Overview](mctp.md) document for general MCTP design
-description, background and requirements.
+關於一般性的 MCTP 設計說明、背景與需求，請參考 [MCTP 總覽](mctp.md)文件。
 
-This document describes a kernel-based implementation of MCTP infrastructure,
-providing a sockets-based API for MCTP communication within an OpenBMC-based
-platform.
+本文件描述一個以核心為基礎的 MCTP 基礎設施實作，為以 OpenBMC 為基礎的平台
+提供一套基於 socket 的 MCTP 通訊 API。
 
-## Requirements for a kernel implementation
+## 核心實作的需求
 
-- The MCTP messaging API should be an obvious application of the existing POSIX
-  socket interface
+- MCTP 訊息 API 應為既有 POSIX socket 介面的直覺應用
 
-- Configuration should be simple for a straightforward MCTP endpoint: a single
-  network with a single local endpoint id (EID).
+- 對於一個單純的 MCTP 端點而言，設定應該很簡單：單一網路搭配單一的本機
+  端點 ID（EID）。
 
-- Infrastructure should be flexible enough to allow for more complex MCTP
-  networks, allowing:
-  - each MCTP network (as defined by section 3.2.31 of DSP0236) may consist of
-    multiple local physical interfaces, and/or multiple EIDs;
+- 基礎設施應具備足夠的彈性，以容納更複雜的 MCTP 網路，並允許：
+  - 每個 MCTP 網路（如 DSP0236 第 3.2.31 節所定義）可由多個本機實體介面
+    及／或多個 EID 組成；
 
-  - multiple distinct (ie., non-bridged) networks, possibly containing
-    duplicated EIDs between networks;
+  - 多個彼此獨立（亦即非橋接）的網路，且各網路之間可能存在重複的
+    EID；
 
-  - multiple local EIDs on a single interface, and
+  - 單一介面上可有多個本機 EID，以及
 
-  - customisable routing/bridging configurations within a network.
+  - 網路內可自訂路由／橋接設定。
 
-## Proposed Design
+## 建議設計
 
-The design contains several components:
+本設計包含數個元件：
 
-- An interface for userspace applications to send and receive MCTP messages: A
-  mapping of the sockets API to MCTP usage
+- 供使用者空間應用程式收發 MCTP 訊息的介面：將 sockets API 對應至 MCTP
+  用途的一組映射
 
-- Infrastructure for control and configuration of the MCTP network(s),
-  consisting of a configuration utility, and a kernel messaging facility for
-  this utility to use.
+- 用於控制與設定 MCTP 網路的基礎設施，包含一個設定工具，以及供該工具
+  使用的核心訊息傳遞機制。
 
-- Kernel drivers for physical interface bindings.
+- 供實體介面綁定使用的核心驅動程式。
 
-In general, the kernel components cover the transport functionality of MCTP,
-such as message assembly/disassembly, packet forwarding, and physical interface
-implementations.
+一般來說，核心元件涵蓋 MCTP 的傳輸功能，例如訊息的組裝／拆解、封包轉發，
+以及實體介面實作。
 
-Higher-level protocols (such as PLDM) are implemented in userspace, through the
-introduced socket API. This also includes the majority of the MCTP Control
-Protocol implementation (DSP0236, section 11) - MCTP endpoints will typically
-have a specific process to request and respond to control protocol messages.
-However, the kernel will include a small subset of control protocol code to
-allow very simple endpoints, with static EID allocations, to run without this
-process. MCTP endpoints that require more than just single-endpoint
-functionality (bus owners, bridges, etc), and/or dynamic EID allocation, would
-include the control message protocol process.
+較高階的協定（例如 PLDM）則透過所引入的 socket API 在使用者空間實作。
+這也涵蓋了 MCTP 控制協定（MCTP Control Protocol，DSP0236 第 11 節）實作的
+大部分內容——MCTP 端點通常會有一個專屬程序來要求並回應控制協定訊息。
+不過，核心會納入一小部分控制協定程式碼，好讓那些僅具靜態 EID 分配、
+功能極為簡單的端點，無需此程序即可執行。需要超出單一端點功能（匯流排擁有者、
+橋接器等）及／或動態 EID 分配的 MCTP 端點，才會納入控制訊息協定程序。
 
-A new driver is introduced to handle each physical interface binding. These
-drivers expose the appropriate `struct net_device` to handle transmission and
-reception of MCTP packets on their associated hardware channels. Under Linux,
-the namespace for these interfaces is separate from other network interfaces -
-such as those for ethernet.
+每個實體介面綁定都會引入一個新的驅動程式來處理。這些驅動程式會暴露相應的
+`struct net_device`，以處理其關聯硬體通道上 MCTP 封包的傳送與接收。在 Linux
+下，這些介面的命名空間有別於其他網路介面——例如乙太網路的介面。
 
-### Structure: interfaces & networks
+### 結構：介面與網路
 
-The kernel models the local MCTP topology through two items: interfaces and
-networks.
+核心透過兩個項目來建模本機 MCTP 拓撲：介面（interfaces）與網路（networks）。
 
-An interface (or "link") is an instance of an MCTP physical transport binding
-(as defined by DSP0236, section 3.2.47), likely connected to a specific hardware
-device. This is represented as a `struct netdevice`, and has a user-visible name
-and index (`ifindex`). Non-hardware-attached interfaces are permitted, to allow
-local loopback and/or virtual interfaces.
+介面（或稱「連結」）是 MCTP 實體傳輸綁定（如 DSP0236 第 3.2.47 節所定義）
+的一個實例，通常連接至某個特定硬體裝置。它以 `struct netdevice` 表示，
+並有一個使用者可見的名稱與索引（`ifindex`）。系統也允許非實體附加的介面，
+以支援本機迴環及／或虛擬介面。
 
-A network defines a unique address space for MCTP endpoints by endpoint-ID
-(described by DSP0236, section 3.2.31). A network has a user-visible identifier
-to allow references from userspace. Route definitions are specific to one
-network.
+網路以端點 ID 為 MCTP 端點定義一個唯一的位址空間（如 DSP0236 第 3.2.31 節
+所述）。網路有一個使用者可見的識別碼，以便從使用者空間參照它。路由定義
+為單一網路所專屬。
 
-Interfaces are associated with one network. A network may be associated with one
-or more interfaces.
+介面與單一網路相關聯。一個網路可與一個或多個介面相關聯。
 
-If multiple networks are present, each may contain EIDs that are also present on
-other networks.
+若存在多個網路，每個網路都可能包含在其他網路中也存在的 EID。
 
 ### Sockets API
 
-#### Protocol definitions
+#### 協定定義
 
-We define a new address family (and corresponding protocol family) for MCTP:
+我們為 MCTP 定義一個新的位址家族（以及相對應的協定家族）：
 
 ```c
     #define AF_MCTP /* TBD */
     #define PF_MCTP AF_MCTP
 ```
 
-MCTP sockets are created with the `socket()` syscall, specifying `AF_MCTP` as
-the domain. Currently, only a `SOCK_DGRAM` socket type is defined.
+MCTP socket 以 `socket()` 系統呼叫建立，並將 `AF_MCTP` 指定為領域。
+目前僅定義了 `SOCK_DGRAM` 此種 socket 類型。
 
 ```c
     int sd = socket(AF_MCTP, SOCK_DGRAM, 0);
 ```
 
-The only (current) value for the `protocol` argument is 0. Future protocol
-implementations may be added later.
+`protocol` 引數唯一的（目前）值為 0。日後可能會新增其他協定實作。
 
-MCTP Sockets opened with a protocol value of 0 will communicate directly at the
-transport layer; message buffers received by the application will consist of
-message data from reassembled MCTP packets, and will include the full message
-including message type byte and optional message integrity check (IC).
-Individual packet headers are not included; they may be accessible through a
-future `SOCK_RAW` socket type.
+以通訊協定值 0 開啟的 MCTP Socket 會直接在傳輸層進行通訊；應用程式收到的
+訊息緩衝區，將由已重新組裝的 MCTP 封包中的訊息資料組成，並包含完整訊息，
+含訊息類型位元組與選用的訊息完整性檢查碼（IC）。個別封包的標頭不包含在內；
+它們未來或許可透過 `SOCK_RAW` socket 類型存取。
 
-As with all socket address families, source and destination addresses are
-specified with a new `sockaddr` type:
+與所有 socket 位址家族一樣，來源與目的位址以一個新的 `sockaddr` 類型指定：
 
 ```c
     struct sockaddr_mctp {
@@ -151,16 +131,14 @@ specified with a new `sockaddr` type:
     #define MCTP_TAG_RSP(x) (x & MCTP_TAG_MASK) /* response to a request: clear TO, keep value */
 ```
 
-#### Syscall behaviour
+#### 系統呼叫行為
 
-The following sections describe the MCTP-specific behaviours of the standard
-socket system calls. These behaviours have been chosen to map closely to the
-existing sockets APIs.
+以下各節描述標準 socket 系統呼叫中與 MCTP 相關的行為。這些行為的選擇旨在
+與既有 sockets API 緊密對應。
 
-##### `bind()`: set local socket address
+##### `bind()`：設定本機 socket 位址
 
-Sockets that receive incoming request packets will bind to a local address,
-using the `bind()` syscall.
+會接收傳入要求封包的 socket，會使用 `bind()` 系統呼叫繫結至一個本機位址。
 
 ```c
     struct sockaddr_mctp addr;
@@ -174,38 +152,32 @@ using the `bind()` syscall.
     int rc = bind(sd, (struct sockaddr *)&addr, sizeof(addr));
 ```
 
-This establishes the local address of the socket. Incoming MCTP messages that
-match the network, address, and message type will be received by this socket.
-The reference to 'incoming' is important here; a bound socket will only receive
-messages with the TO bit set, to indicate an incoming request message, rather
-than a response.
+這會確立 socket 的本機位址。符合該網路、位址與訊息類型的傳入 MCTP 訊息，
+將由這個 socket 接收。這裡「傳入」一詞相當重要；已繫結的 socket 只會接收
+帶有 TO 位元設定為 1 的訊息，以表示這是傳入的要求訊息，而非回應。
 
-The `smctp_tag` value will configure the tags accepted from the remote side of
-this socket. Given the above, the only valid value is `MCTP_TAG_OWNER`, which
-will result in remotely "owned" tags being routed to this socket. Since
-`MCTP_TAG_OWNER` is set, the 3 least-significant bits of `smctp_tag` are not
-used; callers must set them to zero. See the
-[Tag behaviour for transmitted messages](#tag-behaviour-for-transmitted-messages)
-section for more details. If the `MCTP_TAG_OWNER` bit is not set, `bind()` will
-fail with an errno of `EINVAL`.
+`smctp_tag` 的值將設定此 socket 從遠端接受哪些 tag。基於上述設定，唯一有效
+的值是 `MCTP_TAG_OWNER`，這會讓遠端「擁有」的 tag 被路由至這個 socket。
+由於設定了 `MCTP_TAG_OWNER`，`smctp_tag` 最低有效的 3 個位元並不被使用；
+呼叫端必須將它們設為零。詳情請參閱
+[傳送訊息的 Tag 行為](#傳送訊息的-tag-行為)一節。若未設定 `MCTP_TAG_OWNER`
+位元，`bind()` 將失敗，並帶有 `EINVAL` 的 errno。
 
-A `smctp_network` value of `MCTP_NET_ANY` will configure the socket to receive
-incoming packets from any locally-connected network. A specific network value
-will cause the socket to only receive incoming messages from that network.
+`smctp_network` 值為 `MCTP_NET_ANY` 時，會將 socket 設定為接收來自任何
+本機連接網路的傳入封包。指定特定網路值時，socket 將只會接收來自該網路的
+傳入訊息。
 
-The `smctp_addr` field specifies a local address to bind to. A value of
-`MCTP_ADDR_ANY` configures the socket to receive messages addressed to any local
-destination EID.
+`smctp_addr` 欄位指定要繫結的本機位址。值為 `MCTP_ADDR_ANY` 時，會將 socket
+設定為接收送往任何本機目的 EID 的訊息。
 
-The `smctp_type` field specifies which message types to receive. Only the lower
-7 bits of the type is matched on incoming messages (ie., the most-significant IC
-bit is not part of the match). This results in the socket receiving packets with
-and without a message integrity check footer.
+`smctp_type` 欄位指定要接收哪些訊息類型。對於傳入訊息，僅比對類型的低 7
+個位元（亦即最高有效的 IC 位元不屬於比對的一部分）。這會讓 socket 同時接收
+帶有與不帶有訊息完整性檢查尾註的封包。
 
-##### `connect()`: set remote bind address
+##### `connect()`：設定遠端繫結位址
 
-It is possible to restrict the scope of a `bind()` to a single remote address
-with the `connect()` syscall before the `bind()`:
+可以在 `bind()` 之前先使用 `connect()` 系統呼叫，將 `bind()` 的範圍限制到
+單一遠端位址：
 
 ```c
     struct sockaddr_mctp peer_addr = { 0 }, local_addr = { 0 };
@@ -229,14 +201,14 @@ with the `connect()` syscall before the `bind()`:
     rc = bind(sd, (struct sockaddr *)&local_addr, sizeof(local_addr));
 ```
 
-Unlike an unrestricted `bind()`, the socket will now only receive incoming TO=1
-messages from one specific peer. This allows multiple separate sockets to
-receive incoming messages of the same type, but from distinct peers.
+與未限制範圍的 `bind()` 不同，此時 socket 只會接收來自某個特定對等端、
+TO=1 的傳入訊息。這讓多個獨立的 socket 能接收相同類型、但來自不同對等端
+的傳入訊息。
 
-##### `sendto()` & `sendmsg()`: transmit an MCTP message
+##### `sendto()` 與 `sendmsg()`：傳送一封 MCTP 訊息
 
-An MCTP message is transmitted using one of the `sendto()` or `sendmsg()`
-syscalls. Using `sendto()` as the primary example:
+MCTP 訊息透過 `sendto()` 或 `sendmsg()` 系統呼叫之一來傳送。以下以 `sendto()`
+為主要範例：
 
 ```c
     struct sockaddr_mctp addr;
@@ -257,35 +229,30 @@ syscalls. Using `sendto()` as the primary example:
                     (struct sockaddr_mctp *)&addr, sizeof(addr));
 ```
 
-The address argument specifies the peer address: the network and address fields
-define the remote address to send to. If `smctp_tag` has the `MCTP_TAG_OWNER`,
-the kernel will ignore any bits set in `MCTP_TAG_VALUE`, and generate a tag
-value suitable for the destination EID. If `MCTP_TAG_OWNER` is not set, the
-message will be sent with the tag value as specified. If a tag value cannot be
-allocated, the system call will report an errno of `EAGAIN`.
+位址引數指定對等端位址：網路與位址欄位定義要送往的遠端位址。若 `smctp_tag`
+帶有 `MCTP_TAG_OWNER`，核心會忽略 `MCTP_TAG_VALUE` 中設定的任何位元，並為
+目的 EID 產生一個合適的 tag 值。若未設定 `MCTP_TAG_OWNER`，訊息將以指定的
+tag 值傳送。若無法分配 tag 值，系統呼叫將回報 `EAGAIN` 的 errno。
 
-The message buffer does not include the message type byte; this is specified by
-the `smctp_type` value. If a message integrity check is to be included in the
-transmitted message, it must be provided in the message buffer, and the
-most-significant bit of the `smctp_type` must be 1.
+訊息緩衝區不包含訊息類型位元組；該位元組由 `smctp_type` 值指定。若要在
+傳送的訊息中納入訊息完整性檢查碼，必須將它提供在訊息緩衝區中，且
+`smctp_type` 的最高有效位元必須為 1。
 
-The `sendmsg()` system call allows a more compact argument interface, and the
-message buffer to be specified as a scatter-gather list. At present no ancillary
-message types (used for the `msg_control` data passed to `sendmsg()`) are
-defined.
+`sendmsg()` 系統呼叫允許更精簡的引數介面，並可將訊息緩衝區指定為分散聚集
+清單（scatter-gather list）。目前尚未定義任何輔助訊息類型（用於傳給
+`sendmsg()` 的 `msg_control` 資料）。
 
-Transmitting a message on an a socket with `MCTP_TAG_OWNER` specified will cause
-an allocation of a tag. The (source-eid, destination-eid, tag) tuple acts as an
-implicit local socket address, to allow the socket to receive responses to this
-outgoing message.
+在指定了 `MCTP_TAG_OWNER` 的 socket 上傳送訊息，會導致分配一個 tag。
+（來源 EID、目的 EID、tag）這個元組充當一個隱含的本機 socket 位址，讓
+socket 能接收對此送出訊息的回應。
 
-Sockets will only receive responses to requests they have sent (with TO=1) and
-may only respond (with TO=0) to requests they have received.
+Socket 只會接收它自己送出（TO=1）的要求的回應，且只能回應（TO=0）它自己
+收到的要求。
 
-##### `recvfrom()` & `recvmsg()`: receive an MCTP message
+##### `recvfrom()` 與 `recvmsg()`：接收一封 MCTP 訊息
 
-An MCTP message can be received by an application using one of the `recvfrom()`
-or `recvmsg()` system calls. Using `recvfrom()` as the primary example:
+應用程式可透過 `recvfrom()` 或 `recvmsg()` 系統呼叫之一來接收 MCTP 訊息。
+以下以 `recvfrom()` 為主要範例：
 
 ```c
     struct sockaddr_mctp addr;
@@ -306,30 +273,27 @@ or `recvmsg()` system calls. Using `recvfrom()` as the primary example:
         addr.smctp_addr, addr.smctp_type);
 ```
 
-The address argument to `recvfrom` and `recvmsg` is populated with the remote
-address of the incoming message, including tag value (this will be needed in
-order to reply to the message).
+`recvfrom` 與 `recvmsg` 的位址引數會被填入傳入訊息的遠端位址，包含 tag 值
+（這是回覆該訊息時所需要的）。
 
-The `smctp_type` field of the passed address argument will be populated with the
-MCTP message type received, including the IC bit. The type byte does not appear
-in the returned buffer data. If IC is set, the integrity check follows the
-message, and will be included in the received buffer.
+傳入位址引數的 `smctp_type` 欄位會被填入所收到的 MCTP 訊息類型，包含 IC
+位元。類型位元組不會出現在回傳的緩衝區資料中。若設定了 IC，完整性檢查碼會
+跟在訊息之後，並會被包含在收到的緩衝區中。
 
-Like the send calls, sockets will only receive responses to requests they have
-sent (TO=1) and may only respond (TO=0) to requests they have received.
+與傳送呼叫一樣，socket 只會接收它自己送出（TO=1）的要求的回應，且只能
+回應（TO=0）它自己收到的要求。
 
-##### Socket options
+##### Socket 選項
 
-The following socket option is defined for MCTP sockets:
+以下 socket 選項為 MCTP socket 所定義：
 
-###### `MCTP_ADDR_EXT`: Use extended addressing information in sendmsg/recvmsg
+###### `MCTP_ADDR_EXT`：在 sendmsg/recvmsg 中使用延伸位址資訊
 
-Enabling this socket option allows an application to specify extended addressing
-information on transmitted packets, and access the same on received packets.
+啟用此 socket 選項可讓應用程式在傳送的封包上指定延伸位址資訊，並在收到的
+封包上存取相同的資訊。
 
-When the `MCTP_ADDR_EXT` socket option is enabled, the application may specify
-an expanded `struct sockaddr` to the `recvfrom()` and `sendto()` system calls.
-This as defined as:
+啟用 `MCTP_ADDR_EXT` socket 選項後，應用程式可向 `recvfrom()` 與 `sendto()`
+系統呼叫指定一個擴充的 `struct sockaddr`。其定義如下：
 
 ```c
     struct sockaddr_mctp_ext {
@@ -345,20 +309,18 @@ This as defined as:
     }
 ```
 
-If the `addrlen` specified to `sendto()` or `recvfrom()` is sufficient to
-contain this larger structure, then the extended addressing fields are consumed
-/ populated respectively.
+若指定給 `sendto()` 或 `recvfrom()` 的 `addrlen` 足以容納這個較大的結構，
+則會各自消費／填入這些延伸位址欄位。
 
-##### `ioctl`s
+##### `ioctl`
 
-The following `ioctls` are defined for MCTP sockets:
+以下 `ioctl` 為 MCTP socket 所定義：
 
-###### `SIOCMCTPALLOCTAG2` / `SIOCMCTPDROPTAG2`: explicit tag control
+###### `SIOCMCTPALLOCTAG2` / `SIOCMCTPDROPTAG2`：明確的 tag 控制
 
-If an MCTP application-layer protocol requires advanced tag control (eg,
-something other than a simple 1:1 request/response model, or exact control over
-timeouts), an application can perform explicit tag allocation and release. These
-`ioctl`s both accept a `struct mctp_ioc_tag_ctl2` as an argument:
+若某個 MCTP 應用層協定需要進階的 tag 控制（例如，採用非單純 1:1 要求／
+回應模式的機制，或是對逾時有精確控制），應用程式可以執行明確的 tag 分配
+與釋放。這兩個 `ioctl` 都接受一個 `struct mctp_ioc_tag_ctl2` 作為引數：
 
 ```c
 struct mctp_ioc_tag_ctl2 {
@@ -386,15 +348,14 @@ struct mctp_ioc_tag_ctl2 {
 };
 ```
 
-Tags can be preallocated using the `SIOCMCTPALLOCTAG2` `ioctl`. These tags will
-have the `MCTP_TAG_PREALLOC` bit set.
+tag 可以使用 `SIOCMCTPALLOCTAG2` `ioctl` 預先分配。這些 tag 會設定
+`MCTP_TAG_PREALLOC` 位元。
 
-Allocating a tag gives us a persistent TO=1 tag, for use when sending outgoing
-messages. The tag will not be implicitly released when we receive a reply, nor
-will be subject to tag timeouts.
+分配 tag 會取得一個持續性的 TO=1 tag，供傳送送出訊息時使用。當我們收到
+回應時，該 tag 不會被隱含地釋放，也不會受 tag 逾時影響。
 
-The caller should release the tag when done, using `SIOCMCTPDROPTAG2`. Tags will
-also be released on socket close.
+呼叫端完成後應使用 `SIOCMCTPDROPTAG2` 釋放該 tag。在 socket 關閉時，tag
+也會被釋放。
 
 ```c
     struct mctp_ioc_tag_ctl2 ctl = {
@@ -418,40 +379,39 @@ also be released on socket close.
     rc = ioctl(sd, SIOCMCTPDROPTAG2, &ctl);
 ```
 
-##### Syscalls not implemented
+##### 未實作的系統呼叫
 
-The following system calls are not implemented for MCTP, primarily as they are
-not used in `SOCK_DGRAM`-type sockets:
+以下系統呼叫並未為 MCTP 實作，主要因為它們並不用於 `SOCK_DGRAM` 類型的
+socket：
 
 - `listen()`
 - `accept()`
 - `shutdown()`
 - `mmap()`
 
-#### Userspace examples
+#### 使用者空間範例
 
-These examples cover three general use-cases:
+這些範例涵蓋三種一般使用情境：
 
-- **requester**: sends requests to a particular (EID, type) target, and receives
-  responses to those packets
+- **請求端（requester）**：向特定的（EID、類型）目標送出要求，並接收這些
+  封包的回應
 
-  This is similar to a typical UDP client
+  這類似於典型的 UDP 用戶端
 
-- **responder**: receives all locally-addressed messages of a specific
-  message-type, and responds to the requester immediately.
+- **回應端（responder）**：接收所有以本機為目的、特定訊息類型的訊息，並立即
+  回覆請求端。
 
-  This is similar to a typical UDP server
+  這類似於典型的 UDP 伺服器
 
-- **controller**: a specific service for a bus owner; may send broadcast
-  messages, manage EID allocations, update local MCTP stack state. Will need
-  low-level packet data.
+- **控制器（controller）**：匯流排擁有者的專屬服務；可能送出廣播訊息、管理
+  EID 分配、更新本機 MCTP 堆疊狀態。需要低階封包資料。
 
-  This is similar to a DHCP server.
+  這類似於 DHCP 伺服器。
 
-##### Requester
+##### 請求端
 
-"Client"-side implementation to send requests to a responder, and receive a
-response. This uses a (fictitious) message type of `MCTP_TYPE_ECHO`.
+「用戶端」端的實作，向回應端送出要求並接收回應。它使用一個（虛構的）訊息
+類型 `MCTP_TYPE_ECHO`。
 
 ```c
     int main() {
@@ -501,11 +461,11 @@ response. This uses a (fictitious) message type of `MCTP_TYPE_ECHO`.
     }
 ```
 
-##### Responder
+##### 回應端
 
-"Server"-side implementation to receive requests and respond. Like the client,
-This uses a (fictitious) message type of `MCTP_TYPE_ECHO` in the
-`struct sockaddr_mctp`; only messages matching this type will be received.
+「伺服器」端的實作，接收要求並回應。與用戶端一樣，它在 `struct sockaddr_mctp`
+中使用一個（虛構的）訊息類型 `MCTP_TYPE_ECHO`；只有符合此類型的訊息才會被
+接收。
 
 ```c
     int main() {
@@ -560,10 +520,9 @@ This uses a (fictitious) message type of `MCTP_TYPE_ECHO` in the
     }
 ```
 
-##### Broadcast request
+##### 廣播要求
 
-Sends a request to a broadcast EID, and receives (unicast) replies. Typical
-control protocol pattern.
+向廣播 EID 送出要求，並接收（單播）回應。典型的控制協定模式。
 
 ```c
     int main() {
@@ -638,150 +597,124 @@ control protocol pattern.
     }
 ```
 
-#### Implementation notes
+#### 實作說明
 
-##### Addressing
+##### 位址
 
-Transmitted messages (through `sendto()` and related system calls) specify their
-destination via the `smctp_network` and `smctp_addr` fields of a
-`struct sockaddr_mctp`.
+傳送的訊息（透過 `sendto()` 及相關系統呼叫）透過 `struct sockaddr_mctp` 的
+`smctp_network` 與 `smctp_addr` 欄位指定其目的。
 
-The `smctp_addr` field maps directly to the destination endpoint's EID.
+`smctp_addr` 欄位直接對應到目的端點的 EID。
 
-The `smctp_network` field specifies a locally defined network identifier. To
-simplify situations where there is only one network defined, the special value
-`MCTP_NET_ANY` is allowed. This will allow the kernel to select a specific
-network for transmission.
+`smctp_network` 欄位指定一個本機定義的網路識別碼。為簡化僅定義單一網路的
+情況，允許使用特殊值 `MCTP_NET_ANY`。這會讓核心為傳送選取一個特定網路。
 
-This selection is entirely user-configured; one specific network may be defined
-as the system default, in which case it will be used for all message
-transmission where `MCTP_NET_ANY` is used as the destination network.
+這個選取完全由使用者設定；某個特定網路可被定義為系統預設值，在這種情況下，
+凡是以 `MCTP_NET_ANY` 作為目的網路的訊息傳送，都會使用該網路。
 
-In particular, the destination EID is never used to select a destination
-network.
+特別的是，目的 EID 絕不會被用來選取目的網路。
 
-MCTP responders should use the EID and network values of an incoming request to
-specify the destination for any responses.
+MCTP 回應端應使用傳入要求的 EID 與網路值，來指定任何回應的目的。
 
-##### Bridging/routing
+##### 橋接／路由
 
-The network and interface structure allows multiple interfaces to share a common
-network. By default, packets are not forwarded between interfaces.
+網路與介面結構允許多個介面共用一個共同網路。預設情況下，封包不會在介面之間
+轉發。
 
-A network can be configured for "forwarding" mode. In this mode, packets may be
-forwarded if their destination EID is non-local, and matches a route for another
-interface on the same network.
+網路可被設定為「轉發」模式。在此模式下，若封包的目的 EID 非本機，且符合同一
+網路中另一個介面的路由，則封包可被轉發。
 
-As per DSP0236, packet reassembly does not occur during the forwarding process.
-If the packet is larger than the MTU for the destination interface/route, then
-the packet is dropped.
+依 DSP0236 所述，轉發過程中不會進行封包重組。若封包大於目的介面／路由的 MTU，
+則該封包會被丟棄。
 
-##### Tag behaviour for transmitted messages
+##### 傳送訊息的 Tag 行為
 
-On every message sent with the tag-owner bit set ("TO" in DSP0236), the kernel
-must allocate a tag that will uniquely identify responses over a (destination
-EID, source EID, tag-owner, tag) tuple. The tag value is 3 bits in size.
+每當以 tag-擁有者位元設定為 1（在 DSP0236 中稱為「TO」）送出訊息時，核心都
+必須分配一個 tag，以在（目的 EID、來源 EID、tag-擁有者、tag）這個元組上唯一
+識別回應。tag 值的大小為 3 個位元。
 
-To allow this, a `sendto()` with the `MCTP_TAG_OWNER` bit set in the `smctp_tag`
-field will cause the kernel to allocate a unique tag for subsequent replies from
-that specific remote EID.
+為了允許這一點，在 `smctp_tag` 欄位中設定 `MCTP_TAG_OWNER` 位元的 `sendto()`，
+會使核心為來自該特定遠端 EID 的後續回應分配一個唯一的 tag。
 
-This allocation will expire when any of the following occur:
+當下列任一情況發生時，此分配將逾期失效：
 
-- the socket is closed
-- a new message is sent to a new destination EID
-- an implementation-defined timeout expires
+- socket 被關閉
+- 有新訊息送往一個新的目的 EID
+- 一個實作定義的逾時時間到期
 
-Because the "tag space" is limited, it may not be possible for the kernel to
-allocate a unique tag for the outgoing message. In this case, the `sendto()`
-call will fail with errno `EAGAIN`. This is analogous to the UDP behaviour when
-a local port cannot be allocated for an outgoing message.
+由於「tag 空間」有限，核心可能無法為送出訊息分配一個唯一的 tag。在這種情況下，
+`sendto()` 呼叫將失敗並帶有 `EAGAIN` 的 errno。這類似於 UDP 無法為送出訊息
+分配本機埠號時的行為。
 
-The implementation-defined timeout value shall be chosen to reasonably cover
-standard reply timeouts. If necessary, this timeout may be modified through the
-`MCTP_TAG_CONTROL` socket option.
+實作定義的逾時值應選擇能合理涵蓋標準回應逾時的數值。如有必要，可透過
+`MCTP_TAG_CONTROL` socket 選項來修改此逾時。
 
-For applications that expect to perform an ongoing message exchange with a
-particular destination address, they may use the `connect()` call to set a
-persistent remote address. In this case, the tag will be allocated during
-connect(), and remain reserved for this socket until any of the following occur:
+對於預期要與某個特定目的位址進行持續訊息交換的應用程式，它們可使用 `connect()`
+呼叫來設定一個持續性的遠端位址。在這種情況下，tag 會在 connect() 期間分配，
+並為這個 socket 保留，直到下列任一情況發生：
 
-- the socket is closed
-- the remote address is changed through another call to `connect()`.
+- socket 被關閉
+- 透過另一次 `connect()` 呼叫變更了遠端位址。
 
-In particular, calling `sendto()` with a different address does not release the
-tag reservation.
+特別的是，以不同的位址呼叫 `sendto()` 並不會釋放 tag 保留。
 
-Broadcast messages are particularly onerous for tag reservations. When a message
-is transmitted with TO=1 and dest=0xff (the broadcast EID), the kernel must
-reserve the tag across the entire range of possible EIDs. Therefore, a
-particular tag value must be currently-unused across all EIDs to allow a
-`sendto()` to a broadcast address. Additionally, this reservation is not cleared
-when a reply is received, as there may be multiple replies to a broadcast.
+廣播訊息對 tag 保留而言特別沉重。當訊息以 TO=1 且 dest=0xff（廣播 EID）
+傳送時，核心必須在整個可能的 EID 範圍上保留該 tag。因此，必須某個 tag 值
+目前對所有 EID 都未被使用，才能允許對廣播位址進行 `sendto()`。此外，此保留
+在收到回應時並不會被清除，因為一個廣播可能有多個回應。
 
-For this reason, applications wanting to send to the broadcast address should
-use the `connect()` system call to reserve a tag, and guarantee its availability
-for future message transmission. Note that this will remove the tag value for
-use with _any other EID_. Sending to the broadcast address should be avoided; we
-expect few applications will need this functionality.
+基於這個原因，想要傳送至廣播位址的應用程式應使用 `connect()` 系統呼叫來保留
+一個 tag，並保證它在未來的訊息傳送中可用。請注意，這將會使該 tag 值從 _任何
+其他 EID_ 的使用中移除。應盡量避免傳送至廣播位址；我們預期很少有應用程式需要
+此功能。
 
-##### MCTP Control Protocol implementation
+##### MCTP 控制協定實作
 
-Aside from the "Resolve endpoint EID" message, the MCTP control protocol
-implementation would exist as a userspace process, `mctpd`. This process is
-responsible for responding to incoming control protocol messages, any dynamic
-EID allocations (for bus owner devices) and maintaining the MCTP route table
-(for bridging devices).
+除「Resolve endpoint EID」訊息外，MCTP 控制協定實作會以使用者空間程序
+`mctpd` 的形式存在。此程序負責回應傳入的控制協定訊息、任何動態 EID 分配
+（給匯流排擁有者裝置），以及維護 MCTP 路由表（給橋接裝置）。
 
-This process would create a socket bound to the type `MCTP_TYPE_CONTROL`, with
-the `MCTP_ADDR_EXT` socket option enabled in order to access physical addressing
-data on incoming control protocol requests. It would interact with the kernel's
-route table via a netlink interface - the same as that implemented for the
-[Utility and configuration interfaces](#utility-and-configuration-interfaces).
+此程序會建立一個繫結至類型 `MCTP_TYPE_CONTROL` 的 socket，並啟用
+`MCTP_ADDR_EXT` socket 選項，以便在傳入的控制協定要求上存取實體位址資料。
+它會透過 netlink 介面與核心的路由表互動——與為
+[工具與設定介面](#工具與設定介面)所實作的相同。
 
-#### Neighbour and routing implementation
+#### 鄰居與路由實作
 
-The packet-transmission behaviour of the MCTP infrastructure relies on a single
-routing table to lookup both route and neighbour information. Entries in this
-table are of the format:
+MCTP 基礎設施的封包傳送行為依賴單一路由表，來查詢路由與鄰居兩者資訊。此表
+中的項目格式如下：
 
-| EID range | interface | physical address | metric | MTU | flags | expiry |
+| EID 範圍 | 介面 | 實體位址 | metric | MTU | 旗標 | 逾期 |
 | --------- | --------- | ---------------- | ------ | --- | ----- | ------ |
 
-This table can be updated from two sources:
+此表可從兩個來源更新：
 
-- From userspace, via a netlink interface (see the
-  [Utility and configuration interfaces](#utility-and-configuration-interfaces)
-  section).
+- 從使用者空間，透過 netlink 介面（請見
+  [工具與設定介面](#工具與設定介面)一節）。
 
-- Directly within the kernel, when basic neighbour information is discovered.
-  Kernel-originated routes are marked as such in the flags field, and have a
-  maximum validity age, indicated by the expiry field.
+- 直接在核心內，當基本的鄰居資訊被發現時。核心發起的路由會在旗標欄位中如此
+  標記，並有一個由逾期欄位所示的最大有效存續期。
 
-Kernel-discovered routing information can originate from two sources:
+核心發現的路由資訊可來自兩個來源：
 
-- physical-to-EID mappings discovered through received packets
+- 透過收到的封包所發現的實體對 EID 映射
 
-- explicit endpoint physical-address resolution requests
+- 明確的端點實體位址解析要求
 
-When a packet is to be transmitted to an EID that does not have an entry in the
-routing table, the kernel may attempt to resolve the physical address of that
-endpoint using the Resolve Endpoint ID command of the MCTP Control Protocol
-(section 12.9 of DSP0236). The response message will be used to add a
-kernel-originated route into the routing table.
+當某封包將被傳送至一個在路由表中沒有項目的 EID 時，核心可嘗試使用 MCTP 控制
+協定的 Resolve Endpoint ID 指令（DSP0236 第 12.9 節）來解析該端點的實體位址。
+回應訊息將被用來向路由表新增一筆核心發起的路由。
 
-This is the only kernel-internal usage of MCTP Control Protocol messages.
+這是 MCTP 控制協定訊息唯一的核心內部用途。
 
-### Utility and configuration interfaces
+### 工具與設定介面
 
-A small utility will be developed to control the state of the kernel MCTP stack.
-This will be similar in design to the 'iproute2' tools, which perform a similar
-function for the IPv4 and IPv6 protocols.
+將開發一個小型工具來控制核心 MCTP 堆疊的狀態。它在設計上將類似 'iproute2'
+工具，後者為 IPv4 與 IPv6 協定執行類似的功能。
 
-The utility will be invoked as `mctp`, and provide subcommands for managing
-different aspects of the kernel stack.
+該工具將以 `mctp` 呼叫，並提供子命令來管理核心堆疊的各個不同層面。
 
-#### `mctp link`: manage interfaces
+#### `mctp link`：管理介面
 
 ```sh
     mctp link set <link> <up|down>
@@ -790,7 +723,7 @@ different aspects of the kernel stack.
     mctp link set <link> bus-owner <hwaddr>
 ```
 
-#### `mctp network`: manage networks
+#### `mctp network`：管理網路
 
 ```sh
     mctp network create <network-id>
@@ -799,14 +732,14 @@ different aspects of the kernel stack.
     mctp network delete <network-id>
 ```
 
-#### `mctp address`: manage local EID assignments
+#### `mctp address`：管理本機 EID 分配
 
 ```sh
     mctp address add <eid> dev <link>
     mctp address del <eid> dev <link>
 ```
 
-#### `mctp route`: manage routing tables
+#### `mctp route`：管理路由表
 
 ```sh
     mctp route add net <network-id> eid <eid|eid-range> via <link> [hwaddr <addr>] [mtu <mtu>] [metric <metric>]
@@ -814,109 +747,92 @@ different aspects of the kernel stack.
     mctp route show [net <network-id>]
 ```
 
-#### `mctp stat`: query socket status
+#### `mctp stat`：查詢 socket 狀態
 
 ```sh
     mctp stat
 ```
 
-A set of netlink message formats will be defined to support these control
-functions.
+將定義一組 netlink 訊息格式來支援這些控制功能。
 
-## Design points & alternatives considered
+## 設計重點與已考慮的替代方案
 
-### Omitting message-type byte in send/receive buffers
+### 在傳送／接收緩衝區中省略訊息類型位元組
 
-This design specifies that message buffers passed to the kernel in send syscalls
-and from the kernel in receive syscalls will not have the message type byte
-included in the buffer. This diverges slightly from the composition of a MCTP
-message body in DSP0236, but avoids repeating a value in two distinct places.
+本設計規定：在傳送系統呼叫中傳給核心、以及在接收系統呼叫中由核心傳回的
+訊息緩衝區，將不會在緩衝區中納入訊息類型位元組。這與 DSP0236 中 MCTP 訊息
+主體（message body）的組成略有不同，但避免了在兩個不同地方重複同一個值。
 
-We need the `smctp_type` field in order to `bind()`, so the address
-representation wins.
+我們需要 `smctp_type` 欄位以便 `bind()`，因此位址表示法勝出。
 
-### MCTP message-type specification: using `sockaddr_mctp.smctp_type` rather than protocol
+### MCTP 訊息類型的指定：使用 `sockaddr_mctp.smctp_type` 而非 protocol
 
-This design specifies message-types to be passed in the `smctp_type` field of
-`struct sockaddr_mctp`. An alternative would be to pass it in the `protocol`
-argument of the `socket()` system call:
+本設計規定訊息類型透過 `struct sockaddr_mctp` 的 `smctp_type` 欄位傳遞。
+另一種替代方案是透過 `socket()` 系統呼叫的 `protocol` 引數來傳遞：
 
 ```c
     int socket(int domain /* = AF_MCTP */, int type /* = SOCK_DGRAM */, int protocol);
 ```
 
-The `smctp_type` implementation was chosen as it better matches the "addressing"
-model of the message type; sockets are bound to an incoming message type,
-similar to the IP protocol's model of binding UDP sockets to a local port
-number.
+選擇 `smctp_type` 實作，是因為它更貼合訊息類型的「位址」模型；socket 繫結至
+一個傳入的訊息類型，類似 IP 協定將 UDP socket 繫結至本機埠號的模型。
 
-There is no kernel behaviour that depends on the specific type (particularly
-given the design choice above), so it is not suited to use the protocol argument
-here.
+沒有任何核心行為取決於特定類型（尤其考量上述設計選擇），因此在此使用
+protocol 引數並不合適。
 
-Future additions that perform protocol-specific message handling, and so alter
-the send/receive buffer format, may use a new protocol argument.
+未來那些執行協定專屬訊息處理、因而會改變傳送／接收緩衝區格式的增補，
+可以使用一個新的 protocol 引數。
 
-### Networks referenced by index rather than UUID
+### 網路以索引而非 UUID 參照
 
-This design proposes referencing networks by an integer index. The MCTP standard
-does optionally associate a RFC4122 UUID with a networks; it would be possible
-to use this UUID where we pass a network identifier.
+本設計提議以整數索引來參照網路。MCTP 標準確實可选择性地為網路關聯一個
+RFC4122 UUID；在我們傳遞網路識別碼的地方，使用這個 UUID 是可行的。
 
-This approach does not incorporate knowledge of network UUIDs in the kernel.
-Given that the Get Network ID message in the MCTP Control Protocol is
-implemented entirely via userspace, it does not need to be aware of network
-UUIDs, and requiring network references (for example, the `smctp_network` field
-of `struct sockaddr_mctp`, as type `uuid_t`) complicates assignment.
+此做法不會在核心內納入網路 UUID 的知識。鑑於 MCTP 控制協定中的 Get Network ID
+訊息完全由使用者空間實作，它無需知道網路 UUID，而要求網路參照（例如
+`struct sockaddr_mctp` 的 `smctp_network` 欄位，型別為 `uuid_t`）會讓分配變得更複雜。
 
-Instead, the index integer is used instead, in a similar fashion to the integer
-index used to reference `struct netdevice`s elsewhere in the network stack.
+取而代之的是使用整數索引，方式類似於網路堆疊中其他地方用來參照
+`struct netdevice` 的整數索引。
 
-### Tag behaviour alternatives
+### Tag 行為的替代方案
 
-We considered _several_ different designs for the tag handling behaviour. A
-brief overview of the more-feasible of those, and why they were rejected:
+我們為 tag 處理行為考慮了 _好幾種_ 不同的設計。以下簡要概述其中較可行的幾個，
+以及它們被否決的原因：
 
-#### Each socket is allocated a unique tag value on creation
+#### 每個 socket 在建立時分配一個唯一的 tag 值
 
-We could allocate a tag for each socket on creation, and use that value when a
-tag is required. This, however:
+我們可以在建立時為每個 socket 分配一個 tag，並在需要 tag 時使用該值。然而，
+這樣做：
 
-- needlessly consumes a tag on non-tag-owning sockets (ie, those which send with
-  TO=0 - responders); and
+- 會在非 tag-擁有者的 socket（亦即以 TO=0 送出的 socket——回應端）上浪費一個
+  tag；以及
 
-- limits us to 8 sockets per network.
+- 使我們受限於每個網路最多 8 個 socket。
 
-#### Tags only used for message packetisation / reassembly
+#### Tag 僅用於訊息封包化／重組
 
-An alternative would be to completely dissociate tag allocation from sockets;
-and only allocate a tag for the (short-lived) task of packetising a message, and
-sending those packets. Tags would be released when the last packet has been
-sent.
+另一種替代方案是完全將 tag 分配與 socket 脫鉤；僅為封包化一封訊息並送出那些
+封包這個（短暫的）任務分配一個 tag。tag 會在最後一個封包送出後被釋放。
 
-However, this removes any facility to correlate responses with the correct
-socket, which is the purpose of the TO bit in DSP0236. In order for the sending
-application to receive the response, we would either need to:
+然而，這消除了將回應與正確 socket 關聯起來的任何機制，而那正是 DSP0236 中
+TO 位元的用途。為了讓送出的應用程式能收到回應，我們要麼需要：
 
-- limit the system to one socket of each message type (which, for example,
-  precludes running a requester and a responder of the same type); or
+- 將系統限制為每種訊息類型只有一個 socket（例如，這就排除了同時執行相同類型
+  的請求端與回應端）；或
 
-- forward all incoming messages of a specific message-type to all sockets
-  listening on that type, making it trivial to eavesdrop on MCTP data of other
-  applications
+- 將特定訊息類型的所有傳入訊息都轉給所有監聽該類型的 socket，使得竊聽其他
+  應用程式的 MCTP 資料變得易如反掌
 
-#### Allocate a tag for one request/response pair
+#### 為一組要求／回應分配一個 tag
 
-Another alternative would be to allocate a tag on each outgoing TO=1 message,
-and then release that allocation after the incoming response to that tag (TO=0)
-is observed.
+另一種替代方案是在每個送出的 TO=1 訊息上分配一個 tag，然後在觀察到對該 tag
+（TO=0）的傳入回應之後，釋放該分配。
 
-However, MCTP protocols exist that do not have a 1:1 mapping of responses to
-requests - more than one response may be valid for a given request message. For
-example, in response to a request, a NVMe-MI implementation may send an
-in-progress reply before the final reply. In this case, we would release the tag
-after the first response is received, and then have no way to correlate the
-second message with the socket.
+然而，存在著要求與回應並非 1:1 對應的 MCTP 協定——對給定的要求訊息，可能有多個
+回應是有效的。例如，作為對某要求的回應，NVMe-MI 實作可能會在最終回應之前先送出一
+個處理中（in-progress）的回覆。在這種情況下，我們會在收到第一個回應後釋放 tag，
+接著便無從將第二則訊息與該 socket 關聯起來。
 
-Broadcast MCTP request messages may have multiple replies from multiple
-endpoints, meaning we cannot release the tag allocation on the first reply.
+廣播 MCTP 要求訊息可能有多個端點的多個回應，這意味著我們無法在第一個回應時
+就釋放 tag 分配。

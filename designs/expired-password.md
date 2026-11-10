@@ -1,261 +1,212 @@
-# Initial expired passwords
+# 初始即過期的密碼
 
-Author: Joseph Reynolds `josephreynolds1`
+作者：Joseph Reynolds `josephreynolds1`
 
-Other contributors: None
+其他貢獻者：無
 
-Created: 2019-07-24
+建立日期：2019-07-24
 
-## Problem Description
+## 問題說明
 
-OpenBMC has a default password, connects to the network via DHCP, and does not
-have a mechanism to require administrators to change the BMC's password. This
-may lead to BMCs which have default passwords being on the network for long time
-periods, effectively giving unrestricted access to the BMC.
+OpenBMC 有一個預設密碼，透過 DHCP 連接到網路，且沒有任何機制要求管理員變更
+BMC 的密碼。這可能導致帶有預設密碼的 BMC 長時間停留在網路上的情況，等於無
+限制地開放 BMC 的存取權。
 
-## Background and References
+## 背景與參考
 
-Various computer systems ship with default userid and passwords and require the
-password be changed on the initial signon. This reduces the time window when the
-system is accessible with a default password.
+許多電腦系統出貨時附有預設的使用者 ID 與密碼，並要求在首次登入時必須變更密
+碼。這縮短了系統可以用預設密碼存取的時間窗口。
 
-Various BMC interfaces require authentication before access is granted. The
-authentication and account validation steps typically result in outcomes like
-this:
+各種 BMC 介面在授予存取權之前都需要進行驗證。驗證與帳號驗證步驟通常會產生
+如下的結果：
 
-1. Success, when the access credentials (such as username and password) are
-   correct and the account being accessed is valid.
-2. Failure, when either the access credentials are invalid or the account being
-   accessed is invalid. For example, the account itself (not merely its
-   password) may be expired.
-3. PasswordChangeRequired, when the access credentials are correct and the
-   account is valid except the account's password is expired (such as indicated
-   by PAM_CHANGE_EXPIRED_AUTHTOK).
+1. Success（成功）：當存取憑證（例如使用者名稱與密碼）正確，且被存取的帳號
+   為有效時。
+2. Failure（失敗）：當存取憑證無效，或被存取的帳號無效時。例如，帳號本身
+   （不只是其密碼）可能已過期。
+3. PasswordChangeRequired（需要變更密碼）：當存取憑證正確、帳號有效，但該
+   帳號的密碼已過期時（例如由 PAM_CHANGE_EXPIRED_AUTHTOK 所指示）。
 
-OpenBMC currently implements the first two outcomes; it treats
-PasswordChangeRequired the same as an account that is invalid for any other
-reason. Some servers (such as the OpenSSH server) handle the
-PasswordChangeRequired by implementing a "password change dialog".
+OpenBMC 目前實作了前兩種結果；它將 PasswordChangeRequired 視為與其他任何原因
+導致的無效帳號相同。有些伺服器（例如 OpenSSH 伺服器）會實作「密碼變更對話
+框」來處理 PasswordChangeRequired。
 
-The [Redfish Specification version 1.7.0][] section 13.2.6.1 ("Password change
-required handling") provides the ManagerAccount resource v1.3 with a
-PasswordChangeRequired property which supports a password change dialog.
+[Redfish Specification version 1.7.0][] 第 13.2.6.1 節（「Password change
+required handling」，需要變更密碼的處理）為 ManagerAccount 資源 v1.3 提供了一
+個 PasswordChangeRequired 屬性，以支援密碼變更對話框。
 
 [redfish specification version 1.7.0]:
   https://www.dmtf.org/sites/default/files/standards/documents/DSP0266_1.7.0.pdf
 
-Note the terminology: An "expired password" is a special case of "password
-change required".
+請注意用語：「過期的密碼」是「需要變更密碼」的一種特殊情況。
 
-The meaning of the term "access" varies by context. It could mean:
+「存取」（access）一詞的意義會因上下文而不同。它可能指：
 
-1. Access to the BMC's network interfaces.
-2. Access to the BMC's authentication mechanisms together with correct
-   credentials, whether or not those credentials have expired and must be
-   changed.
-3. Access to the BMC's function via an authenticated interface, for example,
-   such as establishing a session after you've changed your initial password.
-4. Access to the BMC's function via an unauthenticated interface such as host
-   IPMI or physical control panel (example: power button).
+1. 存取 BMC 的網路介面。
+2. 存取 BMC 的驗證機制並搭配正確的憑證，不論這些憑證是否已過期而必須變
+   更。
+3. 透過已驗證的介面存取 BMC 的功能，例如在變更初始密碼後建立工作階段。
+4. 透過未驗證的介面存取 BMC 的功能，例如主機 IPMI 或實體控制面板（例子：電
+   源按鈕）。
 
-This design uses meanings 3 and 4 except where indicated.
+本設計除非另有說明，否則使用第 3 與第 4 種意義。
 
-## Requirements
+## 需求
 
-The requirements are:
+需求如下：
 
-- The BMC's initial password must be expired when the new EXPIRED_PASSWORD image
-  feature is used.
-- An account with an expired password must not be allowed to use the BMC (except
-  to change the password).
-- There must be a way to change the expired password using a supported
-  interface.
+- 當使用新的 EXPIRED_PASSWORD 影像功能時，BMC 的初始密碼必須為過期狀態。
+- 密碼已過期的帳號不得使用 BMC（除非是為了變更密碼）。
+- 必須有一種方法，可以使用受支援的介面來變更過期的密碼。
 
-The use case is:
+使用案例為：
 
-- The BMC automatically connects to its management network which offers
-  administrative or operational interfaces (whether or not the BMC is normally
-  operated via its host).
-- The BMC is operated from its management network.
+- BMC 自動連接到其管理網路，該網路提供管理或維運介面（不論 BMC 通常是透過
+  其主機來操作與否）。
+- BMC 從其管理網路進行操作。
 
-Preconditions for the BMC include:
+BMC 的前置條件包括：
 
-- The BMC has at least one account with a default password built in.
-- The BMC can update the password; for example, the `/etc/passwd` file is
-  writable.
+- BMC 至少有一個內建預設密碼的帳號。
+- BMC 能夠更新密碼；例如，`/etc/passwd` 檔案是可寫入的。
 
-## Proposed Design
+## 提議的設計
 
-This design has three main parts:
+本設計有三個主要部分：
 
-1. There is a new image feature EXPIRED_PASSWORD. When EXPIRED_PASSWORD is
-   enabled, the BMC's default password will initially be expired as if via the
-   `passwd --expire root` command. This administratively expires the password
-   and is not based on time. An account with an expired password is neither
-   locked nor disabled.
+1. 有一個新的影像功能 EXPIRED_PASSWORD。當啟用 EXPIRED_PASSWORD 時，BMC 的預
+   設密碼初始會處於過期狀態，就如同透過 `passwd --expire root` 指令所產生的
+   效果。這是以管理方式讓密碼過期，並非根據時間。密碼已過期的帳號既未被鎖
+   定，也未被停用。
 
-   This feature is intended to be enabled by default, with a staging plan: the
-   feature will be disabled to give time for the continuous integration (CI) and
-   test automation efforts to adapt, then enabled for the overall project.
+   此功能預期預設啟用，並採分階段推行計畫：會先停用該功能，讓持續整合（CI）
+   與測試自動化工作有機會適應，之後再為整個專案啟用。
 
-2. The BMC's network interfaces (such as REST APIs, SSH, and IPMI) disallow
-   access via an account which has an expired password. If the access
-   credentials are otherwise correct and the reason for the authentication
-   failure is an expired password (determined by the usual Linux practices),
-   where possible, the interface should indicate the password is expired and how
-   to change it (see below). Otherwise the usual security protocols apply
-   (giving no additional information).
+2. BMC 的網路介面（例如 REST API、SSH 與 IPMI）會禁止透過密碼已過期的帳號進
+   行存取。如果存取憑證在其他方面是正確的，且驗證失敗的原因是密碼過期（依
+   照慣常的 Linux 做法判定），在可能的情況下，介面應指出密碼已過期以及如何
+   變更它（見下文）。否則適用的是一般的安全協定（不提供額外資訊）。
 
-   The `/login` URI is enhanced. If it is used with correct credentials (userid
-   and password) and the password needs to be changed the request will fail to
-   create a session and indicate a password change is needed. If it is used with
-   correct userid and incorrect password, or with an incorrect userid, the
-   behavior must not change. Note the `/login` URI is deprecated.
+   `/login` URI 會增強。若以正確的憑證（使用者 ID 與密碼）使用它，而密碼需要
+   變更，則該要求會無法建立工作階段，並指出需要變更密碼。若以正確的使用
+   者 ID 搭配不正確的密碼，或以不正確的使用者 ID 使用，其行為必須維持不
+   變。請注意 `/login` URI 已被標記為棄用（deprecated）。
 
-   The `/redfish/v1/SessionService/Sessions/<session>` and
-   `/redfish/v1/AccountService/Accounts/<account>` resources are enhanced to
-   indicate PasswordChangeRequired per the Redfish spec.
+   `/redfish/v1/SessionService/Sessions/<session>` 與
+   `/redfish/v1/AccountService/Accounts/<account>` 資源會增強，依 Redfish 規範
+   指出 PasswordChangeRequired。
 
-   The `ipmitool` command treats an expired password the same as an invalid
-   password. Note the RMCP+ standard, such as used for the BMC's network IPMI
-   interface, does not support changing the password when establishing a
-   session. The ipmitool is not being enhanced by this design.
+   `ipmitool` 指令會將過期的密碼視同無效的密碼。請注意 RMCP+ 標準，例如用於
+   BMC 網路 IPMI 介面的標準，不支援在建立工作階段時變更密碼。本設計不會增
+   強 ipmitool。
 
-   The Secure Shell access (via the `ssh` command) already correctly indicates
-   when the password is expired. No change is needed. But see the next bullet
-   for the expired password dialog.
+   透過 `ssh` 指令的 Secure Shell 存取已經能正確指出密碼何時過期，無需變更。
+   但關於過期密碼對話框，請見下一個要點。
 
-3. There is a way for an account owner to change their own expired password.
-   This can be either from a network-facing or in-band password changing
-   protocol. For example:
-   - Redfish: This design adds the Redfish PasswordChangeRequired handling to
-     BMCWeb. See below for details.
-   - SSH server: The SSH servers may have an expired password change dialog. For
-     example, OpenSSH implement this feature. However, the Dropbear SSH server
-     announces the password is expired, but does not implement the dialog to
-     change it.
-   - Access via the BMC's host: for example, via the
-     `ipmitool user set password` command when accessed in-band.
+3. 有一種方法讓帳號擁有者變更自己過期的密碼。這可以來自對網路的或在帶內
+   （in-band）的密碼變更協定。例如：
+   - Redfish：本設計將 Redfish PasswordChangeRequired 的處理加入 BMCWeb。詳情
+     見下文。
+   - SSH 伺服器：SSH 伺服器可能有過期密碼變更對話框。例如，OpenSSH 實作了此
+     功能。然而，Dropbear SSH 伺服器會宣告密碼已過期，但並未實作變更密碼的
+     對話框。
+   - 透過 BMC 主機的存取：例如，在帶內存取時透過 `ipmitool user set password`
+     指令。
 
-When Redfish creates a session with PasswordChangeRequired, every response
-contains a PasswordChangeRequired message. The session effectively has only the
-ConfigureSelf privilege which allows it to only change the password and
-terminate the session. The usage pattern is:
+當 Redfish 以 PasswordChangeRequired 建立工作階段時，每個回應都包含一個
+PasswordChangeRequired 訊息。該工作階段實際上僅具備 ConfigureSelf 權限，這使
+得它只能變更密碼並終止工作階段。使用模式為：
 
-1. Create a session.
-2. If the PasswordChangeRequired message is present:
-   1. PATCH the new password into the ManagerAccount object.
-   2. Any other use of the session will get HTTP status code 403 Forbidden.
-   3. DELETE the Session object to terminate the session.
-   4. Create a new session and continue.
+1. 建立一個工作階段。
+2. 如果存在 PasswordChangeRequired 訊息：
+   1. 以 PATCH 將新密碼寫入 ManagerAccount 物件。
+   2. 該工作階段的任何其他使用都會得到 HTTP 狀態碼 403 Forbidden。
+   3. 以 DELETE 終止該 Session 物件以結束工作階段。
+   4. 建立一個新的工作階段並繼續。
 
-This design is intended to cover any cause of expired password, including both
-the BMC's initial expired password and password expired for another cause such
-as aging or via the `passwd --expire` command.
+本設計旨在涵蓋任何導致密碼過期的原因，包括 BMC 初始的過期密碼，以及因其他
+原因（例如密碼老化或透過 `passwd --expire` 指令）而過期的密碼。
 
-This design is intended to enable the webui-vue web application to implement a
-password change dialog for the signon screen.
+本設計旨在讓 webui-vue 網頁應用程式能夠在登入畫面實作密碼變更對話框。
 
-Per the above design, when the web app uses either `/login` or
-`/redfish/v1/SessionService` to establish a session and the account has an
-expired password:
+依據上述設計，當網頁應用程式使用 `/login` 或 `/redfish/v1/SessionService` 建
+立工作階段，而該帳號的密碼已過期時：
 
-- If the `/login` URI was used, the HTTP response indicates the password must be
-  changed, and will not establish a session. In this case, the web app must use
-  the Redfish API to establish a session.
-- POST to `/redfish/v1/SessionService/Sessions` will establish a session which
-  will have the PasswordChangeRequired message.
-- At this point the web app can display a message that the password is expired
-  and must be changed, then get the new password.
-- PATCH the password to the account specified in the PasswordChangeRequired
-  message.
-- DELETE the Session object to terminate the session.
-- Create a new session and continue.
+- 如果使用 `/login` URI，HTTP 回應會指出密碼必須變更，且不會建立工作階段。
+  在這種情況下，網頁應用程式必須使用 Redfish API 來建立工作階段。
+- 對 `/redfish/v1/SessionService/Sessions` 進行 POST 會建立一個含有
+  PasswordChangeRequired 訊息的工作階段。
+- 此時網頁應用程式可以顯示一則訊息，指出密碼已過期且必須變更，然後取得新密
+  碼。
+- 以 PATCH 將密碼寫入 PasswordChangeRequired 訊息中所指定的帳號。
+- 以 DELETE 終止該 Session 物件以結束工作階段。
+- 建立一個新的工作階段並繼續。
 
-## Alternatives Considered
+## 曾考慮的替代方案
 
-The following alternate designs were considered:
+曾考慮以下替代設計：
 
-- Unique password per machine. That approach requires additional effort, for
-  example, to set and track assigned passwords.
-- Default to having no users with access to the BMC via its network. When
-  network access is needed, a technician would create or modify the userid to
-  have network authority and establish a password at that time. This may be
-  through the BMC's host system or via the BMC's serial console. That approach
-  requires the tech to have access, and requires re-provisioning the account
-  after factory reset
-- Disable network access by default. That approach requires another BMC access
-  vector, such as physical access or via the BMC's host, to enable network
-  access.
-- Provision the BMC with a certificate instead of a password, for example, an
-  SSH client certificate. That approach suffers from the same limitations as a
-  default password (when the matching private certificate becomes well known)
-  and requires the BMC provide SSH access.
-- Require physical presence to change the password. For example, applying a
-  jumper, or signing in via a serial cable. That approach is not standard.
-- Have LDAP (or any authentication/authorization server) configured and have no
-  local users which have default passwords configured in the BMC firmware image.
-  That approach requires the customer have an LDAP (or similar) server. Also,
-  how we can configure the LDAP, as we don't know the customer LDAP server
-  configuration?
-- Have a new service to detect if any password has its default value, and write
-  log messages for that condition, with the idea to alert the system owner of
-  this condition. That approach doesn't solve the problem and burdens BMC
-  resources.
+- 每台機器使用唯一的密碼。該做法需要額外的工作，例如設定並追蹤已指派的密
+  碼。
+- 預設不具備任何可透過網路存取 BMC 的使用者。當需要網路存取時，技術人員會
+  建立或修改使用者 ID 以取得網路權限，並在當時建立密碼。這可以透過 BMC 的主
+  機系統或透過 BMC 的序列主控台完成。該做法需要技術人員有存取權，且需要在
+  出廠重置後重新佈署該帳號。
+- 預設停用網路存取。該做法需要另一個 BMC 存取管道，例如實體存取或透過 BMC
+  的主機，來啟用網路存取。
+- 為 BMC 佈署憑證而非密碼，例如 SSH 用戶端憑證。該做法有與預設密碼相同的限
+  制（當對應的私密金鑰廣為人知時），且需要 BMC 提供 SSH 存取。
+- 要求在場（physical presence）才能變更密碼。例如，裝上跳線，或透過序列線
+  纜登入。該做法並非標準做法。
+- 設定 LDAP（或任何驗證／授權伺服器）且沒有任何在 BMC 韌體影像中設定預設密
+  碼的本機帳號。該做法需要客戶具備 LDAP（或類似）伺服器。此外，我們該如何
+  設定 LDAP，畢竟我們並不知道客戶的 LDAP 伺服器設定？
+- 設有一個新服務來偵測是否有密碼仍為其預設值，並針對該情況寫入記錄訊息，意
+  在就這種情況警示系統擁有者。該做法無法解決問題，且會增加 BMC 資源的負
+  擔。
 
-Warning. This design may leave the BMC with its default password for an extended
-period of time if the use case given in the requirements section of this design
-does not apply. For example, when the host is operated strictly via its power
-button and not through the BMC's network interface. In this case, the
-alternatives listed above may mitigate this risk. Another alternative is a
-design where the BMC is initially in a provisioning mode which does not allow
-the BMC to operate its host. The idea is that you have to establish access to
-the BMC (which includes changing its password) before you can leave provisioning
-mode.
+警告。如果本設計需求章節所給的使用案例並不適用，本設計可能會讓 BMC 在其預
+設密碼下停留相當長的一段時間。例如，當主機純粹透過其電源按鈕操作，而非透過
+BMC 的網路介面操作時。在這種情況下，上述列出的替代方案或可減輕此風險。另一
+個替代方案是一種設計，讓 BMC 初始處於佈署（provisioning）模式，不允許 BMC 操
+作其主機。其概念是：你必須先建立對 BMC 的存取權（其中包含變更密碼），才
+能離開佈署模式。
 
-The BMCWeb Redfish server could be enhanced so that when the Password is
-successfully patched, the session no longer asserts the PasswordChangeRequired
-condition and re-asserts the user's usual authority immediately without
-requiring a new session. This is allowed by the Redfish spec, but was not
-implemented because it would be more difficult to code and test.
+BMCWeb Redfish 伺服器可以增強，使得當密碼成功以 PATCH 更新後，該工作階段不再
+斷言 PasswordChangeRequired 情況，並立即重新斷言使用者慣常的權限，而無需建立
+新的工作階段。Redfish 規範允許這樣做，但並未實作，因為那樣做會在編碼與測試
+上更困難。
 
-## Impacts
+## 影響
 
-Having to change an expired password is annoying and breaks operational
-procedures and scripts. Documentation, lifecycle review, and test are needed.
-Expect pain when this is enabled.
+必須變更過期的密碼令人困擾，且會破壞維運程序與腳本。需要文件、生命週期審
+查與測試。預期在啟用時會帶來一些陣痛。
 
-To help with this, the [REDFISH-cheatsheet][] will be updated with commands
-needed to detect and change an expired password.
+為了協助因應這一點，[REDFISH-cheatsheet][] 將更新，加入偵測與變更過期密碼
+所需的指令。
 
 [redfish-cheatsheet]:
   https://github.com/openbmc/docs/blob/master/REDFISH-cheatsheet.md
 
-This design does not affect other policies such as password aging.
+本設計不影響其他政策，例如密碼老化。
 
-## Testing
+## 測試
 
-Scenarios:
+情境：
 
-1. Ensure that when the BMC is in its initial state:
-   - All available network interfaces deny access.
-   - Selected interfaces allow the password to be changed.
-2. Ensure factory reset resets the password to its initial expired state (repeat
-   the tests above).
-3. Ensure the password change is effective for users entering from all supported
-   interfaces. For example, change the password via the Redfish API, and
-   validate that the old password does not work and the new password does work
-   via IPMI for the same user.
-4. Handle BMC code update scenarios. For example, (A) Ensure code update does
-   not cause a previously set password to change to default or to expire. (B)
-   Validate what happens when the BMC has a default password and does code
-   update to a release which has the default expired password design (this
-   design).
-5. Ensure the BMC continues to operate its host, for example, when the BMC is
-   factory reset while the host is running. Ensure the power button can be used
-   to power off the host while the BMC's password is expired.
-6. Test on BMC using Linux PAM both with and without LDAP or ActiveDirectory
-   configured.
-7. Validate you can to change an IPMI user's expired password, such as with:
-   ipmitool user set password 1 NEWPASSWORD. This can be from another IPMI
-   user's session or from unauthenticated access.
+1. 確保當 BMC 處於初始狀態時：
+   - 所有可用的網路介面都拒絕存取。
+   - 選定的介面允許變更密碼。
+2. 確保出廠重置會將密碼重置回其初始的過期狀態（重複上述測試）。
+3. 確保密碼變更有對從所有受支援介面進入的使用者生效。例如，透過 Redfish API
+   變更密碼，並驗證同一使用者舊密碼無法使用、新密碼可以透過 IPMI 使用。
+4. 處理 BMC 程式碼更新情境。例如，(A) 確保程式碼更新不會讓先前設定的密碼變
+   更為預設值或過期。(B) 驗證當 BMC 帶有預設密碼並更新到具有預設過期密碼設
+   計（本設計）的發行版本時會發生什麼事。
+5. 確保 BMC 持續操作其主機，例如，當 BMC 在主機執行中被出廠重置時。確保在
+   BMC 密碼過期時，仍可使用電源按鈕關閉主機電源。
+6. 在使用 Linux PAM 的 BMC 上測試，分別在已設定與未設定 LDAP 或
+   ActiveDirectory 的情況下進行。
+7. 驗證你能變更 IPMI 使用者過期的密碼，例如使用：
+   ipmitool user set password 1 NEWPASSWORD。這可以從另一個 IPMI 使用者的工作
+   階段進行，或從未驗證的存取進行。

@@ -1,119 +1,105 @@
-# Contributing to OpenBMC
+# 參與 OpenBMC 貢獻
 
-First off, thanks for taking the time to contribute! The following is a set of
-guidelines for contributing to an OpenBMC repository which are hosted in the
-[OpenBMC Organization](https://github.com/openbmc) on GitHub. Feel free to
-propose changes to this document.
+首先，感謝您撥空貢獻！以下是一組貢獻由 GitHub 上
+[OpenBMC Organization](https://github.com/openbmc) 託管的 OpenBMC 倉庫時
+應遵循的準則。歡迎自由對本文件提出修改建議。
 
-## Code of Conduct
+## 行為準則
 
-We enthusiastically adhere to our
-[Code of Conduct](https://github.com/openbmc/docs/blob/master/code-of-conduct.md).
-If you have any concerns, please check that document for guidelines on who can
-help you resolve them.
+我們熱忱地遵循我們的
+[行為準則](https://github.com/openbmc/docs/blob/master/code-of-conduct.md)。
+若您有任何疑慮，請查閱該文件以了解該由誰協助您解決。
 
-## Inclusive Naming
+## 包容性命名
 
-OpenBMC relies on the Open Compute Project to provide guidelines on inclusive
-naming. The OCP guidelines can be found here:
+OpenBMC 仰賴 Open Compute Project 提供包容性命名的準則。OCP 的準則可於此處找到：
 
 <https://www.opencompute.org/documents/ocp-terminology-guidelines-for-inclusion-and-openness>
 
-## Structure
+## 架構
 
-OpenBMC has quite a modular structure, consisting of small daemons with a
-limited set of responsibilities. These communicate over D-Bus with other
-components, to implement the complete BMC system.
+OpenBMC 具有相當模組化的架構，由職責範圍有限的小型 daemon 所組成。這些
+daemon 透過 D-Bus 與其他元件通訊，共同實作出完整的 BMC 系統。
 
-The BMC's interfaces to the external world are typically through a separate
-daemon, which then translates those requests to D-Bus messages.
+BMC 對外界的介面通常透過個別的 daemon 來處理，再由這些 daemon 將那些請求
+轉換為 D-Bus 訊息。
 
-These separate projects are then compiled into the final system by the overall
-'openbmc' build infrastructure.
+這些獨立的專案接著由整體的 'openbmc' 建置基礎設施編譯成最終的系統。
 
-For future development, keep this design in mind. Components' functionality
-should be logically grouped, and keep related parts together where it makes
-sense.
+在未來的開發中，請牢記這個設計。各元件的功能應以邏輯方式分組，並在合理時
+將相關的部分放在一起。
 
-## Starting out
+## 起步
 
-Before you make a contribution, execute one of the OpenBMC Contributor License
-Agreements, _One time only_:
+在您做出貢獻之前，請先簽署一份 OpenBMC 貢獻者授權協議（Contributor License
+Agreement），_僅需一次_：
 
-- [Individual CLA](https://drive.google.com/file/d/1k3fc7JPgzKdItEfyIoLxMCVbPUhTwooY)
-- [Corporate CLA](https://drive.google.com/file/d/1d-2M8ng_Dl2j1odsvZ8o1QHAdHB-pNSH)
+- [個人 CLA](https://drive.google.com/file/d/1k3fc7JPgzKdItEfyIoLxMCVbPUhTwooY)
+- [企業 CLA](https://drive.google.com/file/d/1d-2M8ng_Dl2j1odsvZ8o1QHAdHB-pNSH)
 
-If you work for a company in any of the following categories, a Corporate CLA
-(CCLA) executed by your employer is **required** before you may contribute:
+若您任職於下列任一類別的公司，則必須由您的雇主先簽署企業 CLA（CCLA），
+您才可進行貢獻：
 
-- Chip, firmware, or server/hardware vendors
-- Cloud service providers (CSP) — e.g. Meta, Google, Microsoft, Amazon, or
-  similar hyperscalers
-- Any other company that operates in the same technical space as OpenBMC and
-  could reasonably assert an Intellectual Property claim against the project
+- 晶片、韌體或伺服器／硬體供應商
+- 雲端服務供應商（CSP）——例如 Meta、Google、Microsoft、Amazon 或類似的
+  超大規模資料中心業者（hyperscaler）
+- 其他任何與 OpenBMC 處於相同技術領域、且可能合理對本專案主張智慧財產權
+  的公司
 
-The CCLA protects the project from a company later claiming that an employee
-contributed proprietary IP without authorization. Once your employer has signed
-a CCLA, additional contributors from that company can be added to the existing
-CCLA Schedule A rather than signing individually.
+CCLA 可保護本專案，避免公司日後主張某位員工未經授權貢獻了專有 IP。一旦
+您的雇主簽署了 CCLA，該公司的其他貢獻者就能被加入既有的 CCLA Schedule A，
+而不需要各自單獨簽署。
 
-If you are an individual contributor who does not work for a company in one of
-the above categories, the Individual CLA may be sufficient.
+若您是個人貢獻者，且並非任職於上述任一類別的公司，則個人 CLA 可能就已足夠。
 
-After signing a CLA, send it to <manager@lfprojects.org>.
+簽署 CLA 後，請將其寄送至 <manager@lfprojects.org>。
 
-If you're looking for a place to get started with OpenBMC, you may want to take
-a look at the issues tagged with 'bitesize'. These are fixes or enhancements
-that don't require extensive knowledge of the OpenBMC codebase, and are easier
-for a newcomer to start working with.
+如果您在尋找入門 OpenBMC 的起點，可以看看標記為 'bitesize' 的 issue。這些
+是不需要對 OpenBMC 程式碼庫有深入知識即可處理的修復或增強，對新手來說比較
+容易上手。
 
-Check out that list here:
+請在此處查看該清單：
 
 <https://github.com/issues?utf8=%E2%9C%93&q=is%3Aopen+is%3Aissue+user%3Aopenbmc+label%3Abitesize>
 
-If you need further details on any of these issues, feel free to add comments.
+如果您需要其中任何 issue 的更多細節，歡迎隨時加上留言。
 
-Performing code reviews is another good way to get started. Go to
-<https://gerrit.openbmc.org> and click on the "all" and "open" menu items, or if
-you are interested in a particular repository - for example, "bmcweb" - type
-"status:open project:openbmc/bmcweb" into the search bar and press the "search"
-button. Then select a review. Remember to be positive and add value with every
-review comment.
+進行程式碼審查（code review）另一個很好的入門方式。前往
+<https://gerrit.openbmc.org> 並點擊「all」與「open」選單項目，或者若您對
+某個特定倉庫有興趣——例如 "bmcweb"——在搜尋列輸入
+"status:open project:openbmc/bmcweb" 並按「search」按鈕。然後挑選一個審查。
+記得保持正面態度，讓每則審查意見都能帶來價值。
 
-## Coding style
+## 程式碼風格
 
-Components of the OpenBMC sources should have a consistent style. If the source
-is coming from another project, we choose to follow the existing style of the
-upstream project. Otherwise, conventions are chosen based on the language.
+OpenBMC 原始碼的各部分應保持一致的風格。若原始碼來自其他專案，我們選擇遵循
+該上游專案既有的風格。否則，慣例依程式語言而定。
 
 ### Python
 
-Python source should all conform to PEP8. This style is well established within
-the Python community and can be verified with the 'pycodestyle' tool.
+所有 Python 原始碼都應符合 PEP8。此風格在 Python 社群中已廣為建立，並可透過
+'pycodestyle' 工具驗證。
 
 <https://www.python.org/dev/peps/pep-0008/>
 
-### Python Formatting
+### Python 格式化
 
-If a repository has a setup.cfg file present in its root directory, then CI will
-automatically verify the Python code meets the
-[pycodestyle](http://pycodestyle.pycqa.org/en/latest/intro.html) requirements.
-This enforces PEP 8 standards on all Python code.
+若某個倉庫的根目錄中存在 setup.cfg 檔案，CI 就會自動驗證 Python 程式碼是否符合
+[pycodestyle](http://pycodestyle.pycqa.org/en/latest/intro.html) 的要求。
+這會對所有 Python 程式碼強制施行 PEP 8 標準。
 
-OpenBMC standards for Python match with PEP 8 so in general, a blank setup.cfg
-file is all that's needed. If so desired, enforcement of 80 (vs. the default 79)
-chars is fine as well:
+OpenBMC 的 Python 標準與 PEP 8 一致，因此一般來說只需要一個空白的 setup.cfg
+檔案即可。如有需要，將字元上限強制為 80（而非預設的 79）也是可以的：
 
 ```toml
 [pycodestyle]
 max-line-length = 80
 ```
 
-By default, pycodestyle does not enforce the following rules: E121, E123, E126,
-E133, E226, E241, E242, E704, W503, and W504. These rules are ignored because
-they are not unanimously accepted and PEP 8 does not enforce them. It is at the
-repository maintainer's discretion as to whether to enforce the aforementioned
-rules. These rules can be enforced by adding the following to the setup.cfg:
+預設情況下，pycodestyle 不會強制施行以下規則：E121、E123、E126、
+E133、E226、E241、E242、E704、W503 以及 W504。這些規則被忽略是因為它們並非
+共識，且 PEP 8 並未強制施行。是否強制施行前述規則由倉庫維護者自行決定。這些
+規則可以透過在 setup.cfg 中加入以下內容來強制施行：
 
 ```toml
 [pycodestyle]
@@ -122,31 +108,31 @@ ignore= NONE
 
 ### JavaScript
 
-We follow the
-[Google JavaScript Style Guide](https://google.github.io/styleguide/jsguide.html).
+我們遵循
+[Google JavaScript Style Guide](https://google.github.io/styleguide/jsguide.html)。
 
-[Example .clang-format](https://www.github.com/openbmc/docs/blob/master/style/javascript/.clang-format)
+[.clang-format 範例](https://www.github.com/openbmc/docs/blob/master/style/javascript/.clang-format)
 
 ### HTML/CSS
 
-We follow the
-[Google HTML/CSS Style Guide](https://google.github.io/styleguide/htmlcssguide.html).
+我們遵循
+[Google HTML/CSS Style Guide](https://google.github.io/styleguide/htmlcssguide.html)。
 
 ### C
 
-For C code, we typically use the Linux coding style, which is documented at:
+對於 C 程式碼，我們通常使用 Linux 的程式碼風格，其文件記錄於：
 
 <http://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/tree/Documentation/process/submitting-patches.rst>
 
-In short:
+簡而言之：
 
-- Indent with tabs instead of spaces, set at 8 columns
+- 使用 tab 而非空格縮排，設定為 8 個欄位
 
-- 80-column lines
+- 每行 80 欄
 
-- Opening braces on the end of a line, except for functions
+- 左大括號放在行尾，函式除外
 
-This style can mostly be verified with 'astyle' as follows:
+此風格大致可以透過 'astyle' 驗證，方式如下：
 
 ```bash
 astyle --style=linux --indent=tab=8 --indent=force-tab=8
@@ -154,101 +140,85 @@ astyle --style=linux --indent=tab=8 --indent=force-tab=8
 
 ### C++
 
-See [C++ Style and Conventions](./cpp-style-and-conventions.md).
+請參閱 [C++ 風格與慣例](./cpp-style-and-conventions.md)。
 
-## Planning changes
+## 規劃變更
 
-If you are making a nontrivial change, you should plan how to introduce it to
-the OpenBMC development community.
+若您要進行的變更並非瑣碎之作，就應該規劃如何將其導入 OpenBMC 開發社群。
 
-If you are planning a new function, you should get agreement that your change
-will be accepted. As early as you can, introduce the change via the OpenBMC
-Discord server or email list to start the discussion. You may find a better way
-to do what you need.
+若您正在規劃新功能，應該先取得共識，確認您的變更會被接受。請盡早透過 OpenBMC
+Discord 伺服器或電子郵件郵件列表引入這個變更以展開討論。您可能會發現執行您所
+需要之事更好的做法。
 
-If the feedback seems favorable or requests more details, continue by submitting
-the design to gerrit starting with a copy of the
-[design_template](https://github.com/openbmc/docs/blob/master/designs/design-template.md).
+若回饋看起來正面，或要求提供更多細節，請接著以
+[design_template](https://github.com/openbmc/docs/blob/master/designs/design-template.md)
+的複本為起點，將設計提交到 gerrit。
 
-## Submitting changes
+## 提交變更
 
-We use git for almost everything. Most projects in OpenBMC use Gerrit to review
-patches. Changes to an upstream project (e.g. Yocto Project, systemd, or the
-Linux kernel) might need to be sent as patches or a git pull request.
+我們幾乎所有事情都使用 git。OpenBMC 中的多數專案使用 Gerrit 來審查補丁。對上游
+專案（例如 Yocto Project、systemd 或 Linux kernel）的變更可能需要以補丁或 git
+pull request 的形式送出。
 
-### Organizing Commits
+### 組織 Commit
 
-A good commit does exactly one thing. We prefer many small, atomic commits to
-one large commit which makes many functional changes.
+一個好的 commit 只做一件事。我們偏好許多小型、原子性的 commit，而不是一個做出
+大量功能變更的大型 commit。
 
-- Too large: "convert foo to new API; also fix CVE 1234 in bar"
-- Too small: "move abc.h to top of include list" and "move xyz.h to bottom of
-  include list"
-- Just right: "convert foo to new API" and "convert foo from tab to space"
+- 太大：「將 foo 轉換為新 API；同時修復 bar 中的 CVE 1234」
+- 太小：「把 abc.h 搬到 include 清單最上面」以及「把 xyz.h 搬到 include 清單最下面」
+- 剛好：「將 foo 轉換為新 API」以及「將 foo 的 tab 轉換為空格」
 
-Other commit tips:
+其他 commit 小技巧：
 
-- If your change has a specification, sketch out your ideas first and work to
-  get that accepted before completing the details.
-- Work at most a few days before seeking review.
-- Commit and review header files before writing code.
-- Commit and review each implementation module separately.
+- 若您的變更有一份規格書，先勾勒您的想法並設法讓它被接受，再完成細節。
+- 最多工作幾天後就尋求審查。
+- 在撰寫程式碼之前，先提交並審查標頭檔。
+- 將每個實作模組分開提交並審查。
 
-Often, creating small commits this way results in many commits that are
-dependent on prior commits; Gerrit handles this situation well, so feel free to
-push commits which are based on your change still in review. However, when
-possible, your commit should stand alone on top of master - "Fix whitespace in
-bar()" does not need to depend on "refactor foo()". Said differently, ensure
-that topics that are not related to each other semantically are also not related
-to each other in Git until they are merged into master.
+通常以這種方式建立小型 commit 會產生許多相依於先前 commit 的 commit；Gerrit
+能很好地處理這種情況，所以請放心推送那些以仍在審查中的變更為基礎的 commit。
+不過，在可能的情況下，您的 commit 應該能獨立位於 master 之上——「Fix whitespace
+in bar()」不需要相依於「refactor foo()」。換句話說，請確保語意上彼此無關的主題，
+在合併進 master 之前，在 Git 中也彼此無關聯。
 
-When pushing a stack of patches, these commits will show up with that same
-relationship in Gerrit. This means that each patch must be merged in order of
-that relationship. So if one of the patches in the middle needs to be changed,
-all the patches from that point on would need to be pushed to maintain the
-relationship. This will effectively rebase the unchanged patches, which would in
-turn trigger a new CI build. Ideally, changes from the entire patchset could be
-done all in one go to reduce unnecessary rebasing.
+當您推送一組補丁堆疊（stack of patches）時，這些 commit 會在 Gerrit 中以相同的
+相依關係出現。這代表每個補丁都必須依該相依關係的順序合併。因此若中間某個補丁
+需要修改，從該點之後的所有補丁都需要重新推送以維持該相依關係。這實際上會對未
+變更的補丁重新變基（rebase），進而觸發新的 CI 建置。理想上，整個補丁集（patchset）
+的變更可以一次全部完成，以減少不必要的變基。
 
-When someone makes a comment on your commit in Gerrit, modify that commit and
-send it again to Gerrit. This typically involves `git rebase --interactive` or
-`git commit --amend`, for which there are many guides online. As mentioned in
-the paragraph above, when possible you should make changes to multiple patches
-in the same stack before you push, in order to minimize CI and notification
-churn from the rebase operations.
+當某個人在 Gerrit 上對您的 commit 留言時，請修改該 commit 並再次送到 Gerrit。
+這通常會涉及 `git rebase --interactive` 或 `git commit --amend`，網路上有許多
+相關指南。如同上一段所述，在可能的情況下，您應該在推送之前先對同一堆疊中的多個
+補丁做出修改，以盡量減少變基作業帶來的 CI 與通知噪音。
 
-Commits which include changes that can be tested by a unit test should also
-include a unit test to exercise that change, within the same commit. Unit tests
-should be clearly written - even more so than production code, unit tests are
-meant primarily to be read by humans - and should test both good and bad
-behaviors. Refer to the
-[testing documentation](https://github.com/openbmc/docs/blob/master/testing/local-ci-build.md)
-for help writing tests, as well as best practices.
+包含可由單元測試驗證之變更的 commit，也應在同一個 commit 中包含一個單元測試來
+驗證該變更。單元測試應該撰寫得清楚明瞭——相比正式程式碼，單元測試主要是讓人閱讀
+的——並且應該同時測試正確與錯誤的行為。請參考
+[測試文件](https://github.com/openbmc/docs/blob/master/testing/local-ci-build.md)
+以取得撰寫測試的協助以及最佳實踐。
 
-Ensure that your patch doesn't change unrelated areas. Be careful of accidental
-whitespace changes - this makes review unnecessarily difficult.
+請確保您的補丁沒有改動無關的區域。務必留意不小心造成的空白字元變更——這會讓審查
+變得不必要的困難。
 
-### Formatting Commit Messages
+### 格式化 Commit 訊息
 
-Your commit message should explain:
+您的 commit 訊息應該說明：
 
-- Concisely, _what_ change are you making? e.g. "libpldm: Add APIs to enable
-  PLDM Requester" This first line of your commit message is the subject line.
-- Comprehensively, _why_ are you making that change? In some cases, like a small
-  refactor, the why is fairly obvious. But in cases like the inclusion of a new
-  feature, you should explain why the feature is needed.
-- Concisely, _how_ did you test? (see below).
+- 簡潔地，您正在做出 _什麼_ 變更？例如「libpldm: Add APIs to enable
+  PLDM Requester」。您 commit 訊息的第一行就是主旨行（subject line）。
+- 完整地，您 _為什麼_ 要做那個變更？在某些情況下，例如小型重構，原因相當明顯。
+  但在例如納入新功能的情況下，您應該說明為什麼需要該功能。
+- 簡潔地，您 _如何_ 測試？（見下文）。
 
-Try to include the component you are changing at the front of your subject line;
-this typically comes in the form of the class, module, handler, or directory you
-are modifying. e.g. "apphandler: refactor foo to new API"
+設法在您的主旨行開頭納入您正在修改的元件；這通常採用您所修改的類別、模組、處理
+常式或目錄的形式。例如「apphandler: refactor foo to new API」
 
-Commit messages should follow the 50/72 rule: the subject line should not exceed
-50 characters and the body should not exceed 72 characters. This is common
-practice in many projects which use Git.
+Commit 訊息應遵循 50/72 規則：主旨行不應超過 50 個字元，內文不應超過 72 個字元。
+這在許多使用 Git 的專案中是常見做法。
 
-Exceptions to this are allowed in the form of links, which can be represented in
-the form of:
+例外情況允許以連結的形式呈現，可以表示為：
 
 ```markdown
 This implements [1]
@@ -258,60 +228,53 @@ This implements [1]
 [1]: https://openbmc.org/myverylongurl.
 ```
 
-All commit messages must include a "Signed-off-by" line, which indicates that
-you the contributor have agreed to the Developer Certificate of Origin (see
-below). This line must include the full name you commonly use, often a given
-name and a family name or surname. (ok: Sam Samuelsson, Robert A. Heinlein; not
-ok: xXthorXx, Sam, RAH)
+所有 commit 訊息都必須包含一行 "Signed-off-by"，表示您這位貢獻者已同意開發者出處
+授權書（Developer Certificate of Origin，見下文）。這一行必須包含您慣用的全名，
+通常是名字加上家族姓氏或姓。（可以：Sam Samuelsson、Robert A. Heinlein；不可以：
+xXthorXx、Sam、RAH）
 
-### Testing
+### 測試
 
-Each commit is expected to be tested. The expectation of testing may vary from
-subproject to subproject, but will typically include running all applicable
-automated tests and performing manual testing. Each commit should be tested
-separately, even if they are submitted together (an exception is when commits to
-different projects depend on each other).
+每個 commit 都預期要經過測試。測試的預期因子專案而異，但通常會包括執行所有適用的
+自動化測試並進行手動測試。每個 commit 都應該分開測試，即使它們是一起提交的（例外
+情況是不同專案之間的 commit 彼此相依時）。
 
-Commit messages should include a "Tested" field describing how you tested the
-code changes in the patch. Example:
+Commit 訊息應包含一個 "Tested" 欄位，描述您如何測試補丁中的程式碼變更。範例：
 
 ```text
     Tested: I ran unit tests with "make check" (added 2 new tests) and manually
     tested on Witherspoon that Foo daemon no longer crashes at boot.
 ```
 
-If the change required manual testing, describe what you did and what happened;
-if it used to do something else before your change, describe that too. If the
-change can be validated entirely by running unit tests, say so in the "Tested:"
-field.
+若該變更需要手動測試，請描述您做了什麼以及發生了什麼事；若在您變更之前它的行為
+不同，也請一併描述。若該變更可以完全透過執行單元測試來驗證，請在 "Tested:" 欄位
+中如此說明。
 
 ### Linux Kernel
 
-The guidelines in the Linux kernel are very useful:
+Linux kernel 中的準則非常有幫助：
 
 - <https://www.kernel.org/doc/html/latest/process/submitting-patches.html>
 - <https://www.kernel.org/doc/html/latest/process/submit-checklist.html>
 
-Your contribution will generally need to be reviewed before being accepted.
+您的貢獻通常需要經過審查才會被接受。
 
-## Submitting changes via Gerrit server to OpenBMC
+## 透過 Gerrit 伺服器將變更提交到 OpenBMC
 
-The OpenBMC Gerrit server supports GitHub credentials, its link is:
+OpenBMC Gerrit 伺服器支援 GitHub 憑證，其連結為：
 
 <https://gerrit.openbmc.org/#/q/status:open>
 
-_One time setup_: Login to the WebUI with your GitHub credentials and verify on
-your Account Settings that your SSH keys were imported:
+_一次性設定_：使用您的 GitHub 憑證登入 WebUI，並在您的 Account Settings 中確認
+您的 SSH 金鑰已被匯入：
 
 <https://gerrit.openbmc.org/#/settings/>
 
-Most repositories are supported by the Gerrit server, the current list can be
-found under Projects -> List:
+多數倉庫都由 Gerrit 伺服器支援，目前的清單可於 Projects -> List 之下找到：
 
 <https://gerrit.openbmc.org/#/admin/projects/>
 
-If you're going to be working with Gerrit often, it's useful to create an SSH
-host block in ~/.ssh/config. Ex:
+如果您將經常使用 Gerrit，在 ~/.ssh/config 中建立一個 SSH host 區塊會很有用。例如：
 
 ```text
 Host openbmc.gerrit
@@ -320,26 +283,24 @@ Host openbmc.gerrit
         User your_github_id
 ```
 
-From your OpenBMC git repository, add a remote to the Gerrit server, where
-'openbmc_repo' is the current git repository you're working on, such as
-phosphor-state-manager, and 'openbmc.gerrit' is the name of the Host previously
-added:
+從您的 OpenBMC git 倉庫，新增一個指向 Gerrit 伺服器的 remote，其中
+'openbmc_repo' 是您目前正在處理的 git 倉庫，例如 phosphor-state-manager，而
+'openbmc.gerrit' 是您先前新增的 Host 名稱：
 
 `git remote add gerrit ssh://openbmc.gerrit/openbmc/openbmc_repo`
 
-Alternatively, you can encode all the data in the URL:
+或者，您可以將所有資料編碼在 URL 中：
 
 `git remote add gerrit ssh://your_github_id@gerrit.openbmc.org:29418/openbmc/openbmc_repo`
 
-Then add the default branch for pushes to this remote:
+接著為推送到這個 remote 新增預設分支：
 
 `git config remote.gerrit.push HEAD:refs/for/master`
 
-Gerrit uses
+Gerrit 使用
 [Change-Ids](https://gerrit-review.googlesource.com/Documentation/user-changeid.html)
-to identify commits that belong to the same review. Configure your git
-repository to automatically add a Change-Id to your commit messages. The steps
-are:
+來識別屬於同一次審查的 commit。請設定您的 git 倉庫，讓它自動在 commit 訊息中加入
+Change-Id。步驟為：
 
 ```bash
 gitdir=$(git rev-parse --git-dir)
@@ -347,129 +308,104 @@ curl https://gerrit.openbmc.org/tools/hooks/commit-msg -o ${gitdir}/hooks/commit
 chmod +x ${gitdir}/hooks/commit-msg
 ```
 
-To submit a change set, commit your changes, and push to the Gerrit server,
-where 'gerrit' is the name of the remote added with the git remote add command:
+若要提交一組變更，請 commit 您的變更並推送到 Gerrit 伺服器，其中 'gerrit' 是用
+git remote add 指令新增的 remote 名稱：
 
 `git push gerrit`
 
-Sometimes you need to specify a topic (especially when working on a feature that
-spans across few projects) or (un)mark the change as Work-in-Progress. For that
-refer to
-[Gerrit documentation](https://gerrit-review.googlesource.com/Documentation/intro-user.html#topics).
+有時您需要指定一個 topic（特別是當您處理橫跨數個專案的功能時），或（取消）標記
+變更為進行中（Work-in-Progress）。為此請參考
+[Gerrit 文件](https://gerrit-review.googlesource.com/Documentation/intro-user.html#topics)。
 
-Gerrit will show you the URL link to your review. You can also find your reviews
-from the [OpenBMC Gerrit server](https://gerrit.openbmc.org) search bar or menu
-(All > Open, or My > Changes).
+Gerrit 會顯示指向您審查的 URL 連結。您也可以從
+[OpenBMC Gerrit 伺服器](https://gerrit.openbmc.org)的搜尋列或選單（All > Open，
+或 My > Changes）找到您的審查。
 
-Invite reviewers to review your changes. Each OpenBMC repository has an `OWNERS`
-file that lists required reviewers who are subject matter experts. Those
-reviewers may add additional reviewers. To add reviewers from the Gerrit web
-page, click the "add reviewers" icon by the list of reviewers.
+邀請審查者來審查您的變更。每個 OpenBMC 倉庫都有一份 `OWNERS` 檔案，列出作為領域
+專家的必要審查者。這些審查者可以再新增其他審查者。若要從 Gerrit 網頁新增審查者，
+請點擊審查者清單旁的「add reviewers」圖示。
 
-You are expected to respond to all comments. And remember to use the "reply"
-button to publish your replies for others to see.
+您應該回應所有意見。並記得使用「reply」按鈕發布您的回覆，讓其他人能看到。
 
-The review results in the proposed change being accepted, rejected for rework,
-or abandoned. When you re-work your change, remember to use `git commit --amend`
-so Gerrit handles the update as a new patch of the same review.
+審查的結果會是提案的變更為被接受、被駁回要求重做，或被放棄。當您重做變更時，記得
+使用 `git commit --amend`，讓 Gerrit 將更新處理成同一次審查的新補丁。
 
-Each repository is governed by a small group of maintainers who are leaders with
-expertise in their area. They are responsible for reviewing changes and
-maintaining the quality of the code. You'll need a maintainer to accept your
-change, and they will look to the other reviewers for guidance. When accepted,
-your change will merge into the OpenBMC project.
+每個倉庫都由一小群維護者治理，他們是在各自領域具備專業知識的領導者。他們負責審查
+變更並維持程式碼品質。您需要一位維護者接受您的變更，而他們會參考其他審查者的意見。
+一旦獲得接受，您的變更就會合併進 OpenBMC 專案。
 
-## References to non-public resources
+## 引用非公開資源
 
-Code and commit messages shall not refer to companies' internal documents or
-systems (including bug trackers). Other developers may not have access to these,
-making future maintenance difficult.
+程式碼與 commit 訊息不得引用公司的內部文件或系統（包括 bug 追蹤系統）。其他開發者
+可能無法存取這些資源，這會讓未來的維護變得困難。
 
-Code contributed to OpenBMC must build from the publicly available sources, with
-no dependencies on non-public resources (URLs, repositories, etc).
+貢獻給 OpenBMC 的程式碼必須能從公開可取得的原始碼建置，且不得相依於非公開資源
+（URL、倉庫等）。
 
-## Best practices for D-Bus interfaces
+## D-Bus 介面的最佳實踐
 
-- New D-Bus interfaces should be reusable
+- 新的 D-Bus 介面應該可重複使用
 
-- Type signatures should and use the simplest types possible, appropriate for
-  the data passed. For example, don't pass numbers as ASCII strings.
+- 型別簽章應該盡可能使用最簡單、且適合所傳遞資料的型別。例如，不要把數字當做
+  ASCII 字串傳遞。
 
-- D-Bus interfaces are defined in the `phosphor-dbus-interfaces` repository at:
+- D-Bus 介面定義於 `phosphor-dbus-interfaces` 倉庫中，位於：
 
 <https://github.com/openbmc/phosphor-dbus-interfaces>
 
-See: <http://dbus.freedesktop.org/doc/dbus-api-design.html>
+參閱：<http://dbus.freedesktop.org/doc/dbus-api-design.html>
 
-## Best practices for C
+## C 的最佳實踐
 
-There are numerous resources available elsewhere, but a few items that are
-relevant to OpenBMC work:
+其他地方已有許多資源，以下是幾項與 OpenBMC 工作相關的要點：
 
-- Do not use `system(<some shell pipeline>)`. Reading and writing from files
-  should be done with the appropriate system calls.
+- 不要使用 `system(<some shell pipeline>)`。讀寫檔案應該使用適當的系統呼叫。
 
-  Generally, it's much better to use `fork(); execve()` if you do need to spawn
-  a process, especially if you need to provide variable arguments.
+  一般來說，若您確實需要產生（spawn）一個行程，尤其是需要提供變動參數時，使用
+  `fork(); execve()` 好得多。
 
-- Use the `stdint` types (eg, `uint32_t`, `int8_t`) for data that needs to be a
-  certain size. Use the `PRIxx` macros for printf, if necessary.
+- 對需要特定大小的資料使用 `stdint` 型別（例如 `uint32_t`、`int8_t`）。如有需要，
+  請使用 `PRIxx` 巨集供 printf 使用。
 
-- Don't assume that `char` is signed or unsigned.
+- 不要假設 `char` 是有號號或無號。
 
-- Beware of endian considerations when reading to & writing from C types
+- 在讀取至 C 型別及從 C 型別寫出時，務必留意位元組序（endian）的考量
 
-- Declare internal-only functions as `static`, declare read-only data as `const`
-  where possible.
+- 在可能的情況下，將僅內部使用的函式宣告為 `static`，唯讀資料宣告為 `const`。
 
-- Ensure that your code compiles without warnings, especially for changes to the
-  kernel.
+- 確保您的程式碼可以在不產生警告的情況下編譯，對 kernel 的變更尤其如此。
 
-## Best practices for Systemd usage
+## Systemd 使用的最佳實踐
 
-- Systemd services should be contained within the OpenBMC repository they are
-  associated with
+- Systemd 服務應該包含在與之相關的 OpenBMC 倉庫內
 
-- Systemd services should list their dependencies using Wants/After to ensure
-  required service are started
+- Systemd 服務應該使用 Wants/After 列出它們的相依關係，以確保必要的服務會被啟動
 
-- If your repository provides a shared library, it should appropriately handle
-  any D-Bus dependencies it has
+- 若您的倉庫提供一個共用函式庫，它應該妥善處理其所具有的任何 D-Bus 相依關係
 
-  This may be clear documentation on what type of error or exception is returned
-  or it may be ensuring the required D-Bus service is automatically activated
-  upon calling it.
+  這可以是清楚文件化會回傳哪一種錯誤或例外，也可以是確保所需的 D-Bus 服務在被呼叫
+  時會自動啟用。
 
-- See this
-  [doc](https://github.com/openbmc/docs/blob/master/architecture/openbmc-systemd.md)
-  for more information on OpenBMC and its use of Systemd
+- 請參閱這份
+  [文件](https://github.com/openbmc/docs/blob/master/architecture/openbmc-systemd.md)
+  以取得關於 OpenBMC 及其 Systemd 使用的更多資訊
 
-## Pace of Review
+## 審查的節奏
 
-Contributors who are used to code reviews by their team internal to their own
-company, or who are not used to code reviews at all, are sometimes surprised by
-the pace of code reviews in open source projects. Try to keep in mind that those
-reviewing your patch may be contributing to OpenBMC in a volunteer or
-partial-time capacity, may be in a timezone far from your own, and may have very
-deep review queues already of patches which have been waiting longer than yours.
-Do everything you can to make it easy for the reviewer to review your
-contribution.
+習慣由所屬團隊在公司內部進行程式碼審查的貢獻者，或完全不熟悉程式碼審查的貢獻者，
+有時會對開源專案中程式碼審查的節奏感到意外。請設法牢記，審查您補丁的人可能是以
+志工或業餘時間的方式參與 OpenBMC，可能位於與您相距遙遠的時區，而且可能已經有很深
+的審查佇列，其中的補丁等待時間比您的更久。請盡一切努力讓審查者能輕鬆審查您的貢獻。
 
-If you feel your patch has been missed entirely, of course, it's alright to
-email the maintainers (addresses available in OWNERS file) or ping them on
-Discord - but a reasonable timeframe to do so is on the order of a week, not on
-the order of hours.
+若您覺得您的補丁完全被忽略了，當然，寄信給維護者（位址可在 OWNERS 檔案中找到）或在
+Discord 上提醒他們是可以的——但合理的時間範圍大約是一週，而不是幾小時。
 
-The maintainers' job is to ensure that incoming patches are as correct and easy
-to maintain as possible. Part of the nature of open source is attrition -
-contributors can come and go easily - so maintainers tend not to put stock in
-promises such as "I will add unit tests in a later patch" or "I will be
-implementing this proposal by the end of next month." This often manifests as
-reviews which may seem harsh or exacting; please keep in mind that the community
-is trying to collaborate with you to build a patch that will benefit the project
-on its own.
+維護者的工作是確保進來的補丁盡可能正確且易於維護。人員流動是開源本質的一部分——
+貢獻者很容易來來去去——所以維護者通常不會相信諸如「我會在後續的補丁中加入單元測試」
+或「我會在下個月結束前實作這個提案」這類承諾。這常表現為看起來嚴苛或苛求的審查；
+請牢記社群是想與您合作，共同打造一個本身就能讓本專案受益的補丁。
 
-## Developer's Certificate of Origin 1.1
+## 開發者出處授權書 1.1
 
 ```text
     By making a contribution to this project, I certify that:
@@ -497,28 +433,22 @@ on its own.
         this project or the open source license(s) involved.
 ```
 
-## Copyright Indicators
+## 著作權標示
 
-Contributions to OpenBMC are not required to include an explicit copyright
-statement, but some companies may have a policy that their public contributions
-include one. Contributions to the project may only leverage [SPDX file
-tags][spdx] and shall not include other copyright or license blocks. In
-following the [recommendation][lf-copyright] from the Linux Foundation with
-respect to copyright notices, contributions shall use the phrase "Copyright
-OpenBMC Authors" rather than enumerating individual project members. Taken
-together, the SPDX identifiers should be:
+對 OpenBMC 的貢獻不強制要求包含明確的著作權聲明，但某些公司可能有其公開貢獻必須
+包含聲明的政策。對本專案的貢獻只能使用 [SPDX 檔案標籤][spdx]，且不得包含其他著作權
+或授權區塊。遵循 Linux Foundation 關於著作權聲明的
+[建議][lf-copyright]，貢獻應使用「Copyright OpenBMC Authors」這個措辭，而非逐一
+列出各別專案成員。合在一起，SPDX 識別碼應為：
 
 ```cpp
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: Copyright OpenBMC Authors
 ```
 
-In the event code is reused from an existing Open Source project, and the
-contributor is not the original author, the existing copyright and/or license
-blocks should be preserved. Do not remove copyright notices you do not have
-authority to remove! This exception does not apply to previously non-public code
-you are now contributing to OpenBMC. All contributions directly to OpenBMC
-should use the SPDX records as stated above.
+若程式碼是重複使用自既有的開源專案，且貢獻者並非原始作者，則應保留既有的著作權及／或
+授權區塊。請勿移除您無權移除的著作權聲明！此例外不適用於您現在貢獻給 OpenBMC 的、
+先前非公開的程式碼。所有直接對 OpenBMC 的貢獻都應使用上述的 SPDX 記錄。
 
 [spdx]:
   https://github.com/spdx/spdx-spec/blob/support/2.3.1/chapters/file-tags.md#annex-h-specifying-spdx-information-in-source-files-informative

@@ -1,35 +1,33 @@
-# GPIO-based Cable Presence Detection
+# 基於 GPIO 的纜線在位偵測
 
-Author: Chu Lin <linchuyuan@google.com>
+作者：Chu Lin <linchuyuan@google.com>
 
-Created: 2021-07-29
+建立日期：2021-07-29
 
-## Problem Description
+## 問題描述
 
-The intent of this new daemon design is to report GPIO-based cable presence
-status. IPMI currently doesn't support grouping discrete values and it could at
-most support 255 sensor IDs. On a systems with 25 cables, and 255 sensor IDs,
-taking up one sensor per slot would use 10% of the available space, and be a
-huge waste. Therefore, we need a solution to pack multiple presence states into
-less SDR IDs.
+這個新 daemon 設計的立意在於回報基於 GPIO 的纜線在位（presence）狀態。IPMI
+目前不支援將離散值（discrete values）分組，而且最多只能支援 255 個 sensor ID。
+在一個有 25 條纜線、255 個 sensor ID 的系統上，若每個插槽佔用一個 sensor，就會
+用掉可用空間的 10%，相當浪費。因此，我們需要一個能把多個在位狀態
+收納進更少 SDR ID 的解決方案。
 
-## Background and References
+## 背景與參考資料
 
 1. <https://www.intel.com/content/www/us/en/products/docs/servers/ipmi/ipmi-second-gen-interface-spec-v2-rev1-1.html>
 2. <https://www.dmtf.org/sites/default/files/Redfish_Cable_Management_Proposal_WIP_04-2021.pdf>
 
-## Requirements
+## 需求
 
-1. The openbmc IPMI interface should support exposing cable presence states.
-2. The OpenBMC dbus interface should be compatible with redfish
+1. OpenBMC 的 IPMI 介面應支援暴露纜線的在位狀態。
+2. OpenBMC 的 dbus 介面應與 Redfish 相容。
 
-## Proposed Design
+## 建議設計
 
-Inventory.Item.Cable will be introduced as a new dbus interface for querying
-cable objects. We will also need to introduce a new dbus daemon to collect
-Presence states. This new daemon will resIDe in openbmc/dbus-sensors. Its
-runtime configuration will be provIDed by EntityManager during startup. A
-proposed config file looks like the following:
+我們將引入 `Inventory.Item.Cable` 作為一個新的 dbus 介面，用於查詢纜線物件。
+我們還需要引入一個新的 dbus daemon 來收集在位（Presence）狀態。這個新 daemon
+將位於 openbmc/dbus-sensors 中。它的執行期設定（runtime configuration）將在啟動
+時由 EntityManager 提供。一個提議的設定檔如下所示：
 
 ```json
 {
@@ -52,18 +50,15 @@ proposed config file looks like the following:
 }
 ```
 
-The `Name` attribute is a unique name for each object from the config file. The
-`GpioLine` is the gpio line label from the device tree. The `Polarity` should
-tell the daemon whether it needs to revert the GPIO signal. Each entry from the
-config would get translated into one object on the dbus. In addition, the daemon
-polls the gpio presence signal for these objects in an interval of 10 seconds.
-When the cable is not properly seated, the daemon will assert on the
-corresponding fault led group. This should cause the corresponding led to blink
-or to turn on base on how phosphor-led-manager is configured. No action is taken
-if FaultLedGroup is empty.
+`Name` 屬性是設定檔中每個物件的唯一名稱。`GpioLine` 是來自 device tree 的 gpio
+line label。`Polarity` 用來告訴 daemon 是否需要反轉 GPIO 訊號。設定檔中的每一個
+項目都會被轉換成 dbus 上的一個物件。此外，daemon 會以 10 秒為間隔輪詢（poll）
+這些物件的 gpio 在位訊號。當纜線沒有確實插入到位時，daemon 會致動（assert）對應
+的 fault led group。這應該會讓對應的 led 閃爍或亮起，端視 phosphor-led-manager
+如何設定。若 `FaultLedGroup` 為空，則不採取任何動作。
 
-On the IPMI sIDe, the presence states will be grouped into fewer SDR IDs in
-order to save SDR IDs for ipmi. Given the following example,
+在 IPMI 這一側，為了替 ipmi 節省 SDR ID，在位狀態會被分組到更少的 SDR ID 中。
+以下列範例來說明，
 
 ```text
 └─/xyz
@@ -74,18 +69,15 @@ order to save SDR IDs for ipmi. Given the following example,
         └─/xyz/openbmc_project/inventory/item/cable1
 ```
 
-In this example, we have both cable0 and cable1 and we expect to group them
-together. The grouping handler first removes all the trailing index from the SDR
-name. In this case, the SDR name is cable0 and cable1. After that, both cable0
-and cable1 become cable. Therefore, objects with the same name after removing
-the trailing index indicates that they need to be grouped. After grouping, the
-new SDR name is cable[0-1]. The SDR name implies that this SDR has the presence
-state for cable0 and cable1. Meanwhile, the bit position for cable0 is 0 and the
-bit position for cable1 is 1. In the case of having more than 14 presence
-states, the group handler will automatically jump to use a new SDR. For example,
-if there are 20 cable indexed from 0 to 19, we shall see two SDRs. One is
-cable0-13. One is cable[14-19]. If the object path is not indexed by the user,
-it will take one SDR ID.
+在這個範例中，我們同時有 cable0 與 cable1，預期會把它們分組在一起。分組處理程式
+（grouping handler）會先移除 SDR 名稱末尾所有的索引數字。在此例中，SDR 名稱是
+cable0 與 cable1。接著，cable0 與 cable1 都會變成 cable。因此，在移除末尾索引後
+名稱相同的物件，就代表它們需要被分組。分組之後，新的 SDR 名稱是 cable[0-1]。
+這個 SDR 名稱表示此 SDR 擁有 cable0 與 cable1 的在位狀態。同時，cable0 的
+bit 位置是 0，cable1 的 bit 位置是 1。當在位狀態超過 14 個時，分組處理程式會自動
+改用一個新的 SDR。舉例來說，若有 20 條纜線、索引從 0 到 19，我們會看到兩個 SDR：
+一個是 cable0-13，另一個是 cable[14-19]。若物件路徑沒有被使用者加上索引，它將
+佔用一個 SDR ID。
 
 ```text
 ipmitool sdr list event
@@ -97,10 +89,9 @@ cdfp[0-3]        | Event-Only        | ns
 osfp[0-1]        | Event-Only        | ns
 ```
 
-On the other hand, if the object name from the config file is not indexed. For
-example, `/xyz/openbmc_project/inventory/item/cable`. The group handler will not
-try to group it with anything and use 1 SDR ID for its presence state. See the
-following for an example output.
+另一方面，若設定檔中的物件名稱沒有加上索引，例如
+`/xyz/openbmc_project/inventory/item/cable`，分組處理程式就不會試圖把它與任何
+東西分組，並為它的在位狀態使用 1 個 SDR ID。以下是一個輸出範例。
 
 ```text
 ipmitool sdr list event
@@ -110,59 +101,49 @@ osfp             | Event-Only        | ns
 osfp[1-2]        | Event-Only        | ns
 ```
 
-During the fetch operation, once the ipmi daemon receives the client request. It
-forwards the request to the dynamic ipmi commands. In the get method, the range
-string is extracted from the tailing square bracket. The original dbus path can
-be reconstructed given the index. Then, the SDR assertion value can be
-constructed after collecting the OperationalStatus from the dbus from each
-individual dbus objects.
+在 fetch 操作期間，一旦 ipmi daemon 收到客戶端請求，它會把該請求轉給 dynamic
+ipmi commands。在 get 方法中，範圍字串會從末尾的方括號（square bracket）中擷取
+出來。接著即可根據索引重組出原本的 dbus 路徑。然後，在從各個獨立的 dbus 物件
+收集 OperationalStatus 之後，便可以建構出 SDR 的致動值（assertion value）。
 
-The design is also compatible with the Redfish daemon. Redfish can call the
-GetSubTree method to list all the instances under the cable interface. In
-addition, Redfish doesn't have a limit of 256 SDR IDs. Therefore, no need to
-implement grouping mechanism. It should work out of the box.
+這個設計也與 Redfish daemon 相容。Redfish 可以呼叫 GetSubTree 方法來列出 cable
+介面底下的所有實例（instances）。此外，Redfish 並沒有 256 個 SDR ID 的限制，
+因此不需要實作分組機制，它應該可以開箱即用。
 
-## Alternatives Considered
+## 曾考慮的替代方案
 
-- Explore the option of reporting the presence state via type12 record instead
-  of discrete sensors. The challenge here is that type12 record also has a limit
-  of 255 IDs. Meanwhile, it doesn't support stacking multiple presence states in
-  one ID.
+- 探索改用 type12 record 而非離散感測器（discrete sensors）來報待在位狀態的
+  選項。此處的挑戰在於 type12 record 同樣有 255 個 ID 的上限，而且它不支援把多個
+  在位狀態堆疊在單一 ID 之中。
 
-- We could also let the user define how to group different cables from config
-  file. However, this requires users to have a deep understanding of how ipmid
-  works. It is better if the ipmi daemon just takes care of this.
+- 我們也可以讓使用者在設定檔中自行定義如何為不同的纜線分組。然而，這要求使用者
+  深入了解 ipmid 的運作方式。由 ipmi daemon 自行處理這一切會更好。
 
-- Instead of having a sleep-poll mechanism, it is better to have a event
-  listener on the gpio signals. However, the gpio_event_wait api requires all
-  the lines to come from the same chip. See
+- 相較於采用 sleep-poll（休眠輪詢）機制，更好的做法是對 gpio 訊號設立事件監聽器
+  （event listener）。然而，gpio_event_wait api 要求所有的 line 都必須來自同一顆
+  chip。請參見
   <https://github.com/brgl/libgpiod/blob/cc23ef61f66d5a9055b0e9fbdcfe6744c8a637ae/lib/core.c#L993>
-  We could spawn threads to listen to each chips but I don't think we should
-  increase the complexity of such a simple daemon.
+  我們可以為每顆 chip 各生成一個執行緒來監聽，但我認為我們不該讓如此簡單的一個
+  daemon 增加這種複雜度。
 
-- The polling interval is 10 seconds. Is this too long/short for some other
-  projects? For now, let's make it a compiler option.
+- 輪詢間隔為 10 秒。對某些其他專案而言，這是否太長／太短？目前，我們先把它做成
+  一個編譯選項。
 
-- IPMI name string can only be 16 characters. Using square brackets would take
-  away 2 chars. However, using square brackets gives a better indication for the
-  start of the index string. Hence, the index string will be enclosed by square
-  bracket.
+- IPMI 名稱字串最多只能有 16 個字元。使用方括號會佔掉 2 個字元。然而，使用方括號
+  能更清楚地標示索引字串的起始位置。因此，索引字串將以方括號包圍。
 
-## Testing
+## 測試
 
-Testing can be accomplished via automated or manual testing to verify that:
+測試可以透過自動化或手動測試來完成，以驗證：
 
-- The presence state that is reported by GpioCableSevice is matching the result
-  from linux gpioget command.
+- GpioCableSevice 所報得的在位狀態，與 linux gpioget 指令的結果相符。
 
-- Given the SDR name from `ipmitool sdr list event`, say cable[0-1], make sure
-  the zeroth bit is matching the presence state of object
-  `/xyz/openbmc_project/inventory/item/cable0` on the dbus and the first bit is
-  matching the state of object `/xyz/openbmc_project/inventory/item/cable`.
+- 給定來自 `ipmitool sdr list event` 的 SDR 名稱，例如 cable[0-1]，確認第 zeroth
+  bit 與 dbus 上物件 `/xyz/openbmc_project/inventory/item/cable0` 的在位狀態相符，
+  且第一個 bit 與物件 `/xyz/openbmc_project/inventory/item/cable` 的狀態相符。
 
-- Unindex items from the config should have its own SDR ID. For example,
-  `/xyz/openbmc_project/inventory/item/cable` should not be grouped to another
-  group. Meanwhile, only the zero bit is used to report the presence state.
+- 設定檔中未加索引（unindex）的項目應有其專屬的 SDR ID。舉例來說，
+  `/xyz/openbmc_project/inventory/item/cable` 不應被分到另一個群組。同時，只有
+  zero bit 會被用來報待在位狀態。
 
-- The state of the cable presence need to change with 10 seconds once a cable is
-  plug or unplug from the system.
+- 當纜線插入或拔出系統後，纜線在位狀態必須在 10 秒內隨之改變。

@@ -1,49 +1,45 @@
-# OpenBMC & Systemd
+# OpenBMC 與 Systemd
 
-OpenBMC uses [systemd](https://www.freedesktop.org/wiki/Software/systemd/) to
-manage all processes. It has its own set of target and service units to control
-which processes are started. There is a lot of documentation on systemd and to
-do OpenBMC state work, you're going to have to read some of it. Here's the
-highlights:
+OpenBMC 使用 [systemd](https://www.freedesktop.org/wiki/Software/systemd/) 來
+管理所有程序。它有一整套自己的 target 與 service unit，用來控制哪些程序會被
+啟動。關於 systemd 有為數众多的文件，而要做 OpenBMC 狀態相關的開發工作，你
+勢必得閱讀其中一些。以下是重點：
 
 [Unit](https://www.freedesktop.org/software/systemd/man/systemd.unit.html#) -
-Units are the basic framework of all systemd work.
+Unit 是所有 systemd 工作的基本框架。
 [Service](https://www.freedesktop.org/software/systemd/man/systemd.service.html) -
-Services are a type of unit, that define the processes to be run and execute.
+Service 是 unit 的一種類型，用來定義要執行與運作的程序。
 [Target](https://www.freedesktop.org/software/systemd/man/systemd.target.html) -
-Targets are another type of unit, they have two purposes:
+Target 是另一種類型的 unit，它們有兩個用途：
 
-1. Define synchronization points among services.
-2. Define the services that get run for a given target.
+1. 定義各 service 之間的同步點。
+2. 定義針對某個 target 會執行的 service。
 
-On an OpenBMC system, you can go to /lib/systemd/system/ and see all of the
-systemd units on the system. You can easily cat these files to start looking at
-the relationships among them. Service files can also be found in
-/etc/systemd/system and /run/systemd/system as well.
+在 OpenBMC 系統上，你可以到 /lib/systemd/system/ 查看系統上所有的 systemd
+unit。你可以輕易地用 cat 檢視這些檔案，開始觀察它們之間的關係。Service 檔案
+也可以在 /etc/systemd/system 與 /run/systemd/system 中找到。
 
-[systemctl](https://www.freedesktop.org/software/systemd/man/systemctl.html) is
-the main tool you use to interact with systemd and its units.
+[systemctl](https://www.freedesktop.org/software/systemd/man/systemctl.html)
+是你用來與 systemd 及其 unit 互動的主要工具。
 
 ---
 
-## Initial Power
+## 初始上電
 
-When an OpenBMC system first has power applied, it starts the "default.target"
-unless an alternate target is specified on the kernel command line. In Phosphor
-OpenBMC, there is a link from `default.target` to `multi-user.target`.
+當 OpenBMC 系統第一次通電時，它會啟動 "default.target"，除非在 kernel 命令
+列上指定了其他 target。在 Phosphor OpenBMC 中，從 `default.target` 有一個連結
+指向 `multi-user.target`。
 
-You'll find all the phosphor services associated with `multi-user.target`.
+你會找到所有與 `multi-user.target` 相關的 phosphor service。
 
-## Server Power On
+## 伺服器開機
 
-When OpenBMC is used within a server, the
-[obmc-host-start@.target](https://github.com/openbmc/phosphor-state-manager/blob/master/target_files/obmc-host-start%40.target)
-is what drives the boot of the system.
+當 OpenBMC 用於伺服器中時，驅動系統開機的是
+[obmc-host-start@.target](https://github.com/openbmc/phosphor-state-manager/blob/master/target_files/obmc-host-start%40.target)。
 
-To start it you would run `systemctl start obmc-host-start@0.target`.
+要啟動它，你會執行 `systemctl start obmc-host-start@0.target`。
 
-If you dig into its .requires relationship, you'll see the following in the file
-system
+如果你深入檢視它的 .requires 關係，你會看到檔案系統中有以下內容
 
 ```shell
 ls -1 /lib/systemd/system/obmc-host-start@0.target.requires/
@@ -51,17 +47,14 @@ obmc-host-startmin@0.target
 phosphor-reset-host-reboot-attempts@0.service
 ```
 
-The
 [obmc-host-startmin@.target](https://github.com/openbmc/phosphor-state-manager/blob/master/target_files/obmc-host-startmin%40.target)
-represents the bare minimum of services and targets required to start the host.
-This target is also utilized in host reboot scenarios. This distinction of a
-host-start and a host-startmin target allows the user to put services in the
-`obmc-host-start@.target` that should only be run on an initial host boot (and
-not run on host reboots). For example, in the output above you can see the user
-only wants to run the `phosphor-reset-host-reboot-attempts@0.service` on a fresh
-host boot attempt.
+代表啟動 host 所需的最少 service 與 target。這個 target 也會在 host 重啟的
+情境中使用。這種區分 host-start 與 host-startmin target 的做法，讓使用者可以
+把只應在 host 初次開機時執行（而在 host 重啟時不執行）的 service 放進
+`obmc-host-start@.target`。例如，從上面的輸出你可以看到使用者只希望在全新的
+host 開機嘗試時才執行 `phosphor-reset-host-reboot-attempts@0.service`。
 
-Next if we look at the `obmc-host-startmin@0.target`, we see this:
+接下來如果我們檢視 `obmc-host-startmin@0.target`，會看到：
 
 ```shell
 ls -1 /lib/systemd/system/obmc-host-startmin@0.target.requires/
@@ -69,12 +62,11 @@ obmc-chassis-poweron@0.target
 start_host@0.service
 ```
 
-You can see within `obmc-host-startmin@0.target` that we have another target in
-there, `obmc-chassis-poweron@0.target`, along with a service aptly named
-`start_host@0.service`.
+你可以看到在 `obmc-host-startmin@0.target` 中還有一個 target，即
+`obmc-chassis-poweron@0.target`，以及一個名副其實命名為
+`start_host@0.service` 的 service。
 
-The `obmc-chassis-poweron@0.target` has corresponding services associated with
-it:
+`obmc-chassis-poweron@0.target` 有相關聯的 service：
 
 ```shell
 ls -1 /lib/systemd/system/obmc-chassis-poweron@0.target.requires/
@@ -82,163 +74,140 @@ op-power-start@0.service
 op-wait-power-on@0.service
 ```
 
-If you run `systemctl start obmc-host-start@0.target` then systemd will start
-execution of all of the above associated target and services.
+如果你執行 `systemctl start obmc-host-start@0.target`，systemd 就會開始執行
+上述所有相關聯的 target 與 service。
 
-The services have dependencies within them that control the execution of each
-service (for example, the op-power-start.service will run prior to the
-op-wait-power-on.service). These dependencies are set using targets and the
-Wants,Before,After keywords.
+這些 service 內部設有相依性，用來控制每個 service 的執行（例如，
+op-power-start.service 會在 op-wait-power-on.service 之前執行）。這些相依性是
+使用 target 以及 Wants、Before、After 關鍵字來設定的。
 
-## Server Power Off (Soft)
+## 伺服器軟關機
 
-The soft server power off function is encapsulated in the
-`obmc-host-shutdown@.target`. This target is soft in that it notifies the host
-of the power off request and gives it a certain amount of time to shut itself
-down.
+軟關機功能封裝在 `obmc-host-shutdown@.target` 中。這個 target 之所以是「軟」
+的，是因為它會通知 host 有降電請求，並給予它一段時間讓自身關機。
 
-## Server Power Off (Hard)
+## 伺服器硬關機
 
-The hard server power off is encapsulated in the
-`obmc-chassis-hard-poweroff@.target`. This target will force the stopping of the
-soft power off service if running, and immediately cut power to the system.
+硬關機封裝在 `obmc-chassis-hard-poweroff@.target` 中。這個 target 會在軟關機
+service 正在執行時強制停止它，並立即切斷系統電源。
 
-## Server Reboot
+## 伺服器重啟
 
-The reboot of the server is encapsulated in the `obmc-host-reboot@.target`. This
-target will utilize the soft power off target and then, once that completes,
-start the host power on target.
+伺服器重啟封裝在 `obmc-host-reboot@.target` 中。這個 target 會使用軟關機
+target，然後在該步驟完成後啟動 host 開機 target。
 
-## Server Quiesce
+## 伺服器靜止（Quiesce）
 
-The `obmc-host-quiesce@.target` is utilized in host error scenarios. When the
-`obmc-host-quiesce@0.target` is entered, it puts the host state D-Bus
-[object](https://github.com/openbmc/phosphor-dbus-interfaces/blob/master/yaml/xyz/openbmc_project/State/Host.interface.yaml)
-in a `Quiesced` state.
+`obmc-host-quiesce@.target` 用於 host 錯誤情境。當進入
+`obmc-host-quiesce@0.target` 時，它會把 host 狀態的 D-Bus
+[物件](https://github.com/openbmc/phosphor-dbus-interfaces/blob/master/yaml/xyz/openbmc_project/State/Host.interface.yaml)
+置於 `Quiesced` 狀態。
 
-## Server Emergency Power Off due to Error
+## 因錯誤導致的伺服器緊急關機
 
-The `obmc-chassis-emergency-poweroff@.target` is a wrapper target around the
-`obmc-chassis-hard-poweroff@.target` and `obmc-host-quiesce@.target`. It is
-utilized by applications that have detected critical thermal or power errors
-which require an immediate shutdown of the system. It will turn the chassis off
-and put the host into Quiesce (if the host is running). Certain non-critical
-services in the shutdown path can conflict with this target to ensure only the
-most critical services are run in this path.
+`obmc-chassis-emergency-poweroff@.target` 是包在
+`obmc-chassis-hard-poweroff@.target` 與 `obmc-host-quiesce@.target` 外層的一個
+wrapper target。它由那些偵測到需要立即關閉系統的嚴重散熱或電源錯誤的應用程式
+使用。它會關閉機箱，並把 host 置於 Quiesce 狀態（如果 host 正在執行）。關機
+路徑中的某些非關鍵 service 可能會與這個 target 衝突，以確保在此路徑中只執行
+最關鍵的 service。
 
-Automated error recovery (i.e. host reboot) will not be done if this target is
-started. User intervention is required to exit from it. The user could request a
-power on if they wished or a host stop / power off if they wanted to get out of
-quiesce.
+如果啟動了這個 target，就不會進行自動錯誤復原（也就是 host 重啟）。需要使用者
+介入才能離開此狀態。使用者可以依需求請求開機，或是在想脫離 quiesce 時請求 host
+停止／降電。
 
-## Systemd Control in OpenBMC
+## OpenBMC 中的 Systemd 控制
 
-There are a collection of services within OpenBMC that interact with systemd and
-its unit files, providing somewhat of an abstraction layer from the user of the
-OpenBMC system and systemd. See the
+OpenBMC 中有一組 service 會與 systemd 及其 unit 檔案互動，為 OpenBMC 系統及
+systemd 的使用者提供某種程度的抽象層。關於此功能的更多資訊請參閱
 [state](https://github.com/openbmc/phosphor-dbus-interfaces/tree/master/yaml/xyz/openbmc_project/State)
-interfaces for more information on this function.
+介面。
 
-For example, if you wanted to execute the server power on function, you would do
-the following:
+例如，如果你想執行伺服器開機功能，你會這樣做：
 
 > busctl set-property xyz.openbmc_project.State.Host
 > /xyz/openbmc_project/state/host0 xyz.openbmc_project.State.Host
 > RequestedHostTransition s xyz.openbmc_project.State.Host.Transition.On
 
-Underneath the covers, this is calling systemd with the server power on target.
+在底層，這其實就是在用伺服器開機 target 呼叫 systemd。
 
-## Systemd Services or Monitoring Applications
+## Systemd Service 或監控應用程式
 
-A common question when creating new OpenBMC applications which need to execute
-some logic in the context of systemd targets is whether they should be triggered
-by systemd services or by monitoring for the appropriate D-Bus signal indicating
-the start/stop of the target they are interested in.
+建立新的 OpenBMC 應用程式時，一個常見的問題是：當這些應用程式需要在 systemd
+target 的脈絡下執行某些邏輯時，究竟應該由 systemd service 觸發，還是應該監控
+適當的 D-Bus 訊號，以得知它們所關注 target 的啟動／停止。
 
-The basic guidelines for when to create a systemd service are the following:
+關於何時該建立 systemd service 的基本準則如下：
 
-- If your application logic depends on other systemd based services then make it
-  a systemd service and utilize the Wants/After/Before service capabilities.
-- If other applications depend on your application logic then it should be a
-  systemd service.
-- If your application failing during the target start could impact targets or
-  services that run after it, then it should be a systemd service. This ensures
-  dependent targets are not started if your application fails.
+- 如果你的應用程式邏輯相依於其他基於 systemd 的 service，那麼就把它做成
+  systemd service，並使用 Wants/After/Before 的 service 功能。
+- 如果其他應用程式相依於你的應用程式邏輯，那麼它就應該是一個 systemd service。
+- 如果你的應用程式在 target 啟動期間失敗，可能會影響在其之後執行的 target 或
+  service，那麼它就應該是一個 systemd service。這能確保在你的應用程式失敗時，
+  相依的 target 不會被啟動。
 
-## Error Handling of Systemd
+## Systemd 的錯誤處理
 
-With great numbers of targets and services, come great chances for failures. To
-make OpenBMC a robust and productive system, it needs to be sure to have an
-error handling policy for when services and their targets fail.
+target 與 service 的數量龐大，也帶來了極高的失敗機率。為了讓 OpenBMC 成為一個
+穩健且高效能的系統，它必須針對 service 及其 target 失敗時設有一套錯誤處理策略。
 
-When a failure occurs, the OpenBMC software needs to notify the users of the
-system and provide mechanisms for either the system to automatically retry the
-failed operation (i.e. reboot the system) or to stay in a quiesced state so that
-error data can be collected and the failure can be investigated.
+當失敗發生時，OpenBMC 軟體需要通知系統的使用者，並提供機制讓系統自動
+重試失敗的操作（也就是重啟系統），或是維持在靜止（quiesced）狀態，以便收集錯誤
+資料並調查失敗原因。
 
-There are two main failure scenarios when it comes to OpenBMC and systemd usage:
+就 OpenBMC 與 systemd 的使用而言，有兩種主要的失敗情境：
 
-1. A service within a target fails
-   - If the service is a "oneshot" type, and the service is required (not
-     wanted) by the target then the target will fail if the service fails -
-     Define a behavior for when the target fails using the "OnFailure" option
-     (i.e. go to a new failure target if any required service fails)
-   - If the service is not a "oneshot", then it can not fail the target (the
-     target only knows that it started successfully) - Define a behavior for
-     when the service fails (OnFailure) option. - The service can not have
-     "RemainAfterExit=yes" otherwise, the OnFailure action does not occur until
-     the service is stopped (instead of when it fails) - \*See more information
-     below on [RemainAfterExit](#remainafterexit)
+1. target 內的某個 service 失敗
+   - 如果該 service 是 "oneshot" 類型，且被 target 標為 required（而非 wanted），
+     那麼當 service 失敗時 target 就會失敗 - 使用 "OnFailure" 選項定義 target
+     失敗時的行為（例如，只要有任一 required service 失敗就進入新的失敗 target）
+   - 如果該 service 不是 "oneshot"，那麼它就不能讓 target 失敗（target 只知道它
+     成功啟動了）- 為 service 失敗時定義一個（OnFailure）行為選項。- 該 service
+     不能有 "RemainAfterExit=yes"，否則 OnFailure 動作要等到 service 停止時（而不是
+     失敗時）才會發生 - \*關於 [RemainAfterExit](#remainafterexit)，請參閱下方的
+     更多資訊
 
-2. A failure outside of a normal systemd target/service (host watchdog expires,
-   host checkstop detected)
-   - The service which detects this failure is responsible for logging the
-     appropriate error, and instructing systemd to go to the appropriate target
+2. 在一般 systemd target/service 之外發生的失敗（host 看門狗逾時、偵測到 host
+   checkstop）
+   - 偵測到此失敗的 service 負責記錄適當的錯誤，並指示 systemd 進入適當的 target
 
-Within OpenBMC, there is a host quiesce target. This is the target that other
-host related targets should go to when they hit a failure. Other software within
-OpenBMC can then monitor for the entry into this quiesce target and will handle
-the halt vs. automatic reboot functionality.
+在 OpenBMC 中有一個 host quiesce target。這是其他與 host 相關的 target 在遭遇
+失敗時應該進入的 target。OpenBMC 中的其他軟體接著可以監控是否進入了這個 quiesce
+target，並處理「停止」與「自動重啟」的功能。
 
-Targets which are not host related, will need special thought in regards to
-their error handling. For example, the target responsible for applying chassis
-power, `obmc-chassis-poweron@0.target`, will have a
-`OnFailure=obmc-chassis-poweroff@%i.target` error path. That is, if the chassis
-power on target fails then power off the chassis.
+非 host 相關的 target，在其錯誤處理方面需要特別考量。例如，負責施加機箱電源的
+target `obmc-chassis-poweron@0.target`，會有一條
+`OnFailure=obmc-chassis-poweroff@%i.target` 錯誤路徑。也就是說，如果機箱開機
+target 失敗，就關閉機箱電源。
 
-The above info sets up some general **guidelines** for our host related targets
-and services:
+以上的資訊為我們與 host 相關的 target 與 service 建立了若干**準則**：
 
-- All targets should have a `OnFailure=obmc-quiesce-host@.target`
-- All services which are required for a target to achieve its function should be
-  RequiredBy that target (not WantedBy)
-- All services should first try to be "Type=oneshot" so that we can just rely on
-  the target failure path
-- If a service can not be "Type=oneshot", then it needs to have a
-  `OnFailure=obmc-quiesce-host@.target` and ideally set "RemainAfterExit=no"
-  (but see caveats on this below)
-- If a service can not be any of these then it's up to the service application
-  to call systemd with the `obmc-quiesce-host@.target` on failures
+- 所有 target 都應該有一個 `OnFailure=obmc-quiesce-host@.target`
+- 所有為了讓 target 達成其功能而必需的 service，都應該透過 RequiredBy 掛到該
+  target 上（而不是 WantedBy）
+- 所有 service 都應該先設法做成 "Type=oneshot"，如此我們就能只依賴 target 的
+  失敗路徑
+- 如果某個 service 不能是 "Type=oneshot"，那麼它需要有一個
+  `OnFailure=obmc-quiesce-host@.target`，並且最好設定 "RemainAfterExit=no"
+  （但請參閱下方對此的注意事項）
+- 如果某個 service 以上皆非，那麼就由該 service 應用程式自行負責在失敗時用
+  `obmc-quiesce-host@.target` 來呼叫 systemd
 
 ### RemainAfterExit
 
-This is set to "yes" for most OpenBMC services to handle the situation where
-someone starts the same target twice. If the associated service with that target
-is not running (i.e. RemainAfterExit=no), then the service will be executed
-again. Think about someone accidentally running the
-`obmc-chassis-poweron@.target` twice. If you execute it when the operating
-system is up and running, and the service which toggles the pgood pin is
-re-executed, you're going to crash your system. Given this info, the goal should
-always be to write "oneshot" services that have RemainAfterExit set to yes.
+多數 OpenBMC service 都將它設為 "yes"，以處理有人對同一個 target 啟動兩次的情況。
+如果與該 target 關聯的 service 未在執行（也就是 RemainAfterExit=no），那麼該
+service 會被再次執行。想像有人不小心把 `obmc-chassis-poweron@.target` 執行了兩次。
+如果你在作業系統已經啟動並運行的情況下再次執行它，而那個切換 pgood 腳位的 service
+被重新執行，你就會讓系統當機。基於這個理由，目標應該始終是撰寫 RemainAfterExit
+設為 yes 的 "oneshot" service。
 
-## Target and Service Dependency Details
+## Target 與 Service 相依性細節
 
-There are some tools available out there to visualize systemd service and target
-dependencies (systemd-analyze) but due to the complexity of our design, they do
-not generate anything very useful.
+市面上有一些工具可以視覺化 systemd 的 service 與 target 相依性
+（systemd-analyze），但由於我們設計的複雜度，它們無法產生什麼有用的東西。
 
-For now, document the current dependencies on a witherspoon system for
-reference.
+目前，先在此記錄一個 witherspoon 系統上的現行相依性以供參考。
 
 ```text
 R = Requires
@@ -249,7 +218,7 @@ S = Start (runs a command to start another target or service)
 (S) = Synchronization Target
 ```
 
-### Soft Power Off
+### 軟關機
 
 ```text
 obmc-host-shutdown.target
@@ -284,7 +253,7 @@ obmc-host-shutdown.target
         A: obmc-power-stop-pre@.target
 ```
 
-#### Synchronization Target Dependencies
+#### 同步 Target 相依性
 
 ```text
 obmc-power-stop.target

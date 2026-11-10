@@ -1,71 +1,69 @@
-# Add a New System to OpenBMC
+# 在 OpenBMC 中新增系統
 
-**Document Purpose:** How to add a new system to the OpenBMC distribution
+**文件目的：** 說明如何將一個新系統加入 OpenBMC 發行版
 
-**Audience:** Programmer familiar with OpenBMC
+**讀者對象：** 熟悉 OpenBMC 的程式設計師
 
-**Prerequisites:** Completed Development Environment Setup [Document][32]
+**前置條件：** 已完成開發環境設定[文件][32]
 
-## Overview
+## 總覽
 
-**Please note:** This document is no longer officially supported by the OpenBMC
-team. It still contains a lot of useful information so it has been left here.
-Ideally this guide would become a standalone document (outside of the
-development tree) and would cover all of the different areas that must be
-updated to add a new system.
+**請注意：** 這份文件已不再獲得 OpenBMC
+團隊的官方支援。由於其中仍包含許多有用的資訊，因此保留在此。
+理想上，這份指南會成為一份獨立文件（位於
+development 樹之外），並涵蓋新增新系統時必須更新的所有
+不同領域。
 
-This document will describe the following:
+本文件將說明以下內容：
 
-- Review background about Yocto and BitBake
-- Creating a new system layer
-- Populating this new layer
-- Building the new system and testing in QEMU
-- Adding configs for sensors, LEDs, inventories, etc.
+- 回顧 Yocto 與 BitBake 的背景知識
+- 建立一個新的系統層
+- 填充這個新的層
+- 建置新的系統並在 QEMU 中測試
+- 新增感測器、LED、庫存等設定
 
-## Background
+## 背景
 
-The OpenBMC distribution is based on [Yocto](https://www.yoctoproject.org/).
-Yocto is a project that allows developers to create custom Linux distributions.
-OpenBMC uses Yocto to create their embedded Linux distribution to run on a
-variety of devices.
+OpenBMC 發行版以 [Yocto](https://www.yoctoproject.org/) 為基礎。
+Yocto 是一個讓開發者建立自訂 Linux 發行版的專案。
+OpenBMC 使用 Yocto 來建立其嵌入式 Linux 發行版，以便執行在
+各種裝置上。
 
-Yocto has a concept of hierarchical layers. When you build a Yocto-based
-distribution, you define a set of layers for that distribution. OpenBMC uses
-many common layers from Yocto as well as some of its own layers. The layers
-defined within OpenBMC can be found with the meta-\* directories in OpenBMC
-[GitHub](https://github.com/openbmc/openbmc).
+Yocto 具有層級式層（hierarchical layers）的概念。當你要建置一個以
+Yocto 為基礎的發行版時，你會為該發行版定義一組層。OpenBMC 使用
+許多來自 Yocto 的常見層，以及一些自有的層。在 OpenBMC
+[GitHub](https://github.com/openbmc/openbmc) 中，可以透過 meta-\* 目錄
+找到 OpenBMC 內定義的層。
 
-Yocto layers are a combination of different files that define packages to
-incorporate in that layer. One of the key file types used in these layers is
-[BitBake](https://github.com/openembedded/bitbake/blob/master/README) recipes.
+Yocto 的層是由不同檔案組合而成，這些檔案定義了該層中要納入的套件。
+這些層中使用到的重要檔案類型之一是
+[BitBake](https://github.com/openembedded/bitbake/blob/master/README) 配方（recipes）。
 
-BitBake is a fully functional language in itself. For this lesson, we will focus
-on only the aspects of BitBake required to understand the process of adding a
-new system.
+BitBake 本身就是一門功能完整的語言。在本課程中，我們只會著重於
+BitBake 中理解新增系統流程所需的部分。
 
-## Start the Initial BitBake
+## 啟動初始的 BitBake
 
-For this work, you will need to have allocated at least 100GB of space to your
-development environment and as much memory and CPU as possible. The initial
-build of an OpenBMC distribution can take hours. Once that first build is done
-though, future builds will use cached data from the first build, speeding the
-process up by orders of magnitude.
+進行這項工作，你需要為開發環境配置至少 100GB 的空間，以及盡可能
+多的記憶體與 CPU。OpenBMC 發行版的首次建置可能需要數小時。
+不過一旦完成第一次建置，後續的建置會使用第一次建置所快取的
+資料，使流程速度提升數個數量級。
 
-So before we do anything else, let's get that first build going.
+所以在做其他任何事情之前，讓我們先把那次建置啟動。
 
-Follow the direction on the OpenBMC GitHub
-[page](https://github.com/openbmc/openbmc/blob/master/README.md#2-download-the-source)
-for the Romulus system (steps 2-4).
+請依照 OpenBMC GitHub
+[頁面](https://github.com/openbmc/openbmc/blob/master/README.md#2-download-the-source)
+上的指示，針對 Romulus 系統進行（步驟 2-4）。
 
-## Create a New System
+## 建立新系統
 
-While the BitBake operation is going above, let's start creating our new system.
-Similar to previous lessons, we'll be using Romulus as our reference. Our new
-system will be called romulus-prime.
+在上述 BitBake 執行的同時，我們開始建立新的系統。
+與先前的課程類似，我們會以 Romulus 作為參考。我們的
+新系統將命名為 romulus-prime。
 
-From your openbmc repository you cloned above, the Romulus layer is defined
-within `meta-ibm/meta-romulus/`. The Romulus layer is defined within the `conf`
-subdirectory. Under `conf` you will see a layout like this:
+從你上方複製（clone）的 openbmc 儲存庫中，Romulus 層定義在
+`meta-ibm/meta-romulus/` 內。Romulus 層的定義位於 `conf`
+子目錄中。在 `conf` 下你會看到像這樣的結構：
 
 ```bash
 meta-ibm/meta-romulus/conf/
@@ -77,82 +75,80 @@ meta-ibm/meta-romulus/conf/
     └── romulus.conf
 ```
 
-To create our new romulus-prime system we are going to start out by copying our
-romulus layer.
+要建立我們新的 romulus-prime 系統，我們會從複製 romulus 層
+開始。
 
 ```bash
 cp -R meta-ibm/meta-romulus meta-ibm/meta-romulus-prime
 ```
 
-Let's review and modify each file needed in our new layer
+讓我們檢視並修改新層中所需的每個檔案
 
 1. meta-ibm/meta-romulus-prime/conf/bblayers.conf.sample
 
-   This file defines the layers to pull into the meta-romulus-prime
-   distribution. You can see in it a variety of Yocto layers (meta, meta-poky,
-   meta-openembedded/meta-oe, ...). It also has OpenBMC layers like
-   meta-phosphor, meta-openpower, meta-ibm, and meta-ibm/meta-romulus.
+   這個檔案定義要納入 meta-romulus-prime
+   發行版中的各個層。你可以看到其中有多種 Yocto 層（meta、meta-poky、
+   meta-openembedded/meta-oe、……）。它也有 OpenBMC 的層，例如
+   meta-phosphor、meta-openpower、meta-ibm，以及 meta-ibm/meta-romulus。
 
-   The only change you need in this file is to change the two instances of
-   meta-romulus to meta-romulus-prime. This will ensure your new layer is used
-   when building your new system.
+   在這個檔案中你唯一需要做的修改，就是把兩處的 meta-romulus
+   改為 meta-romulus-prime。這將確保在建置你的新系統時
+   會使用你的新層。
 
 2. meta-ibm/meta-romulus-prime/conf/conf-notes.txt
 
-   This file simply states the default target the user will build when working
-   with your new layer. This remains the same as it is common for all OpenBMC
-   systems.
+   這個檔案只說明使用者在使用你的新層時預設要建置的目標。
+   由於這對所有 OpenBMC 系統而言是共通的，因此保持不變。
 
 3. meta-ibm/meta-romulus-prime/conf/layer.conf
 
-   The main purpose of this file is to tell BitBake where to look for recipes
-   (\*.bb files). Recipe files end with a `.bb` extension and are what contain
-   all of the packaging logic for the different layers. `.bbappend` files are
-   also recipe files but provide a way to append onto `.bb` files. `.bbappend`
-   files are commonly used to add or remove something from a corresponding `.bb`
-   file in a different layer.
+   這個檔案的主要用途是告訴 BitBake 要到哪裡尋找配方
+   （\*.bb 檔案）。配方檔案以 `.bb` 副檔名結尾，其中包含了
+   各層的封裝邏輯。`.bbappend` 檔案也是配方檔案，但提供了一種
+   附加到 `.bb` 檔案之上的方式。`.bbappend`
+   檔案常用於對另一個層中對應的 `.bb`
+   檔案新增或移除某些內容。
 
-   The only change you need in here is to find/replace the "romulus-layer" to
-   "romulus-prime-layer"
+   你在這裡唯一需要做的修改，就是把「romulus-layer」
+   尋找並取代（find/replace）為「romulus-prime-layer」
 
 4. meta-ibm/meta-romulus-prime/conf/local.conf.sample
 
-   This file is where all local configuration settings go for your layer. The
-   documentation in it is well done and it's worth a read.
+   這個檔案是你這個層所有本機設定值放置的地方。
+   其中的文件說明寫得很好，值得一讀。
 
-   The only change required in here is to change the `MACHINE` to
-   `romulus-prime`.
+   這裡唯一需要的修改就是把 `MACHINE` 改為
+   `romulus-prime`。
 
 5. meta-ibm/meta-romulus-prime/conf/machine/romulus.conf
 
-   This file describes the specifics for your machine. You define the kernel
-   device tree to use, any overrides to specific features you will be pulling
-   in, and other system specific pointers. This file is a good reference for the
-   different things you need to change when creating a new system (kernel device
-   tree, MRW, LED settings, inventory access, ...)
+   這個檔案描述你機器的各項細節。你會在此定義要使用的
+   核心裝置樹（device tree）、對你將納入的特定功能所做的任何覆寫
+   （overrides），以及其他系統專屬的指標。這個檔案是一份很好的參考，
+   讓你了解建立新系統時需要修改的各種項目（核心裝置
+   樹、MRW、LED 設定、庫存存取、……）
 
-   The first thing you need to do is rename the file to `romulus-prime.conf`.
+   你要做的第一件事是把檔案重新命名為 `romulus-prime.conf`。
 
-   **Note** If our new system really was just a variant of Romulus, with the
-   same hardware configuration, then we could have just created a new machine in
-   the Romulus layer. Any customizations for that system could be included in
-   the corresponding .conf file for that new machine. For the purposes of this
-   exercise we are assuming our romulus-prime system has at least a few hardware
-   changes requiring us to create this new layer.
+   **注意** 如果我們的新系統真的只是 Romulus 的一個變體，
+   硬體設定完全相同，那麼我們其實只需在 Romulus 層中建立一個新的
+   machine 即可。該系統的任何自訂都可以寫在新 machine 對應的
+   .conf 檔案中。為了本次練習，我們假設 romulus-prime 系統至少有
+   一些硬體變更，需要我們建立這個新的層。
 
-## Build New System
+## 建置新系統
 
-This will not initially compile but it's good to verify a few things from the
-initial setup are done correctly.
+起初它還無法編譯，但最好先確認初始設定中有幾件事
+都做對了。
 
-Do not start this step until the build we started at the beginning of this
-lesson has completed.
+請務必等到本課程開頭啟動的那次建置完成後，再開始
+這個步驟。
 
-1. Modify the conf for your current build
+1. 修改你目前建置所用的 conf
 
-   Within the shell you did the initial "bitbake" operation you need to reset
-   the conf file for your build. You can manually copy in the new files or just
-   remove it and let BitBake do it for you:
+   在你執行初始「bitbake」操作的那個 shell 中，你需要重新設定
+   建置用的 conf 檔案。你可以手動複製新的檔案進去，或乾脆把它
+   移除並讓 BitBake 幫你重新產生：
 
    ```bash
    cd ..
@@ -160,24 +156,24 @@ lesson has completed.
    . setup romulus-prime
    ```
 
-   Run your "bitbake" command.
+   執行你的「bitbake」指令。
 
 2. Nothing RPROVIDES 'romulus-prime-config'
 
-   This will be your first error after running "bitbake obmc-phosphor-image"
-   against your new system.
+   這會是你針對新系統執行「bitbake obmc-phosphor-image」後
+   看到的第一個錯誤。
 
-   The openbmc/skeleton repository was used for initial prototyping of OpenBMC.
-   Within this repository is a
-   [configs](https://github.com/openbmc/skeleton/tree/master/configs) directory.
+   openbmc/skeleton 儲存庫曾用於 OpenBMC 的初期原型開發。
+   這個儲存庫中有一個
+   [configs](https://github.com/openbmc/skeleton/tree/master/configs) 目錄。
 
-   The majority of this config data is no longer used but until it is all
-   completely removed, you need to provide it.
+   這類設定資料大部分已不再使用，但在完全移除之前，
+   你仍需要提供它。
 
-   Since this repository and file are on there way out, we'll simply do a quick
-   workaround for this issue.
+   由於這個儲存庫和檔案即將被淘汰，我們只需針對這個問題做個
+   快速的權宜處理。
 
-   Create a config files as follows:
+   建立設定檔案如下：
 
    ```bash
    cp meta-ibm/meta-romulus-prime/recipes-phosphor/workbook/romulus-config.bb meta-ibm/meta-romulus-prime/recipes-phosphor/workbook/romulus-prime-config.bb
@@ -206,14 +202,14 @@ lesson has completed.
 
    ```
 
-   Re-run your "bitbake" command.
+   重新執行你的「bitbake」指令。
 
 3. Fetcher failure for URL: file://romulus.cfg
 
-   This is the config file required by the kernel. It's where you can put some
-   additional kernel config parameters. For our purposes here, just modify
-   romulus-prime to use the romulus.cfg file. We just need to add the `-prime`
-   to the prepend path.
+   這是核心所需的設定檔案。你可以在這裡放入一些
+   額外的核心設定參數。為了此處的目的，只要修改
+   romulus-prime 使其使用 romulus.cfg 檔案即可。我們只需要在
+   prepend 路徑中加入 `-prime`。
 
    ```bash
    vi ./meta-ibm/meta-romulus-prime/recipes-kernel/linux/linux-aspeed_%.bbappend
@@ -222,17 +218,17 @@ lesson has completed.
    SRC_URI += "file://romulus.cfg"
    ```
 
-   Re-run your "bitbake" command.
+   重新執行你的「bitbake」指令。
 
 4. No rule to make target arch/arm/boot/dts/aspeed-bmc-opp-romulus-prime.dtb
 
-   The .dtb file is a device tree blob file. It is generated during the Linux
-   kernel build based on its corresponding .dts file. When you introduce a new
-   OpenBMC system, you need to send these kernel updates upstream. The linked
-   email
-   [thread](https://lists.ozlabs.org/pipermail/openbmc/2018-September/013260.html)
-   is an example of this process. Upstreaming to the kernel is a lesson in
-   itself. For this lesson, we will simply use the Romulus kernel config files.
+   .dtb 檔案是一種裝置樹二進位 blob 檔案。它會在 Linux
+   核心建置過程中，根據其對應的 .dts 檔案產生。當你引入一個新的
+   OpenBMC 系統時，你需要把這些核心更新送交上游（upstream）。所連結的
+   郵件
+   [討論串](https://lists.ozlabs.org/pipermail/openbmc/2018-September/013260.html)
+   就是這個流程的一個範例。將東西送交核心上游本身就是一門課程。
+   在本課程中，我們只會直接使用 Romulus 的核心設定檔案。
 
    ```bash
    vi ./meta-ibm/meta-romulus-prime/conf/machine/romulus-prime.conf
@@ -242,81 +238,80 @@ lesson has completed.
    KERNEL_DEVICETREE = "${KMACHINE}-bmc-opp-romulus.dtb"
    ```
 
-   Re-run your "bitbake" command.
+   重新執行你的「bitbake」指令。
 
-## Boot New System
+## 啟動新系統
 
-And you've finally built your new system's image! There are more customizations
-to be done but let's first verify what you have boots.
+你終於建置好新系統的映像檔了！還有更多自訂要做，但讓我們先確認
+你目前有的東西能啟動。
 
-Your new image will be in the following location from where you ran your
-"bitbake" command:
+你的新映像檔會位於你執行「bitbake」指令的位置底下的以下路徑：
 
 ```bash
 ./tmp/deploy/images/romulus-prime/obmc-phosphor-image-romulus-prime.static.mtd
 ```
 
-Copy this image to where you've set up your QEMU session and re-run the command
-to start QEMU (`qemu-system-arm` command from [dev-environment.md][32]), giving
-your new file as input.
+把這個映像檔複製到你設定 QEMU 工作階段的地方，並重新執行啟動
+QEMU 的指令（來自 [dev-environment.md][32] 的 `qemu-system-arm`
+指令），將你的新檔案作為輸入。
 
-Once booted, you should see the following for the login:
+啟動後，你應該會看到以下的登入提示：
 
 ```text
 romulus-prime login:
 ```
 
-There you go! You've done the basics of creating, booting, and building a new
-system. This is by no means a complete system but you now have the base for the
-customizations you'll need to do for your new system.
+成功了！你已經完成了建立、啟動與建置新系統的
+基本步驟。這絕不是一個完整的系統，但你現在已經有了基礎，
+可以針對新系統進行所需的各項自訂。
 
-## Further Customizations
+## 進一步的自訂
 
-There are a lot of other areas to customize when creating a new system.
+建立新系統時還有許多其他需要自訂的領域。
 
-### Kernel changes
+### 核心變更
 
-This section describes how you can make changes to the kernel to port OpenBMC to
-a new machine. The device tree is in
-<https://github.com/openbmc/linux/tree/dev-4.13/arch/arm/boot/dts>. For
-examples, see [aspeed-bmc-opp-romulus.dts][1] or a similar machine. Complete the
-following steps to make kernel changes:
+本節說明你可以如何修改核心，以便將 OpenBMC 移植到
+新的機器。裝置樹位於
+<https://github.com/openbmc/linux/tree/dev-4.13/arch/arm/boot/dts>。
+範例請見 [aspeed-bmc-opp-romulus.dts][1] 或類似的機器。完成核心變更
+請按照以下步驟：
 
-1. Add the new machine device tree:
-   - Describe the GPIOs, e.g. LED, FSI, gpio-keys, etc. You should get such info
-     from schematic.
-   - Describe the i2c buses and devices, which usually include various hwmon
-     sensors.
-   - Describe the other devices, e.g. uarts, mac.
-   - Usually the flash layout does not need to change. Just include
-     `openbmc-flash-layout.dtsi`.
-2. Modify Makefile to build the device tree.
-3. Reference to [openbmc kernel doc][31] on submitting patches to mailing list.
+1. 新增新機器的裝置樹：
+   - 描述 GPIO，例如 LED、FSI、gpio-keys 等。你應該從電路圖
+     （schematic）取得這類資訊。
+   - 描述 i2c 匯流排與裝置，通常包含各種 hwmon
+     感測器。
+   - 描述其他裝置，例如 uarts、mac。
+   - 通常快閃記憶體的佈局（flash layout）不需要變動。只要引入
+     `openbmc-flash-layout.dtsi` 即可。
+2. 修改 Makefile 以建置裝置樹。
+3. 關於送交修補程式到郵件列表，請參考
+   [openbmc 核心文件][31]。
 
-Note:
+注意：
 
-- In `dev-4.10`, there is common and machine-specific initialization code in
-  `arch/arm/mach-aspeed/aspeed.c` which is used to do common initializations and
-  perform specific settings in each machine. Starting in branch `dev-4.13`,
-  there is no such initialization code. Most of the inits are done with the
-  upstream clock and reset driver.
-- If the machine needs specific settings (e.g. uart routing), please send mail
-  to [the mailing list][2] for discussion.
+- 在 `dev-4.10` 中，`arch/arm/mach-aspeed/aspeed.c` 有共通且機器專屬的
+  初始化程式碼，用於進行共通的初始化，並針對每台機器執行特定的設定。
+  從 `dev-4.13` 分支開始，已不再有這類初始化程式碼。大部分
+  的初始化都由上游的 clock 與 reset 驅動程式完成。
+- 如果機器需要特定的設定（例如 uart 路由），請發信到
+  [郵件列表][2] 進行討論。
 
 ### Workbook
 
-In legacy OpenBMC, there is a "workbook" to describe the machine's services,
-sensors, FRUs, etc. This workbook is a python configuration file and it is used
-by other services in [skeleton][3]. In the latest OpenBMC, the skeleton services
-are mostly replaced by phosphor-xxx services and thus skeleton is deprecated.
-But the workbook is still needed for now to make the build.
+在舊版 OpenBMC 中，有一個「workbook」用來描述機器的服務、
+感測器、FRU 等。這個 workbook 是一個 python 設定檔案，會被
+[skeleton][3] 中的其他服務使用。在最新版的 OpenBMC 中，skeleton 服務
+大多已被 phosphor-xxx 服務取代，因此 skeleton 已被棄用。
+但目前仍需 workbook 才能完成建置。
 
-[meta-quanta][4] is an example that defines its own config in OpenBMC tree, so
-that it does not rely on skeleton repo, although it is kind of dummy.
+[meta-quanta][4] 是一個在 OpenBMC 樹中定義自身設定的例子，
+使其不依賴 skeleton 儲存庫，雖然它的內容有點像是佔位用（dummy）。
 
-Before [e0e69be][26], or before v2.4 tag, OpenPOWER machines use several
-configurations related to GPIO. For example, in [Romulus.py][5], the
-configuration details are as follows:
+在 [e0e69be][26] 之前，或 v2.4 標籤之前，OpenPOWER 機器使用數個
+與 GPIO 相關的設定。例如，在 [Romulus.py][5] 中，
+設定內容如下：
 
 ```python
 GPIO_CONFIG['BMC_POWER_UP'] = \
@@ -336,12 +331,11 @@ GPIO_CONFIGS = {
 }
 ```
 
-The PowerUp and PowerOK GPIOs are needed for the build to power on the chassis
-and check the power state.
+PowerUp 與 PowerOK 這些 GPIO 是建置所需，用以開啟機殼
+電源並檢查電源狀態。
 
-After that, the GPIO related configs are removed from the workbook, and replaced
-by `gpio_defs.json`, e.g. [2a80da2][27] introduces the GPIO json config for
-Romulus.
+在那之後，GPIO 相關的設定從 workbook 中移除，並由
+`gpio_defs.json` 取代，例如 [2a80da2][27] 為 Romulus 引入了 GPIO json 設定。
 
 ```json
 {
@@ -371,22 +365,22 @@ Romulus.
 }
 ```
 
-Each machine shall define the similar json config to describe the GPIO
-configurations.
+每台機器都應定義類似的 json 設定來描述 GPIO
+配置。
 
-### Hwmon Sensors
+### Hwmon 感測器
 
-Hwmon sensors include sensors on board (e.g. temperature sensors, fans) and OCC
-sensors. The config files path and name shall match the devices in device tree.
+Hwmon 感測器包含板載感測器（例如溫度感測器、風扇）以及 OCC
+感測器。設定檔案的路徑與名稱應與裝置樹中的裝置相符。
 
-There is detailed document in openbmc [doc/architecture/sensor-architecture][6].
+openbmc [doc/architecture/sensor-architecture][6] 中有詳細的文件。
 
-Here let's take Romulus as an example. The config files are in
-[meta-romulus/recipes-phosphor/sensors][7] which includes sensors on board and
-sensors of OCC, where on board sensors are via i2c and occ sensors are via FSI.
+這裡我們以 Romulus 為例。設定檔案位於
+[meta-romulus/recipes-phosphor/sensors][7]，其中包含板載感測器與
+OCC 感測器，板載感測器透過 i2c，OCC 感測器則透過 FSI。
 
-- [w83773g@4c.conf][8] defines the `w83773` temperature sensor containing 3
-  temperatures:
+- [w83773g@4c.conf][8] 定義了 `w83773` 溫度感測器，包含 3 個
+  溫度：
 
 ```bash
   LABEL_temp1 = "outlet"
@@ -396,9 +390,9 @@ sensors of OCC, where on board sensors are via i2c and occ sensors are via FSI.
   LABEL_temp3 = "inlet_io"
 ```
 
-This device is defined in its device tree as [w83773g@4c][9]. When BMC starts,
-the udev rule will start `phosphor-hwmon` and it will create temperature sensors
-on below DBus objects based on its sysfs attributes.
+這個裝置在其裝置樹中定義為 [w83773g@4c][9]。當 BMC 啟動時，
+udev 規則會啟動 `phosphor-hwmon`，它會根據其 sysfs 屬性，在下列 DBus
+物件上建立溫度感測器。
 
 ```bash
   /xyz/openbmc_project/sensors/temperature/outlet
@@ -406,13 +400,12 @@ on below DBus objects based on its sysfs attributes.
   /xyz/openbmc_project/sensors/temperature/inlet_io
 ```
 
-- [pwm-tacho-controller@1e786000.conf][10] defines the fans and the config is
-  similar as above, the difference is that it creates `fan_tach` sensors.
-- [occ-hwmon.1.conf][11] defines the occ hwmon sensor for master CPU. This
-  config is a bit different, that it shall tell `phosphor-hwmon` to read the
-  label instead of directly getting the index of the sensor, because CPU cores
-  and DIMMs could be dynamic, e.g. CPU cores could be disabled, DIMMs could be
-  pulled out.
+- [pwm-tacho-controller@1e786000.conf][10] 定義風扇，設定與上述類似，
+  差別在於它會建立 `fan_tach` 感測器。
+- [occ-hwmon.1.conf][11] 定義主 CPU 的 occ hwmon 感測器。這個
+  設定稍有不同，它要告訴 `phosphor-hwmon` 去讀取 label，而不是直接取得
+  感測器的索引，因為 CPU 核心與 DIMM 可能是動態變化的，例如 CPU 核心
+  可能被停用、DIMM 可能被拔出。
 
 ```bash
   MODE_temp1 = "label"
@@ -429,27 +422,25 @@ on below DBus objects based on its sysfs attributes.
   ...
 ```
 
-- The `MODE_temp* = "label"` tells that if it sees `tempX`, it shall read the
-  label which is the sensor id.
-- And `LABEL_temp* = "xxx"` tells the sensor name for the corresponding sensor
-  id.
-- For example, if `temp1_input` is 37000 and `temp1_label` is 91 in sysfs,
-  `phosphor-hwmon` knows `temp1_input` is for sensor id 91, which is
-  `p0_core0_temp`, so it creates
-  `/xyz/openbmc_project/sensors/temperature/p0_core0_temp` with sensor
-  value 37000.
-- For Romulus, the power sensors do not need to read label since all powers are
-  available on a system.
-- For Witherspoon, the power sensors are similar to temperature sensors, that it
-  shall tell hwmon to read the `function_id` instead of directly getting the
-  index of the sensor.
+- `MODE_temp* = "label"` 表示如果它看到 `tempX`，就應讀取 label，
+  而 label 就是感測器 id。
+- 而 `LABEL_temp* = "xxx"` 則告訴對應感測器 id 的感測器名稱。
+- 例如，如果在 sysfs 中 `temp1_input` 是 37000 且 `temp1_label` 是 91，
+  `phosphor-hwmon` 就知道 `temp1_input` 是感測器 id 91，也就是
+  `p0_core0_temp`，因此它會建立
+  `/xyz/openbmc_project/sensors/temperature/p0_core0_temp`，感測值為
+  37000。
+- 對 Romulus 而言，電源感測器不需要讀取 label，因為系統上所有的
+  電源都可取得。
+- 對 Witherspoon 而言，電源感測器與溫度感測器類似，它要告訴 hwmon
+  去讀取 `function_id`，而不是直接取得感測器的索引。
 
-### LEDs
+### LED
 
-Several parts are involved for LED.
+LED 牽涉到幾個部分。
 
-1. In kernel dts, LEDs shall be described, e.g. [romulus dts][12] describes 3
-   LEDs, `fault`, `identify` and `power`.
+1. 在核心 dts 中，應描述 LED，例如 [romulus dts][12] 描述了 3 個
+   LED：`fault`、`identify` 和 `power`。
 
    ```dts
     leds {
@@ -469,8 +460,8 @@ Several parts are involved for LED.
     };
    ```
 
-2. In machine layer, LEDs shall be configured via yaml to describe how it
-   functions, e.g. [Romulus led yaml][28]:
+2. 在機器層中，應透過 yaml 設定 LED 來描述它的運作方式，例如
+   [Romulus led yaml][28]：
 
    ```yaml
    bmc_booted:
@@ -487,51 +478,51 @@ Several parts are involved for LED.
        Priority: "On"
    ```
 
-   It tells the LED manager to set the `power` LED to blink when BMC is ready
-   and booted, and set it on when host is powered on. 3. At runtime, LED manager
-   automatically set LEDs on/off/blink based on the above yaml config. 4. LED
-   can be accessed manually via /xyz/openbmc_project/led/, e.g.
+   它告訴 LED 管理器在 BMC 準備好並完成啟動時將 `power` LED 設為閃爍，
+   並在主機通電時將它設為恆亮。3. 在執行期，LED 管理器會根據上述
+   yaml 設定自動將 LED 設為開/關/閃爍。4. LED 可以透過
+   /xyz/openbmc_project/led/ 手動存取，例如
 
-3. Get identify LED state:
+3. 取得 identify LED 狀態：
 
    ```bash
     curl -b cjar -k https://$bmc/xyz/openbmc_project/led/physical/identify
    ```
 
-4. Set identify LED to blink:
+4. 將 identify LED 設為閃爍：
 
    ```bash
     curl -b cjar -k -X PUT -H "Content-Type: application/json" -d '{"data": "xyz.openbmc_project.Led.Physical.Action.Blink" }' https://$bmc/xyz/openbmc_project/led/physical/identify/attr/State
    ```
 
-5. When an error related to a FRU occurs, an event log is created in logging
-   with a CALLOUT path. [phosphor-fru-fault-monitor][29] monitors the logs:
-   - Assert the related fault LED group when a log with the CALLOUT path is
-     generated;
-   - De-assert the related fault LED group when the log is marked as "Resolved"
-     or deleted.
+5. 當發生與某個 FRU 相關的錯誤時，會在 logging 中建立一筆事件紀錄，
+   帶有 CALLOUT 路徑。[phosphor-fru-fault-monitor][29] 會監控這些紀錄：
+   - 當產生帶有 CALLOUT 路徑的紀錄時，assert 相關的 fault LED 群組；
+   - 當該紀錄被標記為「Resolved」或被刪除時，de-assert 相關的 fault
+     LED 群組。
 
-**Note**: This yaml config can be automatically generated by
-[phosphor-mrw-tools][13] from its MRW, see [Witherspoon example][14].
+**注意**：這份 yaml 設定可以由
+[phosphor-mrw-tools][13] 從其 MRW 自動產生，請見
+[Witherspoon 範例][14]。
 
-### Inventories and other sensors
+### 庫存與其他感測器
 
-Inventories, other sensors (e.g. CPU/DIMM temperature), and FRUs are defined in
-ipmi's yaml config files.
+庫存、其他感測器（例如 CPU/DIMM 溫度）與 FRU 都定義在
+ipmi 的 yaml 設定檔案中。
 
-E.g. [meta-romulus/recipes-phosphor/ipmi][15]
+例如 [meta-romulus/recipes-phosphor/ipmi][15]
 
-- `romulus-ipmi-inventory-map` defines regular inventories, e.g. CPU, memory,
-  motherboard.
-- `phosphor-ipmi-fru-properties` defines extra properties of the inventories.
-- `phosphor-ipmi-sensor-inventory` defines the sensors from IPMI.
-- `romulus-ipmi-inventory-sel` defines inventories used for IPMI SEL.
+- `romulus-ipmi-inventory-map` 定義一般的庫存，例如 CPU、記憶體、
+  主機板。
+- `phosphor-ipmi-fru-properties` 定義庫存的額外屬性。
+- `phosphor-ipmi-sensor-inventory` 定義來自 IPMI 的感測器。
+- `romulus-ipmi-inventory-sel` 定義用於 IPMI SEL 的庫存。
 
-For inventory map and fru-properties, they are similar between different
-systems, you can refer to this example and make one for your system.
+對於 inventory map 與 fru-properties，不同系統之間是類似的，
+你可以參考這個範例為你的系統建立一份。
 
-For ipmi-sensor-inventory, the sensors from IPMI are different between systems,
-so you need to define your own sensors, e.g.
+對於 ipmi-sensor-inventory，來自 IPMI 的感測器在各系統之間不同，
+所以你需要定義自己的感測器，例如
 
 ```yaml
 0x08:
@@ -547,35 +538,36 @@ so you need to define your own sensors, e.g.
   path: /system/chassis/motherboard/cpu0/core0
 ```
 
-The first value `0x08`, `0x1e` and `0x22` are the sensor id of IPMI, which is
-defined in MRW. You should follow the system's MRW to define the above config.
+第一個值 `0x08`、`0x1e` 和 `0x22` 是 IPMI 的感測器 id，這是在
+MRW 中定義的。你應該依照系統的 MRW 來定義上述設定。
 
-**Note**: The yaml configs can be automatically generated by
-[phosphor-mrw-tools][13] from its MRW, see [Witherspoon example][14].
+**注意**：這些 yaml 設定可以由
+[phosphor-mrw-tools][13] 從其 MRW 自動產生，請見
+[Witherspoon 範例][14]。
 
-### Fans
+### 風扇
 
-[phosphor-fan-presence][16] manages all the services about fan:
+[phosphor-fan-presence][16] 管理所有與風扇相關的服務：
 
-- `phosphor-fan-presence` checks if a fan is present, creates the fan DBus
-  objects in inventory and update the `Present` property.
-- `phosphor-fan-monitor` checks if a fan is functional, and update the
-  `Functional` property of the fan Dbus object.
-- `phosphor-fan-control` controls the fan speed by setting the fan speed target
-  based on conditions, e.g. temperatures.
-- `phosphor-cooling-type` checks and sets if the system is air-cooled or
-  water-cooled by setting properties of
-  `/xyz/openbmc_project/inventory/system/chassis` object.
+- `phosphor-fan-presence` 檢查風扇是否存在，在庫存中建立風扇的 DBus
+  物件並更新 `Present` 屬性。
+- `phosphor-fan-monitor` 檢查風扇是否正常運作，並更新風扇 DBus
+  物件的 `Functional` 屬性。
+- `phosphor-fan-control` 透過根據條件（例如溫度）設定風扇轉速目標
+  來控制風扇速度。
+- `phosphor-cooling-type` 透過設定
+  `/xyz/openbmc_project/inventory/system/chassis` 物件的屬性，
+  檢查並設定系統是氣冷還是水冷。
 
-All the above services are configurable, e.g. by yaml config. So the machine
-specific configs shall be written when porting OpenBMC to a new machine.
+上述所有服務都是可設定的，例如透過 yaml 設定。所以在將
+OpenBMC 移植到新機器時，應撰寫機器專屬的設定。
 
-Taking Romulus as an example, it is air-cooled and has 3 fans without GPIO
-presence detection.
+以 Romulus 為例，它是氣冷，有 3 個風扇，且沒有 GPIO
+存在偵測。
 
-#### Fan presence
+#### 風扇存在偵測
 
-Romulus has no GPIO detection for fans, so it checks fan tach sensor:
+Romulus 沒有風扇的 GPIO 偵測，所以它會檢查風扇 tach 感測器：
 
 ```yaml
 - name: fan0
@@ -586,17 +578,17 @@ Romulus has no GPIO detection for fans, so it checks fan tach sensor:
         - fan0
 ```
 
-The yaml config tells that
+這份 yaml 設定表示
 
-- It shall create `/system/chassis/motherboard/fan0` object in inventory.
-- It shall check fan0 tach sensor (`/sensors/fan_tach/fan0`) to set `Present`
-  property on the fan0 object.
+- 它應在庫存中建立 `/system/chassis/motherboard/fan0` 物件。
+- 它應檢查 fan0 tach 感測器（`/sensors/fan_tach/fan0`）來設定
+  fan0 物件上的 `Present` 屬性。
 
-#### Fan monitor
+#### 風扇監控
 
-Romulus fans use pwm to control the fan speed, where pwm ranges from 0 to 255,
-and the fan speed ranges from 0 to about 7000. So it needs a factor and offset
-to mapping the pwm to fan speed:
+Romulus 風扇使用 pwm 來控制風扇轉速，pwm 範圍為 0 到 255，
+而風扇轉速範圍為 0 到約 7000。所以它需要一個因子（factor）與偏移
+（offset）來將 pwm 對應到風扇轉速：
 
 ```yaml
 - inventory: /system/chassis/motherboard/fan0
@@ -611,20 +603,20 @@ to mapping the pwm to fan speed:
       offset: 1600
 ```
 
-The yaml config tells that:
+這份 yaml 設定表示：
 
-1. It shall use `FanPwm` as target interface of the tach sensor.
-2. It shall calculate the expected fan speed as `target * 21 + 1600`.
-3. The deviation is `15%`, so if the fan speed is out of the expected range for
-   more than 30 seconds, fan0 shall be set as non-functional.
+1. 它應使用 `FanPwm` 作為 tach 感測器的目標介面。
+2. 它應將預期風扇轉速計算為 `target * 21 + 1600`。
+3. 偏差（deviation）為 `15%`，所以如果風扇轉速超出預期範圍超過
+   30 秒，fan0 就應被設為無法運作（non-functional）。
 
-#### Fan control
+#### 風扇控制
 
-The fan control service requires 4 yaml configuration files:
+風扇控制服務需要 4 份 yaml 設定檔案：
 
-- `zone-condition` defines the cooling zone conditions. Romulus is always
-  air-cooled, so this config is as simple as defining an `air_cooled_chassis`
-  condition based on the cooling type property.
+- `zone-condition` 定義散熱區（cooling zone）的條件。Romulus
+  永遠是氣冷，所以這份設定很簡單，只是根據 cooling type 屬性定義一個
+  `air_cooled_chassis` 條件。
 
 ```yaml
   - name: air_cooled_chassis
@@ -637,7 +629,7 @@ The fan control service requires 4 yaml configuration files:
        value: false
 ```
 
-- `zone-config` defines the cooling zones. Romulus has only one zone:
+- `zone-config` 定義散熱區。Romulus 只有一個區：
 
 ```yaml
 zones:
@@ -648,13 +640,12 @@ zones:
     decrease_interval: 30
 ```
 
-It defines that the zone full speed and default floor speed for the fans, so the
-fan pwm will be set to 255 if it is in full speed, and set to 195 if fans are in
-default floor speed.
+它定義了風扇的該區全速與預設下限轉速，所以當處於全速時，
+風扇 pwm 會被設為 255，當風扇處於預設下限轉速時則設為 195。
 
-- `fan-config` defines which fans are controlled in which zone and which target
-  interface shall be used, e.g. below yaml config defines fan0 shall be
-  controlled in zone0 and it shall use `FanPwm` interface.
+- `fan-config` 定義哪些風扇在哪個散熱區中被控制，以及應使用哪個
+  目標介面，例如下方的 yaml 設定定義 fan0 應在 zone0 中被控制，且它
+  應使用 `FanPwm` 介面。
 
 ```yaml
   - inventory: /system/chassis/motherboard/fan0
@@ -665,9 +656,9 @@ default floor speed.
    ...
 ```
 
-- `events-config` defines the various events and its handlers, e.g. which fan
-  targets shall be set in which temperature. This config is a bit complicated,
-  the [example event yaml][17] provides documents and examples. Romulus example:
+- `events-config` 定義各種事件及其處理程式（handler），例如在哪個
+  溫度下應設定哪些風扇目標。這份設定較為複雜，
+  [範例 event yaml][17] 提供了文件與範例。Romulus 範例：
 
 ```yaml
 - name: set_air_cooled_speed_boundaries_based_on_ambient
@@ -696,40 +687,37 @@ default floor speed.
         type: std::map<int64_t, uint64_t>
 ```
 
-The above yaml config defines the fan floor and ceiling speed in
-`zone0_ambient`'s different temperatures. E.g.
+上述 yaml 設定了在 `zone0_ambient` 不同溫度下的風扇下限與上限轉速。
+例如：
 
-1. When the temperature is lower than 27 degreesC, the floor speed (pwm) shall
-   be set to 85.
-2. When the temperature is between 27 and 32 degrees C, the floor speed (pwm)
-   shall be set to 112, etc.
+1. 當溫度低於 27 度 C 時，下限轉速（pwm）應被設為 85。
+2. 當溫度介於 27 到 32 度 C 之間時，下限轉速（pwm）應被設為 112，依此類推。
 
-With above configs, phosphor-fan will run the fan presence/monitor/control logic
-as configured specifically for the machine.
+有了上述設定，phosphor-fan 就會針對該機器以特別設定的方式
+執行風扇的存在/監控/控制邏輯。
 
-**Note**: Romulus fans are simple. For a more complicated example, refer to
-[Witherspoon fan configurations][18]. The following are the additional functions
-of Witherspoon fan configuration:
+**注意**：Romulus 的風扇很簡單。要了解更複雜的範例，請參考
+[Witherspoon 風扇設定][18]。以下是 Witherspoon 風扇設定的
+額外功能：
 
-- It checks GPIO for fan presence.
-- It checks GPIO to determine if the system is air or water cooled.
-- It has more sensors and more events in fan control.
+- 它會檢查 GPIO 來偵測風扇存在與否。
+- 它會檢查 GPIO 來判斷系統是氣冷還是水冷。
+- 它的風扇控制中有更多感測器與更多事件。
 
-### GPIOs
+### GPIO
 
-This section mainly focuses on the GPIOs in device tree that shall be monitored.
-E.g.:
+本節主要著重於裝置樹中應被監控的 GPIO。例如：
 
-- A GPIO may represent a signal of host checkstop.
-- A GPIO may represent a button press.
-- A GPIO may represent if a device is attached or not.
+- 某個 GPIO 可能代表主機 checkstop 的信號。
+- 某個 GPIO 可能代表按鈕按下。
+- 某個 GPIO 可能代表某個裝置是否連接。
 
-They are categorized as `phosphor-gpio-presence` for checking presences of a
-device, and `phosphor-gpio-monitor` for monitoring a GPIO.
+它們被歸類為用於檢查裝置存在與否的 `phosphor-gpio-presence`，以及
+用於監控某個 GPIO 的 `phosphor-gpio-monitor`。
 
-#### GPIOs in device tree
+#### 裝置樹中的 GPIO
 
-All the GPIOs to be monitored shall be described in the device tree. E.g.
+所有要監控的 GPIO 都應在裝置樹中描述。例如
 
 ```dts
   gpio-keys {
@@ -748,8 +736,8 @@ All the GPIOs to be monitored shall be described in the device tree. E.g.
   };
 ```
 
-The following code describes two GPIO keys, one for `checkstop` and the other
-for `id-button`, where the key code is calculated from [aspeed-gpio.h][24]:
+以下程式碼描述了兩個 GPIO 按鈕，一個是 `checkstop`，另一個是
+`id-button`，其中按鈕碼（key code）由 [aspeed-gpio.h][24] 計算而來：
 
 ```bash
 #define ASPEED_GPIO_PORT_A 0
@@ -764,11 +752,11 @@ for `id-button`, where the key code is calculated from [aspeed-gpio.h][24]:
   ((ASPEED_GPIO_PORT_##port * 8) + offset)
 ```
 
-#### GPIO Presence
+#### GPIO 存在偵測
 
-Witherspoon and Zaius have examples for gpio presence.
+Witherspoon 與 Zaius 都有 gpio 存在偵測的範例。
 
-- [Witherspoon][19]:
+- [Witherspoon][19]：
 
 ```bash
 INVENTORY=/system/chassis/motherboard/powersupply0
@@ -778,10 +766,10 @@ NAME=powersupply0
 DRIVERS=/sys/bus/i2c/drivers/ibm-cffps,3-0069
 ```
 
-It checks GPIO key 104 for `powersupply0`'s presence, creates the inventory
-object and bind or unbind the driver.
+它檢查 `powersupply0` 存在與否的 GPIO 按鈕碼 104，建立庫存
+物件並綁定或解除綁定驅動程式。
 
-- [Zaius][20]:
+- [Zaius][20]：
 
 ```bash
 INVENTORY=/system/chassis/pcie_card_e2b
@@ -790,15 +778,15 @@ KEY=39
 NAME=pcie_card_e2b
 ```
 
-It checks GPIO key 39 for `pcie_card_e2b`'s presence, and creates the inventory
-object.
+它檢查 `pcie_card_e2b` 存在與否的 GPIO 按鈕碼 39，並建立庫存
+物件。
 
-#### GPIO monitor
+#### GPIO 監控
 
-Typical usage of GPIO monitor is to monitor the checkstop event from the host,
-or button presses.
+GPIO 監控的典型用途是監控來自主機的 checkstop 事件，
+或按鈕按下。
 
-- [checkstop monitor][21] is a common service for OpenPOWER machines.
+- [checkstop monitor][21] 是 OpenPOWER 機器的共通服務。
 
 ```bash
 DEVPATH=/dev/input/by-path/platform-gpio-keys-event
@@ -807,14 +795,15 @@ POLARITY=1
 TARGET=obmc-host-crash@0.target
 ```
 
-By default it monitors GPIO key 74, and if it is triggered, it tells systemd to
-start `obmc-host-crash@0.target`. For systems using a different GPIO pin for
-checkstop, it simply overrides the default one by specifying its own config file
-in meta-machine layer. E.g. [Zaius's checkstop config][22]. **Note**: when the
-key is pressed, `phosphor-gpio-monitor` starts the target unit and exits.
+預設它監控 GPIO 按鈕碼 74，如果被觸發，它會告訴 systemd
+啟動 `obmc-host-crash@0.target`。對於使用不同 GPIO 腳位作為
+checkstop 的系統，只需在 meta-machine 層中指定自己的設定檔案，
+即可覆寫預設值。例如 [Zaius 的 checkstop 設定][22]。
+**注意**：當按鈕被按下時，`phosphor-gpio-monitor` 會啟動目標
+單元（unit）然後結束。
 
-- [id-button monitor][23] is an example service on Romulus to monitor ID button
-  press.
+- [id-button monitor][23] 是 Romulus 上一個監控 ID 按鈕按下的
+  範例服務。
 
 ```bash
 DEVPATH=/dev/input/by-path/platform-gpio-keys-event
@@ -824,11 +813,11 @@ TARGET=id-button-pressed.service
 EXTRA_ARGS=--continue
 ```
 
-It monitors GPIO key 135 for the button press and starts
-`id-button-pressed.service`, that handles the event by setting the identify LED
-group's `Assert` property. **Note**: It has an extra argument, `--continue`,
-that tells `phosphor-gpio-monitor` to not exit and continue running when the key
-is pressed.
+它監控按鈕按下的 GPIO 按鈕碼 135，並啟動
+`id-button-pressed.service`，該服務透過設定 identify LED 群組的
+`Assert` 屬性來處理這個事件。**注意**：它有一個額外的參數
+`--continue`，告訴 `phosphor-gpio-monitor` 在按鈕按下時不要結束，
+而是繼續執行。
 
 [1]:
   https://github.com/openbmc/linux/blob/dev-4.13/arch/arm/boot/dts/aspeed-bmc-opp-romulus.dts

@@ -1,20 +1,18 @@
-# Redfish PCIe Resources
+# Redfish PCIe 資源
 
-Author: Jason Bills, jmbills
+作者：Jason Bills，jmbills
 
-Other contributors: Ed Tanous
+其他貢獻者：Ed Tanous
 
-Created: April 3, 2019
+建立日期：2019 年 4 月 3 日
 
-## Problem Description
+## 問題描述
 
-Redfish has resources that describe PCIe devices and functions available on a
-system. It would be useful to provide these resources to users out-of-band over
-Redfish from OpenBMC.
+Redfish 提供了可用於描述系統上 PCIe 裝置與功能的資源。若能透過 OpenBMC 以 Redfish 帶外（out-of-band）方式向使用者提供這些資源，將會很有幫助。
 
-## Background and References
+## 背景與參考
 
-The Redfish PCIe resources are here:
+Redfish 的 PCIe 資源位於此處：
 
 [PCIeSlots](https://redfish.dmtf.org/schemas/PCIeSlots_v1.xml)
 
@@ -22,52 +20,33 @@ The Redfish PCIe resources are here:
 
 [PCIeFunction](https://redfish.dmtf.org/schemas/PCIeFunction_v1.xml)
 
-## Requirements
+## 需求
 
-This feature is intended to meet the Redfish requirements for the PCIe resources
-above to provide useful system configuration information to system
-administrators and operators.
+此功能旨在滿足上述 PCIe 資源的 Redfish 需求，以便為系統管理員與操作人員提供有用的系統設定資訊。
 
-## Proposed Design
+## 擬議設計
 
-The proposed implementation will follow the standard D-Bus producer-consumer
-model used in OpenBMC. The producer will provide the required PCIe values read
-from hardware. The consumer will retrieve and parse the D-Bus data to provide
-the Redfish PCIe resources.
+擬議的實作將遵循 OpenBMC 中使用的標準 D-Bus 生產者─消費者模型。生產者將提供從硬體讀取所需的 PCIe 值。消費者則會擷取並解析 D-Bus 資料，以提供 Redfish 的 PCIe 資源。
 
-The proposed D-Bus interface can be found here:
+擬議的 D-Bus 介面可於此處找到：
 <https://gerrit.openbmc.org/c/openbmc/phosphor-dbus-interfaces/+/19768>
 
-The proposed producer will be a new D-Bus daemon that will be responsible for
-gathering and caching PCIe hardware data and maintaining the D-Bus interfaces
-and properties. The actual hardware mechanism that is used to gather the PCIe
-hardware data will vary.
+擬議的生產者將是一個新的 D-Bus 守護進程（daemon），負責蒐集並快取 PCIe 硬體資料，以及維護 D-Bus 介面與屬性。實際用於蒐集 PCIe 硬體資料的硬體機制會有所不同。
 
-For example, on systems that the BMC has access to the host PCI configuration
-space, it can directly read the required registers. On systems without access to
-the host PCI configuration space, an entity such as the BIOS or OS can gather
-the required data and send it to the PCIe daemon through IPMI, etc.
+舉例來說，在 BMC 能存取主機 PCI 設定空間（configuration space）的系統上，它可以直接讀取所需的暫存器。在無法存取主機 PCI 設定空間的系統上，則可由 BIOS 或 OS 之類的實體蒐集所需資料，並透過 IPMI 等方式傳送給 PCIe 守護進程。
 
-When reading hardware directly, the PCIe daemon must be aware of power state
-changes and any BIOS timing requirements, so it can check for hardware changes,
-update its cache, and make the necessary changes to the D-Bus properties. This
-will allow a user to retrieve the latest PCIe resource data as of the last
-system boot even if it is powered off.
+直接讀取硬體時，PCIe 守護進程必須能察覺電源狀態的變更以及任何 BIOS 的時序需求，以便檢查硬體變更、更新其快取，並對 D-Bus 屬性做出必要的變更。這樣一來，即使系統已關機，使用者仍能取得截至上次系統啟動為止最新的 PCIe 資源資料。
 
-bmcweb will be the consumer. It will be responsible for retrieving the Redfish
-PCIe resource data from the D-Bus properties and providing it to the user.
+bmcweb 將作為消費者。它負責從 D-Bus 屬性擷取 Redfish 的 PCIe 資源資料，並提供給使用者。
 
-## Alternatives Considered
+## 已考慮的替代方案
 
-None.
+無。
 
-## Impacts
+## 影響
 
-Possible performance impact on the hardware-scanning and D-Bus updates. The
-piece that implements hardware scanning should use mechanisms, such as caching
-of the hardware configuration, to minimize the scanning time and updates to
-D-Bus properties.
+可能會對硬體掃描與 D-Bus 更新造成效能影響。實作硬體掃描的部分應使用快取硬體設定等機制，以盡可能縮短掃描時間並減少對 D-Bus 屬性的更新。
 
-## Testing
+## 測試
 
-This can be tested using the Redfish Service Validator.
+可使用 Redfish Service Validator 進行測試。

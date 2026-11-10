@@ -1,22 +1,20 @@
 # OpenBMC REST API
 
-The OpenBMC REST API is disabled by default in bmcweb. Most of the functionality
-is available on Redfish. This document provides some basic structure and usage
-examples for the OpenBMC REST interface.
+OpenBMC REST API 在 bmcweb 中預設是停用的。大部分功能都可以在 Redfish 上取得。
+本文件提供 OpenBMC REST 介面的一些基本結構與使用範例。
 
-The schema for the rest interface is directly defined by the OpenBMC D-Bus
-structure. Therefore, the objects, attributes and methods closely map to those
-in the D-Bus schema.
+REST 介面的 schema 直接由 OpenBMC 的 D-Bus 結構定義。因此，物件、屬性與方法
+都與 D-Bus schema 中的對應項目密切對應。
 
-For a quick explanation of HTTP verbs and how they relate to a RESTful API, see
-<https://restapitutorial.com/introduction/httpmethods>.
+關於 HTTP 動詞及其與 RESTful API 之間關係的簡要說明，請參考
+<https://restapitutorial.com/introduction/httpmethods>。
 
-## Authentication
+## 驗證
 
-See the details on authentication at
-[REST-cheatsheet](https://github.com/openbmc/docs/blob/master/REST-cheatsheet.md#establish-rest-connection-session).
+驗證的詳細資訊請參考
+[REST-cheatsheet](https://github.com/openbmc/docs/blob/master/REST-cheatsheet.md#establish-rest-connection-session)。
 
-This tutorial uses token based authentication method:
+本教學使用 token based 驗證方式：
 
 ```bash
 export bmc=xx.xx.xx.xx
@@ -24,13 +22,11 @@ export token=`curl -k -H "Content-Type: application/json" -X POST https://${bmc}
 curl -k -H "X-Auth-Token: $token" https://${bmc}/xyz/openbmc_project/...
 ```
 
-## HTTP GET operations & URL structure
+## HTTP GET 操作與 URL 結構
 
-There are a few conventions on the URL structure of the OpenBMC rest interface.
-They are:
+OpenBMC REST 介面的 URL 結構有幾項慣例，分別是：
 
-- To query the attributes of an object, perform a GET request on the object
-  name, with no trailing slash. For example:
+- 若要查詢某個物件的屬性，請對該物件名稱發出 GET 請求，末尾不加斜線。例如：
 
 ```bash
 curl -k -H "X-Auth-Token: $token" https://${bmc}/xyz/openbmc_project/inventory/system
@@ -55,8 +51,8 @@ curl -k -H "X-Auth-Token: $token" https://${bmc}/xyz/openbmc_project/inventory/s
 }
 ```
 
-- To query a single attribute, use the `attr/<name>` path. Using the `system`
-  object from above, we can query just the `Name` value:
+- 若要查詢單一屬性，請使用 `attr/<name>` 路徑。以上面的 `system` 物件為例，
+  我們可以只查詢 `Name` 值：
 
 ```bash
 curl -k -H "X-Auth-Token: $token" https://${bmc}/xyz/openbmc_project/inventory/system/attr/Cached
@@ -70,8 +66,8 @@ curl -k -H "X-Auth-Token: $token" https://${bmc}/xyz/openbmc_project/inventory/s
 }
 ```
 
-- When a path has a trailing-slash, the response will list the sub objects of
-  the URL. For example, using the same object path as above, but adding a slash:
+- 當路徑結尾帶有斜線時，回應會列出該 URL 的子物件。例如，使用與上面相同的
+  物件路徑，但加上一個斜線：
 
 ```bash
 curl -k -H "X-Auth-Token: $token" https://${bmc}/xyz/openbmc_project/
@@ -105,12 +101,11 @@ curl -k -H "X-Auth-Token: $token" https://${bmc}/xyz/openbmc_project/
 }
 ```
 
-This shows that there are 19 children of the `openbmc_project/` object: `dump`,
-`software`, `control`, `network`, `logging`,etc. This can be used with the base
-REST URL (ie., `http://${bmc}/`), to discover all objects in the hierarchy.
+這顯示 `openbmc_project/` 物件共有 19 個子物件：`dump`、`software`、`control`、
+`network`、`logging` 等等。將它與基礎 REST URL（亦即 `http://${bmc}/`）搭配使用，
+即可探索整個階層中的所有物件。
 
-- Performing the same query with `/list` will list the child objects
-  _recursively_.
+- 對相同查詢加上 `/list`，會*遞迴地*列出子物件。
 
 ```bash
 curl -k -H "X-Auth-Token: $token" https://${bmc}/xyz/openbmc_project/network/list
@@ -144,8 +139,7 @@ curl -k -H "X-Auth-Token: $token" https://${bmc}/xyz/openbmc_project/network/lis
 }
 ```
 
-- Adding `/enumerate` instead of `/list` will also include the attributes of the
-  listed objects.
+- 改用 `/enumerate` 而非 `/list`，還會一併包含所列物件的屬性。
 
 ```bash
 curl -k -H "X-Auth-Token: $token" https://${bmc}/xyz/openbmc_project/time/enumerate
@@ -172,11 +166,10 @@ curl -k -H "X-Auth-Token: $token" https://${bmc}/xyz/openbmc_project/time/enumer
 }
 ```
 
-## HTTP PUT operations
+## HTTP PUT 操作
 
-PUT operations are for updating an existing resource (an object or property), or
-for creating a new resource when the client already knows where to put it. These
-require a json formatted payload. To get an example of what that looks like:
+PUT 操作用於更新現有的資源（物件或屬性），或在用戶端已知放置位置時建立新的
+資源。這些操作需要 json 格式的 payload。若要取得這類請求的範例，請參考：
 
 ```bash
 curl -k -H "X-Auth-Token: $token" https://${bmc}/xyz/openbmc_project/state/host0 > host.json
@@ -197,7 +190,7 @@ cat host.json
 }
 ```
 
-or
+或
 
 ```bash
 curl -k -H "X-Auth-Token: $token" https://${bmc}/xyz/openbmc_project/state/host0/attr/RequestedHostTransition > requested_host.json
@@ -212,21 +205,19 @@ cat requested_host.json
 }
 ```
 
-When turning around and sending these as requests, delete the message and status
-properties.
+將這些結果轉換為請求送出時，請刪除 message 與 status 屬性。
 
-To make curl use the correct content type header use the -H option to specify
-that we're sending JSON data:
+要讓 curl 使用正確的 content type 標頭，請使用 -H 選項來指定我們傳送的是
+JSON 資料：
 
 ```bash
 curl -k -H "X-Auth-Token: $token" -H "Content-Type: application/json" -X PUT -d <json> <url>
 ```
 
-A PUT operation on an object requires a complete object. For partial updates
-there is PATCH but that is not implemented yet. As a workaround individual
-attributes are PUTable.
+對某個物件進行 PUT 操作需要完整的物件。若要進行部分更新，則有 PATCH，但目前
+尚未實作。作為替代方案，個別屬性是可以 PUT 的。
 
-For example, make changes to the requested_host.json file and do a PUT (upload):
+例如，修改 requested_host.json 檔案後執行一次 PUT（上傳）：
 
 ```bash
 $ cat requested_host.json
@@ -234,78 +225,73 @@ $ cat requested_host.json
 $ curl -k -H "X-Auth-Token: $token" -H "Content-Type: application/json" -X PUT -T requested_host.json https://${bmc}/xyz/openbmc_project/state/host0/attr/RequestedHostTransition
 ```
 
-Alternatively specify the json inline with -d:
+或者使用 -d 直接內嵌指定 json：
 
 ```bash
 curl -k -H "X-Auth-Token: $token" -H "Content-Type: application/json" -X PUT -d '{"data": "xyz.openbmc_project.State.Host.Transition.On"}' https://${bmc}/xyz/openbmc_project/state/host0/attr/RequestedHostTransition
 ```
 
-When using '-d' just remember that json requires quoting.
+使用 '-d' 時請記得 json 需要加上引號。
 
-## HTTP POST operations
+## HTTP POST 操作
 
-POST operations are for calling methods, but also for creating new resources
-when the client doesn't know where to put it. OpenBMC does not support creating
-new resources via REST so any attempt to create a new resource will result in a
-HTTP 403 (Forbidden). These also require a json formatted payload. To delete
-logging entries:
+POST 操作用於呼叫方法，也在用戶端不知道放置位置時用於建立新的資源。OpenBMC
+不支援透過 REST 建立新資源，因此任何嘗試建立新資源的行為都會導致 HTTP 403
+(Forbidden)。這些操作同樣需要 json 格式的 payload。若要刪除記錄條目：
 
 ```bash
 curl -k -H "X-Auth-Token: $token" -H 'Content-Type: application/json' -X POST -d '{"data":[]}' https://${bmc}/xyz/openbmc_project/logging/action/DeleteAll
 ```
 
-To invoke a method without parameters (Factory Reset of BMC and Host):
+若要呼叫一個不帶參數的方法（將 BMC 與主機重設為出廠設定）：
 
 ```bash
 curl -k -H "X-Auth-Token: $token" -H 'Content-Type: application/json' -X POST -d '{"data":[]}' https://${bmc}/xyz/openbmc_project/software/action/Reset
 ```
 
-## HTTP DELETE operations
+## HTTP DELETE 操作
 
-DELETE operations are for removing instances. Only D-Bus objects (instances) can
-be removed. If the underlying D-Bus object implements the
-`xyz.openbmc_project.Object.Delete` interface the REST server will call it. If
-`xyz.openbmc_project.Object.Delete` is not implemented, the REST server will
-return a HTTP 403 (Forbidden) error.
+DELETE 操作用於移除實例。只有 D-Bus 物件（實例）可以被移除。如果底層的 D-Bus
+物件實作了 `xyz.openbmc_project.Object.Delete` 介面，REST 伺服器就會呼叫它。
+如果未實作 `xyz.openbmc_project.Object.Delete`，REST 伺服器會回傳 HTTP 403
+(Forbidden) 錯誤。
 
-For example, to delete a event record:
+例如，若要刪除一筆事件記錄：
 
-Display logging entries:
+顯示記錄條目：
 
 ```bash
 curl -k -H "X-Auth-Token: $token" -H "Content-Type: application/json" -X GET https://${bmc}/xyz/openbmc_project/logging/entry/enumerate
 ```
 
-Then delete the event record with ID 1:
+然後刪除 ID 為 1 的事件記錄：
 
 ```bash
 curl -k -H "X-Auth-Token: $token" -H "Content-Type: application/json" -X DELETE  https://${bmc}/xyz/openbmc_project/logging/entry/1
 ```
 
-## Uploading images
+## 上傳映像
 
-It is possible to upload software upgrade images (for example to upgrade the BMC
-or host software) via REST. The content-type should be set to
-"application/octet-stream".
+可以透過 REST 上傳軟體升級映像（例如升級 BMC 或主機軟體）。content-type 應設為
+"application/octet-stream"。
 
-For example, to upload an image:(the `<file_to_upload>` must be a tar ball)
+例如，若要上傳一個映像：（`<file_to_upload>` 必須是一個 tar 封包）
 
 ```bash
 curl -k -H "X-Auth-Token: $token" -H "Content-Type: application/octet-stream" -X POST -T <file_to_upload> https://${bmc}/upload/image
 ```
 
-In above example, the filename on the BMC will be chosen by the REST server.
+在上述範例中，BMC 上的檔名將由 REST 伺服器選取。
 
-It is possible for the user to choose the uploaded file's remote name:
+使用者也可以自行選擇上傳檔案在遠端的名稱：
 
 ```bash
 curl -k -H "X-Auth-Token: $token" -H "Content-Type: application/octet-stream" -X PUT -T foo https://${bmc}/upload/image/bar
 ```
 
-In above example, the file foo will be saved with the name bar on the BMC.
+在上述範例中，檔案 foo 會在 BMC 上以名稱 bar 儲存。
 
-The operation will either return the version id (hash) of the uploaded file on
-success:
+此操作在成功時會回傳上傳檔案的版本 id（hash）：
 
 ```json
 {
@@ -315,7 +301,7 @@ success:
 }
 ```
 
-or an error message
+或回傳錯誤訊息
 
 ```json
 {
@@ -327,45 +313,39 @@ or an error message
 }
 ```
 
-For more details on uploading and updating software, see:
+關於上傳與更新軟體的更多詳細資訊，請參考：
 <https://github.com/openbmc/docs/tree/master/architecture/code-update>
 
-## Event subscription protocol
+## 事件訂閱協定
 
-It is possible to subscribe to events, of interest, occurring on the BMC. The
-implementation on the BMC uses WebSockets for this purpose, so that clients
-don't have do employ polling. Instead, the rest server on the BMC can push data
-to clients over a websocket. The BMC can push out information pertaining to
-D-Bus InterfacesAdded and PropertiesChanged signals.
+可以訂閱 BMC 上所發生的、您有興趣的事件。BMC 上的實作為此使用 WebSockets，
+讓用戶端不必採用輪詢。取而代之的是，BMC 上的 REST 伺服器可以透過 websocket
+將資料推播給用戶端。BMC 可以推播與 D-Bus InterfacesAdded 及 PropertiesChanged
+訊號相關的資訊。
 
-Following is a description of the event subscription protocol, with example JS
-code snippets denoting client-side code.
+以下說明事件訂閱協定，並附上代表用戶端端程式碼的 JS 程式碼片段範例。
 
-a. The client needs to have logged on to the BMC.
+a. 用戶端必須已登入 BMC。
 
-b. The client needs to open a secure websocket with the URL
-`<BMC IP>/subscribe`.
+b. 用戶端必須使用 URL `<BMC IP>/subscribe` 開啟一個安全的 websocket。
 
 ```javascript
 var ws = new WebSocket("wss://<BMC IP>/subscribe");
 ```
 
-c. The client needs to send, over the websocket, a JSON dictionary, comprising
-of key-value pairs. This dictionary serves as the "events filter". All the keys
-are optional, so the dictionary can be empty if no filtering is desired. The
-filters represented by each of the key-value pairs are ORed.
+c. 用戶端必須透過 websocket 傳送一個由鍵值對組成的 JSON 字典。這個字典作為
+「事件過濾器」。所有的鍵都是選擇性的，因此如果不想要任何過濾，字典可以是空的。
+每個鍵值對所代表的過濾器之間是 OR（或）的關係。
 
-One of the supported keys is "paths". The corresponding value is an array of
-D-Bus paths. The InterfacesAdded and PropertiesChanged D-Bus signals emanating
-from any of these path(s) alone, and not from any other paths, will be included
-in the event message going out of the BMC.
+其中一個支援的鍵是 "paths"。其對應的值是一個 D-Bus 路徑陣列。只有從這些路徑
+發出、而非從其他任何路徑發出的 InterfacesAdded 與 PropertiesChanged D-Bus 訊號，
+才會被包含在 BMC 送出的事件訊息中。
 
-The other supported key is "interfaces". The corresponding value is an array of
-D-Bus interfaces. The InterfacesAdded and PropertiesChanged D-Bus signal
-messages comprising of any of these interfaces will be included in the event
-message going out of the BMC.
+另一個支援的鍵是 "interfaces"。其對應的值是一個 D-Bus 介面陣列。包含這些介面
+中任一者的 InterfacesAdded 與 PropertiesChanged D-Bus 訊號訊息，會被包含在 BMC
+送出的事件訊息中。
 
-All of the following are valid:
+以下所有寫法都是有效的：
 
 ```javascript
 var data = JSON.stringify({
@@ -408,10 +388,9 @@ ws.onopen = function () {
 };
 ```
 
-d. The rest server on the BMC will respond over the websocket when a D-Bus event
-occurs, considering the client supplied filters. The rest servers notifies about
-InterfacesAdded and PropertiesChanged events. The response is a JSON dictionary
-as follows :
+d. 當發生 D-Bus 事件時，BMC 上的 REST 伺服器會根據用戶端提供的過濾器，透過
+websocket 回應。REST 伺服器會通知 InterfacesAdded 與 PropertiesChanged 事件。
+回應是一個 JSON 字典，如下所示：
 
 InterfacesAdded
 

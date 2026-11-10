@@ -1,75 +1,73 @@
-# Phosphor-hwmon refactoring
+# Phosphor-hwmon 重構
 
-Author: Kun Yi <kunyi!>
+作者：Kun Yi <kunyi!>
 
-Created: 2019/09/05
+建立日期：2019/09/05
 
-## Problem Description
+## 問題描述
 
-Convoluted code in phosphor-hwmon is imparing our ability to add features and
-identify/fix bugs.
+phosphor-hwmon 中盤根錯節的程式碼，正在削弱我們新增功能以及
+找出／修復錯誤的能力。
 
-## Background and References
+## 背景與參考資料
 
-A few cases of smelly code or bad design decisions throughout the code:
+程式碼各處存在若干程式碼異味（smelly code）或不良設計決策的案例：
 
-- Limited unit testing coverage. Currently the unit tests in the repo [1] mostly
-  test that the sensor can be constructed correctly, but there is no testing of
-  correct behavior on various sensor reading or failure conditions.
-- Bloated mainloop. mainloop::read() sits at 146 lines [2] with complicated
-  conditions, macros, and try/catch blocks.
-- Lack of abstraction and dependency injection. This makes the code hard to test
-  and hard to read. For example, the conditional at [3] can be replaced by
-  implementing different sensor::readValue() method for different sensor types.
+- 單元測試涵蓋率有限。目前 repo [1] 中的單元測試多半只是驗證
+  sensor 能否被正確建構，但並沒有針對各種 sensor 讀值或失敗條件下的
+  正確行為進行測試。
+- 臃腫的主迴圈（mainloop）。mainloop::read() 高達 146 行 [2]，其中交雜著
+  複雜的條件判斷、巨集（macro）與 try/catch 區塊。
+- 缺乏抽象化與依賴注入（dependency injection）。這使得程式碼難以測試、
+  也難以閱讀。舉例來說，[3] 處的條件判斷可以改為針對不同 sensor 型別
+  實作不同的 sensor::readValue() 方法來取代。
 
 [1](https://github.com/openbmc/phosphor-hwmon/tree/master/test)
 [2](https://github.com/openbmc/phosphor-hwmon/blob/94a04c4e9162800af7b2823cd52292e3aa189dc3/mainloop.cpp#L390)
 [3](https://github.com/openbmc/phosphor-hwmon/blob/94a04c4e9162800af7b2823cd52292e3aa189dc3/mainloop.cpp#L408)
 
-## Goals
+## 目標
 
-1. Improve unit test coverage
-2. Improve overall design using OOD principles
-3. Improve error handling and resiliency
-4. Improve configurability
-   - By providing a common configuration class, it will be feasible to add
-     alternative configuration methods, e.g. JSON, while maintaining backward
-     compatibility with existing env files approach.
+1. 提升單元測試涵蓋率
+2. 運用 OOD 原則改善整體設計
+3. 改善錯誤處理與韌性
+4. 提升可設定性
+   - 透過提供一個共用的設定類別，我們將能新增其他的設定方式，
+     例如 JSON，同時維持與現有 env 檔做法的向下相容性。
 
-## Proposed Design
+## 提案設計
 
-Rough breakdown of refactoring steps:
+重構步驟的大略拆解：
 
-1. Sensor configuration
-   - Add a SensorConfig struct that does all std::getenv() calls in one place
-   - DI: make the sensor struct take SensorConfig as dependency
-   - Unit tests for SensorConfig
-   - Add unit tests for sensor creation with various SensorConfigs
-2. Abstract sensors
-   - Refine the sensor object interface and make it abstract
-   - Define sensor types that inherit from the common interface
-   - Add unit tests for sensor interface
-   - DI: make the sensor map take sensor interface as dependency
-   - Add a fake sensor that can exhibit controllable behavior
-3. Refactor sensor management logic
-   - Refactor sensor map to allow easier lookup/insertion
-   - Add unit tests for sensor map
-   - DI: make all other functions take sensor map as dependency
-4. Abstract error handling
-   - Add overridable error handler to sensor interface
-   - Define different error handlers
-   - Add unit tests for error handlers using the fake sensor
+1. Sensor 設定
+   - 新增一個 SensorConfig struct，將所有 std::getenv() 呼叫集中於一處
+   - DI：讓 sensor struct 以 SensorConfig 作為依賴
+   - 為 SensorConfig 撰寫單元測試
+   - 針對使用各種 SensorConfig 建立 sensor 的情境新增單元測試
+2. 抽象化 sensors
+   - 精煉 sensor 物件介面並使其成為抽象介面
+   - 定義繼承自共用介面的 sensor 型別
+   - 為 sensor 介面新增單元測試
+   - DI：讓 sensor map 以 sensor 介面作為依賴
+   - 新增一個可展現可控行為的 fake sensor
+3. 重構 sensor 管理邏輯
+   - 重構 sensor map 以便於查詢／插入
+   - 為 sensor map 新增單元測試
+   - DI：讓所有其他函式以 sensor map 作為依賴
+4. 抽象化錯誤處理
+   - 在 sensor 介面中新增可覆寫的錯誤處理程序
+   - 定義不同的錯誤處理程序
+   - 使用 fake sensor 為各錯誤處理程序新增單元測試
 
-## Alternatives Considered
+## 曾考慮的替代方案
 
-N/A.
+不適用。
 
-## Impacts
+## 影響
 
-The refactoring should have no external API impact. Performance impact should be
-profiled.
+此次重構不應對外部的 API 造成影響。效能影響則應加以量測分析。
 
-## Testing
+## 測試
 
-One of the goals is to have better unit test coverage. Overall functionality to
-be tested through functional and regression tests.
+目標之一便是擁有更好的單元測試涵蓋率。整體功能將透過功能測試與
+迴歸測試來驗證。

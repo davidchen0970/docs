@@ -1,113 +1,94 @@
-# Redfish EventService design
+# Redfish EventService 設計
 
-Author: AppaRao Puli
+作者：AppaRao Puli
 
-Other contributors: None
+其他貢獻者：無
 
-Created: 2019-07-24
+建立日期：2019-07-24
 
-## Problem description
+## 問題描述
 
-Redfish in OpenBMC currently supports sending response to the clients which
-requests for data. Currently there is no service to send asynchronous message to
-the client about any events, error or state updates.
+OpenBMC 中的 Redfish 目前僅支援針對要求資料的 client 回應要求。目前沒有任何服務可
+將事件、錯誤或狀態更新等非同步訊息傳送給 client。
 
-The goal of this design document is to give resource overview of redfish event
-service and its implementation details in OpenBMC.
+本設計文件的目的，是在提供 redfish event service 的資源概觀，以及其在 OpenBMC 中的
+實作細節。
 
-## Background and references
+## 背景與參考資料
 
-- [Redfish specification](https://www.dmtf.org/sites/default/files/standards/documents/DSP0266_1.7.0.pdf)
-- [DMTF Redfish school events](https://www.dmtf.org/sites/default/files/Redfish_School-Events_2018.2.pdf)
-- [Redfish event logging](https://github.com/openbmc/docs/blob/master/redfish-logging-in-bmcweb.md)
-- [Telemetry service](https://gerrit.openbmc.org/#/c/openbmc/docs/+/24357/)
-- [Beast async client](https://www.boost.org/doc/libs/develop/libs/beast/example/http/client/async/)
-- [Beast async-ssl client](https://www.boost.org/doc/libs/develop/libs/beast/example/http/client/async-ssl/)
+- [Redfish 規格](https://www.dmtf.org/sites/default/files/standards/documents/DSP0266_1.7.0.pdf)
+- [DMTF Redfish 教學 - Events](https://www.dmtf.org/sites/default/files/Redfish_School-Events_2018.2.pdf)
+- [Redfish 事件記錄](https://github.com/openbmc/docs/blob/master/redfish-logging-in-bmcweb.md)
+- [Telemetry 服務](https://gerrit.openbmc.org/#/c/openbmc/docs/+/24357/)
+- [Beast 非同步 client](https://www.boost.org/doc/libs/develop/libs/beast/example/http/client/async/)
+- [Beast 非同步 ssl client](https://www.boost.org/doc/libs/develop/libs/beast/example/http/client/async-ssl/)
 - [EventService schema](https://redfish.dmtf.org/schemas/v1/EventService_v1.xml)
 - [EventDestinationCollection schema](https://redfish.dmtf.org/schemas/v1/EventDestinationCollection_v1.xml)
 - [EventDestination schema](https://redfish.dmtf.org/schemas/v1/EventDestination_v1.xml)
-- [Upgrade connection for SSE](https://gerrit.openbmc.org/#/c/openbmc/bmcweb/+/13948/)
+- [升級連線以支援 SSE](https://gerrit.openbmc.org/#/c/openbmc/bmcweb/+/13948/)
 
-## Requirements
+## 需求
 
-High level requirements:
+高階需求：
 
-- BMC shall support send asynchronous event notification to external subscribed
-  clients over network using redfish(http/https) protocol, instead of regular
-  querying mechanism.
-- BMC shall provide mechanism to the users to configure event service with
-  specific filters and accordingly send the event notifications to all the
-  registered clients.
-- BMC shall preserve the event service configuration across reboots, and shall
-  reset the same, when factory defaults applied.
-- BMC shall have provision to disable the EventService.
-- The BMC Redfish interface shall support the EventService, EventDestination and
-  EventDestinationCollection schemas.
-- BMC can provide functionality to send out test events(SubmitTestEvent).
-- Must allow only users having 'ConfigureManager' to create, delete or updated
-  event service configuration, subscriptions and restrict other users. Must
-  allow users with 'Login' privileges to view the EventService configuration and
-  subscription details.
-- EventService shall be specific to Redfish Interface alone. i.e No other
-  service can add/modify/delete configuration or subscriptions.
-- Either the client or the service can terminate the event stream at any time.
-  The service may terminate a subscription if the number of delivery error's
-  exceeds preconfigured thresholds.
-- For Push style event subscription creation, BMC shall respond to a successful
-  subscription with HTTP status 201 and set the HTTP Location header to the
-  address of a new subscription resource. Subscriptions are persistent and shall
-  remain across event service restarts.
-- For Push style event subscription creation, BMC shall respond to client with
-  http status as
-  - 400: If parameter in body is not supported.
-  - 404: If request body contains both RegistryPrefixes and MessageIds.
-- SSE: BMC shall respond to GET method on URI specific in "ServerSentEventUri"
-  in EventService schema with 201(created) along with subscription information.
-  BMC shall open a new https connection and should keep connection alive till
-  subscription is valid. BMC shall respond with https code 400, if filter
-  parameters are not supported or 404 if filter parameter contains invalid data.
-  Also SSE subscription data cannot be persistent across service resets/reboots.
-- Clients shall terminate a subscription by sending an DELETE message to the URI
-  of the subscription resource.
-- BMC may terminate a subscription by sending a special "subscription
-  terminated" event as the last message. Future requests to the associated
-  subscription resource will respond with HTTP status code 404.
-- BMC shall accept the "Last-Event-ID" header from the client to allow a client
-  to restart the event/metric report stream in case the connection is
-  interrupted.
-- To avoid exhausting the connection resource, BMC shall implement a restriction
-  of maximum 20 connections (Maximum of 10 SSE connections). BMC shall respond
-  with 503 Service Unavailable server error response code indicating that the
-  server is not ready to handle the request.
-- BMC shall log an redfish event message for subscription addition, deletion and
-  modification.
-- Services shall not send a "push" event payload of size more than 1 MB.
+- BMC 應支援透過網路使用 redfish(http/https) 通訊協定，對已訂閱的外部 client 傳送
+  非同步事件通知，取代一般的查詢（querying）機制。
+- BMC 應提供機制讓使用者能以特定篩選條件設定事件服務，並據此將事件通知傳送至所有
+  已註冊的 client。
+- BMC 應在重新啟動後仍保留事件服務的設定，並在使用出廠預設值時將其重置。
+- BMC 應具備可停用 EventService 的選項。
+- BMC 的 Redfish 介面應支援 EventService、EventDestination 與
+  EventDestinationCollection schema。
+- BMC 可提供送出測試事件(SubmitTestEvent) 的功能。
+- 必須僅允許具備 'ConfigureManager' 權限的使用者建立、刪除或更新事件服務設定與
+  訂閱，並限制其他使用者。必須允許具備 'Login' 權限的使用者檢視 EventService 設定
+  與訂閱詳細資訊。
+- EventService 僅限 Redfish 介面使用。也就是說，其他服務皆不得新增／修改／刪除
+  設定或訂閱。
+- client 或服務皆可隨時終止事件串流。當遞送錯誤次數超過預先設定的門檻時，服務
+  可終止訂閱。
+- 對於 Push 樣式的事件訂閱建立，BMC 應以 HTTP 狀態碼 201 回應成功的訂閱，並將
+  HTTP Location 標頭設為新訂閱資源的位址。訂閱為持續性的，且應在事件服務重新
+  啟動後仍然保留。
+- 對於 Push 樣式的事件訂閱建立，BMC 應以下列 http 狀態碼回應 client：
+  - 400：如果 body 中的參數不支援。
+  - 404：如果要求 body 同時包含 RegistryPrefixes 與 MessageIds。
+- SSE：BMC 應在 EventService schema 中 "ServerSentEventUri" 所指定的 URI 上回應
+  GET 方法，以 201(created) 連同訂閱資訊回應。BMC 應開啟新的 https 連線，並應在
+  訂閱有效期間保持連線存活。如果篩選參數不支援，BMC 應回應 https 碼 400；如果篩選
+  參數包含無效資料，則回應 404。此外，SSE 訂閱資料無法在服務重設／重新啟動後持續
+  保存。
+- client 應透過對訂閱資源的 URI 傳送 DELETE 訊息來終止訂閱。
+- BMC 可透過傳送一則特殊的 "subscription terminated" 事件作為最後一則訊息來終止
+  訂閱。之後對相關訂閱資源的要求將回應 HTTP 狀態碼 404。
+- BMC 應接受來自 client 的 "Last-Event-ID" 標頭，以允許 client 在連線中斷時重新
+  開始事件／指標回報串流。
+- 為避免連線資源耗盡，BMC 應實作最多 20 個連線（最多 10 個 SSE 連線）的限制。
+  BMC 應以 503 Service Unavailable 伺服器錯誤回應碼回應，表示伺服器尚未準備好
+  處理該要求。
+- BMC 應針對訂閱的新增、刪除與修改記錄一筆 redfish 事件訊息。
+- 服務不得傳送大小超過 1 MB 的 "push" 事件 payload。
 
-## Proposed design
+## 建議設計
 
-Redfish event service provides a way to subscribe to specific kinds of Events,
-MetricReport and asynchronously send subscribed type of events or reports to
-client whenever it occurs.
+Redfish event service 提供了一種訂閱特定種類 Events、MetricReport 的方法，並能在
+訂閱類型的 event 或回報發生時，非同步地將它們傳送至 client。
 
-Two styles of events are supported OpenBMC EventService.
+OpenBMC EventService 支援兩種事件樣式。
 
-1. Push style events (https): When the service detects the need to send an
-   event, it uses an HTTP POST to push the event message to the client. Clients
-   can enable reception of events by creating a subscription entry in the
-   EventService.
+1. Push 樣式事件 (https)：當服務偵測到需要傳送事件時，會使用 HTTP POST 將事件訊息
+   推播給 client。client 可以透過在 EventService 中建立訂閱項目來啟用事件接收。
 
-2. Server-Sent Events (SSE): Client opens an SSE connection to the service by
-   performing a GET on the URI specified by the "ServerSentEventUri" in the
-   Event Service.
+2. Server-Sent Events (SSE)：client 透過對 Event Service 中 "ServerSentEventUri"
+   所指定的 URI 執行 GET，來向服務開啟 SSE 連線。
 
-This document majorly focuses on OpenBMC implementation point of view. For more
-details specific to EventService can be found in
+本文件主要著重在 OpenBMC 的實作觀點。EventService 的更多相關細節可於
 ["Redfish Specification"](https://www.dmtf.org/sites/default/files/standards/documents/DSP0266_1.7.0.pdf)
-sections:-
+的下列章節找到：
 
-- Eventing (Section 12.1)
-- Server Sent-Events (Section 12.5)
-- Security (Section 12 & 13.2.8)
+- Eventing（Section 12.1）
+- Server Sent-Events（Section 12.5）
+- Security（Section 12 與 13.2.8）
 
 ```text
 +------------------------------------------------------------------------------------+
@@ -157,7 +138,7 @@ SUBSCRIPTION |         |                                 EVENTS   |  POST   |
 
 ```
 
-Push style events(HTTPS) flow diagram:
+Push 樣式事件(HTTPS) 流程圖：
 
 ```text
 +-------------+   +------------+               +-------------------------------------+ +-----------------+
@@ -297,7 +278,7 @@ Push style events(HTTPS) flow diagram:
 
 ```
 
-SSE flow diagram:
+SSE 流程圖：
 
 ```text
 +-------------+   +------------+               +-------------------------------------+ +-----------------+
@@ -439,9 +420,9 @@ SSE flow diagram:
       v                 v                         v        v        v         v              v
 ```
 
-EventService design includes below major blocks.
+EventService 設計包含下列主要區塊。
 
-1. Redfish resources (Schema based)
+1. Redfish 資源 (Schema based)
    1. EventService
    2. Subscription Collections (EventDestination collection)
    3. Subscriptions (EventDestination)
@@ -453,296 +434,241 @@ EventService design includes below major blocks.
    5. Event service Sender (Common)
 3. EventService config store ( Persistent)
 
-This document also covers the description of below modules.
+本文件亦涵蓋下列模組的說明。
 
-1. Server-Sent Event(SSE): It covers details on what is SSE and how connection
-   open, close are handled in different cases.
-2. Push style events(HTTP/HTTPS): It covers how to subscribe for Push style
-   events and how the http/https connections are handled in bmcweb.
-3. SubmitTestEvent: Details on submit test event action.
+1. Server-Sent Event(SSE)：說明 SSE 是什麼，以及在不同情況下連線的開啟與關閉如何
+   處理。
+2. Push style events(HTTP/HTTPS)：說明如何訂閱 Push 樣式事件，以及 bmcweb 中如何
+   處理 http/https 連線。
+3. SubmitTestEvent：submit test event 動作的詳細資訊。
 
-This document doesn't cover below component design.
+本文件不涵蓋下列元件的設計。
 
-1. Redfish Event Logs: This is existing implementation. In OpenBMC, All events
-   will be logged to Journal control logs and RSyslog service, monitors event
-   logs associated with "REDFISH_MESSAGE_ID" and write the required information
-   to "/var/log/redfish" for persisting the event logs.
+1. Redfish Event Logs：這是既有的實作。在 OpenBMC 中，所有事件都會記錄到 Journal
+   control logs，而 RSyslog 服務會監控與 "REDFISH_MESSAGE_ID" 相關的事件記錄，並將
+   所需的資訊寫入 "/var/log/redfish" 以持續保存事件記錄。
 
-   So EventService design is hooked to Redfish Event Logs majorly for below two
-   reasons.
-   - Get the notification whenever new event is logged to Redfish event Logs.
-   - Way to read the Redfish event log information.
+   因此 EventService 設計之所以與 Redfish Event Logs 串接，主要基於下列兩個原因。
+   - 每當有新事件記錄到 Redfish event Logs 時取得通知。
+   - 讀取 Redfish 事件記錄資訊的方法。
 
-   This document covers one example Redfish Event Log implementation covered
-   under below design. As part of it, it uses inotify for getting notification
-   about new event log and read the log information by accessing the redfish
-   event log file.
+   本文件涵蓋一個 Redfish Event Log 實作範例，包含在下述設計中。作為其中一部分，
+   它使用 inotify 取得新事件記錄的通知，並透過存取 redfish 事件記錄檔來讀取記錄
+   資訊。
 
-   Refer below link for more information on same.
+   更多相關資訊請參閱下方連結。
    [Redfish Logging](https://github.com/openbmc/docs/blob/master/redfish-logging-in-bmcweb.md)
 
-   If other OEM's has different implementation for Redfish EventLogs, they can
-   satisfy above mentioned two requirement and can hook it to EventService
-   design specified here. For example, If xyz OEM uses D-Bus based Redfish Event
-   logs, They can use 'signal' for notifying the new redfish event log and event
-   log information. They can replace 'inotify' with 'signal' and hook their OEM
-   specific Redfish event log to this Redfish EventService design.
+   若其他 OEM 對 Redfish EventLogs 有不同實作，只要滿足上述兩項需求，即可將其
+   串接至此處說明的 EventService 設計。舉例來說，若 xyz OEM 使用以 D-Bus 為基礎的
+   Redfish Event logs，他們可使用 'signal' 來通知新的 redfish 事件記錄與事件記錄
+   資訊。他們可將 'inotify' 替換為 'signal'，並將其 OEM 專屬的 Redfish 事件記錄
+   串接至本 Redfish EventService 設計。
 
-2. Telemetry service: Redfish telemetry service is used to gather all the
-   metrics reports associated with different resources such as Power metrics,
-   thermal metrics, memory metrics, processor metrics etc... Monitoring service
-   in telemetry supports different modes along with aggregated
-   operations(Single, average, max, min, sum etc..).
+2. Telemetry service：Redfish telemetry service 用於收集與不同資源相關的所有指標
+   回報，例如 Power metrics、thermal metrics、memory metrics、processor metrics
+   等。Telemetry 中的 Monitoring service 支援不同模式，並支援彙總運算
+   (Single、average、max、min、sum 等)。
 
-   Refer below link for design document of telemetry service.
+   Telemetry 服務的設計文件請參閱下方連結。
    [Telemetry Service](https://gerrit.openbmc.org/#/c/openbmc/docs/+/24357/)
 
-### Redfish resource schema's
+### Redfish 資源 schema
 
-Redfish will have three major resources to support EventService.
+Redfish 將有三個主要資源來支援 EventService。
 
 1. Event Service
 2. Subscription Collections
 3. Subscriptions
 
-All the configuration and subscriptions information data will be cached on
-bmcweb webserver and synced with config json file for restoring and persisting
-the data.
+所有設定與訂閱資訊資料都會快取在 bmcweb webserver 上，並與設定 json 檔同步，以還原
+並持續保存這些資料。
 
-**EventService** Contains the attributes of the service such as Service Enabled,
-status, delivery retry attempts, Event Types, Subscriptions, Actions URI etc.
+**EventService** 包含服務的各項屬性，例如 Service Enabled、狀態、遞送重試次數、
+Event Types、Subscriptions、Actions URI 等。
 
 - URI : `/redfish/v1/EventService`
 - SCHEMA :
   [EventService](https://redfish.dmtf.org/schemas/v1/EventService_v1.xml)
 - METHODS : `GET, PATCH`
 
-Refer Testing for supported properties and example.
+支援的屬性與範例請參閱 Testing 章節。
 
-**Subscription Collections** This resource is used to get collection of all
-subscriptions and also used to configure the new subscriptions for automatic
-events.
+**Subscription Collections** 此資源用於取得所有訂閱的集合，也用於設定新的訂閱以
+取得自動事件。
 
 - URI : `/redfish/v1/EventService/Subscriptions`
 - SCHEMA :
   [EventDestinationCollection](https://redfish.dmtf.org/schemas/v1/EventDestinationCollection_v1.xml)
 - METHODS : `GET, POST`
 
-Refer Testing section for example.
+範例請參閱 Testing 章節。
 
-**Subscriptions** This resource contains the subscription details. Used to get
-each individual get subscription information, update & Delete existing
-subscription information.
+**Subscriptions** 此資源包含訂閱詳細資訊。用於取得各別訂閱資訊、更新與刪除既有
+訂閱資訊。
 
 - URI : `/redfish/v1/EventService/Subscriptions/<ID>`
 - SCHEMA :
   [EventDestination](https://redfish.dmtf.org/schemas/v1/EventDestination_v1.xml)
 - METHODS : `GET, PATCH, DELETE`
 
-Refer Testing section for supported properties and example.
+支援的屬性與範例請參閱 Testing 章節。
 
 ### Event service manager
 
-Event Manager is main block which does monitor the events, format the request
-body and send it to the subscribed destinations. It shall support for two types
-of event formats which are define in redfish specification.
+Event Manager 是主要區塊，負責監控事件、格式化要求 body，並將其傳送至已訂閱的
+目的地。它應支援 redfish 規格中定義的兩種事件格式。
 
-1. Event: Resource type 'Event' is used to receive alerts in the form of json
-   body to subscribed clients when the subscription details matches for those
-   event logs.
+1. Event：當訂閱詳細資訊符合那些事件記錄時，資源類型 'Event' 會以 json body 的
+   形式將警示傳送至已訂閱的 client。
 
-2. MetricReport: It is used to receive alerts in the forms of json body to
-   subscribed clients when the subscription details matches for the collected
-   telemetry data by telemetry service.
+2. MetricReport：當訂閱詳細資訊符合 telemetry 服務所收集的 telemetry 資料時，它會
+   以 json body 的形式將警示傳送至已訂閱的 client。
 
-The "Event service sender" is common entity for both type of resources. The
-formatter and monitor entities are different for each type of resources.
+"Event service sender" 是兩種資源類型的共同實體。formatter 與 monitor 實體則依每種
+資源類型而不同。
 
 #### Event log monitor
 
-In OpenBMC, all the redfish event logs are currently logged to persistent area
-of BMC filesystem("/var/log/redfish"). The "Event log monitor" service under
-"Event service manager" will use **inotify** to watch on redfish event log file
-to identify the new events. Once it identifies the new events, it will read all
-logged events information from redfish event file and pass it to 'Event log
-formatter' for further processing. The last processed event data timestamp will
-be cached in bmcweb to identify the new events in redfish event log file.
+在 OpenBMC 中，所有 redfish 事件記錄目前都會記錄到 BMC 檔案系統的持續性區域
+("/var/log/redfish")。"Event service manager" 下的 "Event log monitor" 服務會使用
+**inotify** 監控 redfish 事件記錄檔以識別新事件。一旦識別到新事件，它會從 redfish
+事件檔讀取所有已記錄的事件資訊，並傳給 'Event log formatter' 做進一步處理。最後一次
+處理的事件資料時間戳記會快取在 bmcweb 中，用以識別 redfish 事件記錄檔中的新事件。
 
-It monitors the live events for sending asynchronously and does not send the
-events logged before bmcweb service start.
+它監控即時事件以非同步傳送，且不會傳送在 bmcweb 服務啟動之前就已記錄的事件。
 
 #### Event log formatter
 
-It is used to format the request body by reading event logs passed from 'Event
-log monitor' and filter the data by reading subscription information. It will
-fetch all the subscription information from "Redfish event service store" and
-filter the events by checking severity, event type against the user subscribed
-information. It formats the http "request body" along with CustomText,
-HttpHeaders and send the Events over network using http protocol for the
-filtered subscribers.
+它用於讀取從 'Event log monitor' 傳入的事件記錄來格式化要求 body，並讀取訂閱資訊以
+篩選資料。它會從 "Redfish event service store" 取得所有訂閱資訊，並透過比對使用者
+訂閱資訊中的 severity、event type 來篩選事件。它會連同 CustomText、HttpHeaders 一起
+格式化 http "request body"，並針對篩選後的訂閱者使用 http 通訊協定透過網路傳送
+Events。
 
-Refer Tested section for example request body.
+要求 body 範例請參閱 Tested 章節。
 
 #### MetricReport monitor
 
-Telemetry monitoring service ( Not covered in this document) is responsible for
-gathering metrics from D-Bus sensors and exposing them as D-Bus objects.
-Monitoring service supports different monitoring modes (periodic, on change and
-on demand) along with aggregated operations such as single, average, max min,
-sum etc... This service periodically collects the metrics report depending on
-Telemetry service configuration such as 'Metric Definitions', 'Metric Report
-Definitions' and 'Metric Triggers'.
+Telemetry monitoring service（本文件未涵蓋）負責從 D-Bus 感測器收集指標，並將其
+揭露為 D-Bus 物件。Monitoring service 支援不同的監控模式（periodic、on change、
+on demand），並支援彙總運算，例如 single、average、max、min、sum 等。此服務會依
+Telemetry 服務設定（例如 'Metric Definitions'、'Metric Report Definitions' 與
+'Metric Triggers'）定期收集指標回報。
 
-The telemetry monitor shall emit a signal when there is a collection of report.
-MetricReport monitor/agent shall implement the listener for telemetry signal and
-using the subscription information, it should match, filter the desired metric
-report to pass it on to 'MetricReport formatter'. Since 'MetricReport monitor'
-is tightly coupled with 'Telemetry monitor' which already does the monitoring
-loop, its responsibility of 'Telemetry monitor' to match the subscriptions rules
-and provide it to MetricReport formatter. The EventService should provide a way
-to communicate the subscriptions data whenever user creates or updates or delete
-subscription.
+telemetry monitor 應在有回報收集時發出 signal。MetricReport monitor/agent 應實作
+telemetry signal 的 listener，並使用訂閱資訊來比對、篩選出所需的指標回報，再傳給
+'MetricReport formatter'。由於 'MetricReport monitor' 與已執行監控迴圈的
+'Telemetry monitor' 緊密耦合，因此比對訂閱規則並提供給 MetricReport formatter 是
+'Telemetry monitor' 的責任。EventService 應提供一種方式，在使用者建立、更新或刪除
+訂閱時溝通訂閱資料。
 
 #### MetricReport formatter
 
-The 'MetricReport formatter' is responsible for formatting the data which comes
-from 'MetricReport monitor/agent' by checking subscriptions information such as
-HttpHeaders, Custom text strings along with Telemetry report data.
+'MetricReport formatter' 負責格式化來自 'MetricReport monitor/agent' 的資料，方法
+是檢查訂閱資訊，例如 HttpHeaders、Custom text 字串，連同 Telemetry 回報資料。
 
 #### Event service sender
 
-The "Event service sender" is used to send the formatted request body which is
-passed from 'Event log formatter' or 'Telemetry formatter' to all filtered
-subscribers. It supports sending both https and http requests by using beast
-library. The http/https connections handling (open/close) differs for both
-subscription types such as 'Push style events' and 'SSE' and more detailed are
-covered in respective sections.
+"Event service sender" 用於將從 'Event log formatter' 或 'Telemetry formatter'
+傳入的已格式化要求 body 傳送至所有篩選後的訂閱者。它使用 beast 函式庫支援傳送
+https 與 http 兩種要求。http/https 連線的處理（開啟／關閉）會因 'Push style events'
+與 'SSE' 兩種訂閱類型而異，更詳細的內容於各自章節說明。
 
-Beast is a C++ header-only library serving as a foundation for writing
-interoperable networking libraries by providing low-level HTTP/1, WebSocket, and
-networking protocol vocabulary types and algorithms using the consistent
-asynchronous model of Boost.Asio. For more information on beast, refer
+Beast 是一個僅含標頭檔的 C++ 函式庫，透過使用 Boost.Asio 一致的非同步模型提供低階
+HTTP/1、WebSocket 與網路通訊協定的詞彙型別與演算法，作為撰寫可互通網路函式庫的基礎。
+關於 beast 的更多資訊請參閱
 [Beast](https://www.boost.org/doc/libs/develop/libs/beast/doc/html/beast/introduction.html)
 
-1. PUSH style eventing: BMC uses the boost::beast for asynchronously sending
-   events to the subscribed clients. Here is the Beast client Examples for
-   sending the synchronous and asynchronous requests over encrypted and
-   un-encrypted channels.
+1. PUSH 樣式事件傳遞：BMC 使用 boost::beast 非同步地將事件傳送至已訂閱的 client。
+   以下為在加密與未加密通道上傳送同步與非同步要求的 Beast client 範例。
    [Beast Async](https://www.boost.org/doc/libs/develop/libs/beast/example/http/client/async/)
    [Beast AsyncSSL](https://www.boost.org/doc/libs/develop/libs/beast/example/http/client/async-ssl/)
 
-2. Server-Sent Events (SSE): The EventDestination resource of the subscription
-   data shall contains the opaque of opened client SSE stream connection. After
-   receiving the formatted event associated with specific subscription
-   information, EventSender writes the formatted event data on open SSE
-   connection with specific ID so that client can receive the event.
+2. Server-Sent Events (SSE)：訂閱資料的 EventDestination 資源應包含已開啟的 client
+   SSE 串流連線的 opaque 值。在收到與特定訂閱資訊關聯的已格式化事件後，EventSender
+   會將已格式化的事件資料寫入具有特定 ID 的開啟 SSE 連線，讓 client 能收到該事件。
 
-In case of push style eventing, https connection will be established during
-first event. If the connection is already established with subscription ID, then
-it uses same connection handle for sending events. This connection handle and
-subscription map will be stored in event service sender. Users can have multiple
-subscriptions coming from single destination and BMC will have separate
-connection handle associated with each subscription. Event listeners (web
-servers) has capability to accept multiple connections from same client(BMC) and
-depending on routing rules, the received events will be parsed on event listener
-side.
+在 push 樣式事件傳遞的情況下，https 連線會在第一個事件期間建立。若已使用訂閱 ID
+建立連線，則會使用同一個連線 handle 來傳送事件。這個連線 handle 與訂閱對應表會儲存
+在 event service sender 中。使用者可從單一目的地擁有多個訂閱，而 BMC 會為每個訂閱
+關聯一個獨立的連線 handle。Event listener（web server）有能力接受來自同一個
+client(BMC) 的多個連線，並依路由規則在 event listener 端解析收到的事件。
 
-In case of SSE, connection handle will be read from resource and used by sender
-for sending events.
+在 SSE 的情況下，連線 handle 會從資源讀取，並由 sender 用來傳送事件。
 
-Received formatted data will be pushed to queue maintained under sender, against
-the connection-subscription map. Upon successful sending of event data,
-formatted data entry will be pop-ed from queue and next formatted data will be
-attempted for send and so on.
+收到的已格式化資料會被推入 sender 維護、對應 connection-subscription map 的佇列中。
+成功傳送事件資料後，會從佇列 pop 出該已格式化資料項目，接著嘗試傳送下一筆已格式化
+資料，依此類推。
 
-If send event(logs or metric reports) fails, then it will retry for number of
-attempts configured in Event Service "DeliveryRetryAttempts" with an interval of
-"DeliveryRetryIntervalSeconds". In case of Push Style Events if send fails due
-to some reasons, https connection will be re-established and first send will be
-re-attempted. If the failure persist even after the configured retry attempts,
-subscription information will be deleted and same will be updated to
-consumers(Telemetry service or event log service). In SSE connection, bmcweb
-would only retry sending events in the case of network
-failure/timeout/congestion. If there is error like connreset/badf, bmcweb will
-delete the subscription as specified above. In such scenario's, user can
-re-subscribe for events. This is requirement as per current redfish
-specification.
+若傳送事件（記錄或指標回報）失敗，則會依照 Event Service 中 "DeliveryRetryAttempts"
+設定的次數進行重試，間隔為 "DeliveryRetryIntervalSeconds"。在 Push Style Events 的
+情況下，若傳送因故失敗，將重新建立 https 連線並重新嘗試第一次傳送。若在設定次數的
+重試之後失敗仍然存在，訂閱資訊將被刪除，並同步更新給消費者（Telemetry 服務或
+event log 服務）。在 SSE 連線中，bmcweb 僅在網路失敗／逾時／壅塞的情況下才會重試
+傳送事件。若發生 connreset／badf 之類的錯誤，bmcweb 會如上所述刪除訂閱。在這些
+情況下，使用者可重新訂閱事件。依目前的 redfish 規格，這是必要行為。
 
-Any temporary network failure during event notification, and the failure persist
-till threshold limit, subscription entry will be remove. This may be security
-concern as client may not know about subscription termination, once network
-comes back. Note: Redfish specification says, Event destination subscription
-should be terminated after reaching threshold limit. This is known security
-concern. TBD: Need to work with Redfish forum for resolution.
+若事件通知期間發生暫時性網路失敗，且失敗持續到門檻上限，訂閱項目將被移除。這可能是
+個安全疑慮，因為網路恢復後 client 可能並不知道訂閱已終止。注意：Redfish 規格指出，
+Event destination 訂閱在達到門檻上限後應被終止。這是已知的安全疑慮。TBD：需與
+Redfish forum 合作尋求解決方法。
 
 ### Redfish event service store
 
-Redfish event service store is used to store the all configuration related to
-EventService and subscriptions information. This does below operations:
+Redfish event service store 用於儲存所有與 EventService 相關的設定與訂閱資訊。
+它會執行下列操作：
 
-- During bmcweb service start, it gets all the configuration and subscriptions
-  information from config json file and populates the internal structures data.
+- 在 bmcweb 服務啟動期間，它會從設定 json 檔取得所有設定與訂閱資訊，並填補內部
+  結構資料。
 
-- Redfish EventService resources will get/update this event store for any user
-  activities via redfish(Like Get/Add/Update/Delete subscriptions etc.)
+- 當有任何經由 redfish 的使用者操作（例如 Get／Add／Update／Delete 訂閱等）時，
+  Redfish EventService 資源會取得／更新此 event store。
 
-- It will sync the "event config store" with configuration Json file for
-  persisting the information when there is update. **Note**: Configuration json
-  file will be updated only for Push style event subscription information. SSE
-  events subscription information is volatile and will not get updated to json
-  file.
+- 當有更新時，它會將 "event config store" 與設定 Json 檔同步以持續保存資訊。
+  **注意**：設定 json 檔僅會針對 Push 樣式事件的訂閱資訊更新。SSE 事件的訂閱資訊
+  是暫時的（volatile），不會更新到 json 檔。
 
-- It will be used for getting all the subscription information to the "Event
-  service manager" for filtering event data.
+- 它會用於讓 "Event service manager" 取得所有訂閱資訊，以篩選事件資料。
 
-The bmcweb service will update the config store data including EventService
-configuration and subscription information to the json file(location:
-/var/lib/bmcweb/eventservice_data.json). This will be persistent across the
-bmcweb service restarts or bmc reboots and loads this while initializing bmcweb
-EventService class.
+bmcweb 服務會將 config store 資料（包含 EventService 設定與訂閱資訊）更新到 json
+檔（位置：/var/lib/bmcweb/eventservice_data.json）。這會在 bmcweb 服務重新啟動或
+bmc 重新開機後持續保存，並在初始化 bmcweb EventService 類別時載入。
 
-Note:
+注意：
 
-1. In case of SSE, Client is initiator of connection and so SSE stream
-   connection can't be re-established when bmcweb service or BMC goes for
-   reboot. Hence subscription information related to SSE will not be persistent
-   and Client must re-subscribe for SSE events using "ServerSentEventUri",
-   whenever bmc comes out of reset.
+1. 在 SSE 的情況下，client 是連線的發起者，因此當 bmcweb 服務或 BMC 重新開機時，
+   SSE 串流連線無法重新建立。所以與 SSE 相關的訂閱資訊不會持續保存，且每當 bmc
+   離開 reset 後，client 必須使用 "ServerSentEventUri" 重新訂閱 SSE 事件。
 
-   Limitation: If bmcweb server closes abruptly due to some reasons like
-   watchdog trigger, then bmcweb can't send close connection event to SSE
-   client(For notifying SSE client to re-establishing connection).
+   限制：若 bmcweb 伺服器因 watchdog 觸發等原因突然關閉，則 bmcweb 無法傳送
+   close connection 事件給 SSE client（以通知 SSE client 重新建立連線）。
 
-Cache implementation includes below major blocks:
+快取實作包含下列主要區塊：
 
-- EventServiceStore Class: It holds the map of all subscriptions with unique key
-  and methods to Create/Delete/update subscription information. It also holds
-  the high level configuration information associated with EventService schema.
+- EventServiceStore Class：它保存所有訂閱的 map（具有唯一 key），以及
+  Create／Delete／update 訂閱資訊的方法。它也保存與 EventService schema 相關的高階
+  設定資訊。
 
-- Configuration structure: It holds the configuration associated with
-  EventService schema properties.
+- Configuration structure：它保存與 EventService schema 屬性相關的設定。
 
-- Subscription structure: It holds the data associated with each
-  EventDestination schema properties along with established connection handle.
+- Subscription structure：它保存與各 EventDestination schema 屬性相關的資料，以及
+  已建立的連線 handle。
 
 ### Server-Sent Events (SSE)
 
-Server-Sent Events (SSE) is a server push technology enabling a browser to
-receive automatic updates from a server via HTTP connection. The Server-Sent
-Events EventSource API is standardized as part of HTML5 by the W3C.
+Server-Sent Events (SSE) 是一種伺服器推播技術，讓瀏覽器能透過 HTTP 連線自動接收來自
+伺服器的更新。Server-Sent Events 的 EventSource API 已由 W3C 標準化為 HTML5 的一部分。
 
-Server-Sent Events is a standard describing how servers can initiate data
-transmission towards clients once an initial client connection has been
-established. They are commonly used to send message updates or continuous data
-streams to a browser client and designed to enhance native, cross-browser
-streaming through a JavaScript API called EventSource, through which a client
-requests a particular URL in order to receive an event stream.
+Server-Sent Events 是一項標準，描述在初始的 client 連線建立之後，伺服器如何朝向
+client 主動發起資料傳輸。它常用於將訊息更新或連續資料串流傳送至瀏覽器 client，並旨在
+透過名為 EventSource 的 JavaScript API 強化原生、跨瀏覽器的串流；client 透過它要求特定的
+URL 以接收事件串流。
 
-The "EventService" resource contains a property called "ServerSentEventUri". If
-a client performs a GET on the URI specified by the "ServerSentEventUri", the
-bmcweb server keep the connection open and conform to the HTML5 Specification
-until the client closes the socket. The bmcweb service should sent the response
-to GET URI with following headers.
+"EventService" 資源包含一個名為 "ServerSentEventUri" 的屬性。若 client 對
+"ServerSentEventUri" 所指定的 URI 執行 GET，bmcweb 伺服器會保持連線開啟，並遵循
+HTML5 規格，直到 client 關閉 socket 為止。bmcweb 服務應對 GET URI 送出帶有下列標頭的
+回應。
 
 ```text
 'Content-Type': 'text/event-stream',
@@ -750,10 +676,9 @@ to GET URI with following headers.
 'Connection': 'keep-alive'
 ```
 
-Events generated by the OpenBMC will be sent to the clients using the open
-connection. Response of event message should contain the "data: " prefix and
-postfix "\n" on each line. For representing the end of data, it should end with
-"\n\n". Example sending json response should look like
+OpenBMC 所產生的事件會使用開啟的連線傳送至 client。事件訊息的回應在每一行應包含
+"data: " 前綴與 "\n" 後綴。為表示資料結束，應以 "\n\n" 結尾。傳送 json 回應的
+範例看起來如下：
 
 ```text
 data: {\n
@@ -762,50 +687,41 @@ data: "id": 12345\n
 data: }\n\n
 ```
 
-Open connection: When a client performs get on 'ServerSentEventUri' with desired
-filters, bmcweb create an EventDestination instance in the subscriptions
-collection. Once bmcweb receives the SSE stream request, the open connection
-will be upgraded to WebSocket by checking the request Content-Type
-header(matches to 'text/event-stream') and keep the connection alive till the
-client/server closes the connection. Please refer to
-[code review](https://gerrit.openbmc.org/#/c/openbmc/bmcweb/+/13948/) for
-details on how to upgrade the connection for SSE. The "Context" property in the
-EventDestination resource shall be an opaque string generated by the service.
+開啟連線：當 client 使用所需的篩選條件對 'ServerSentEventUri' 執行 get 時，bmcweb
+會在 subscriptions 集合中建立一個 EventDestination 實例。一旦 bmcweb 收到 SSE 串流
+要求，會透過檢查要求 Content-Type 標頭（符合 'text/event-stream'）將開啟的連線升級為
+WebSocket，並保持連線存活，直到 client／伺服器關閉連線。關於如何為 SSE 升級連線的
+詳細資訊，請參閱
+[code review](https://gerrit.openbmc.org/#/c/openbmc/bmcweb/+/13948/)。EventDestination
+資源中的 "Context" 屬性應為由服務產生的 opaque 字串。
 
-Note: since its GET operation on existing open connection(which is authenticated
-and authorized as normal operation), there is no special security breach with
-it. All bmcweb related security threat model applies here.
+注意：由於這是對既有已開啟連線（在正常操作下已通過驗證與授權）進行的 GET 操作，因此
+不會帶來特殊的安全漏洞。所有 bmcweb 相關的安全性威脅模型皆適用於此。
 
-Close connection: Either the client or the server can terminate the event stream
-at any time and close the connection. The bmcweb server can delete the
-corresponding EventDestination instance when the connection is closed.
+關閉連線：client 或伺服器皆可隨時終止事件串流並關閉連線。當連線關閉時，bmcweb 伺服器
+可刪除對應的 EventDestination 實例。
 
-Connection can be closed by,
+連線可透過以下方式關閉：
 
-- Client by sending DELETE method on subscribed id URI.
-- Server(bmcweb) can close connection and send notification to client with
-  'event: close' request body.
+- Client 對已訂閱 id 的 URI 傳送 DELETE 方法。
+- 伺服器（bmcweb）可關閉連線，並使用 'event: close' 要求 body 向 client 發送通知。
 
-Since SSE is uni-directional, if client closes connection/browser abruptly,
-bmcweb service doesn't know the client connection state. This is limitation on
-SSE connection. In such scenario bmcweb service may delete a subscription, if
-the number of delivery errors exceeds preconfigured thresholds.
+由於 SSE 是單向的，若 client 突然關閉連線／瀏覽器，bmcweb 服務並不知道 client 的連線
+狀態。這是 SSE 連線的一項限制。在這種情況下，若遞送錯誤次數超過預先設定的門檻，
+bmcweb 服務可刪除訂閱。
 
-Note:
+注意：
 
-- The SSE subscription data is not persistent in nature. When bmcweb restarts or
-  BMC reboots, client should re-establish the SSE connection to bmcweb to listen
-  for events.
-- In case of SSE, client can send the "Last-Event-ID" as header. Monitor service
-  will fetch all the event or metric report stream captured after that specified
-  "Last-Event-ID" and send to client after formatting. If it fails to find the
-  specified event ID, it will start streaming only live events/metric reports.
+- SSE 訂閱資料本質上不是持續性的。當 bmcweb 重新啟動或 BMC 重新開機時，client 應重新
+  建立對 bmcweb 的 SSE 連線以聆聽事件。
+- 在 SSE 的情況下，client 可將 "Last-Event-ID" 作為標頭傳送。Monitor 服務會取得在
+  該指定 "Last-Event-ID" 之後擷取的所有事件或指標回報串流，並在格式化後傳送至
+  client。若找不到指定的事件 ID，它將僅開始串流即時事件／指標回報。
 
-The service should support using the $filter query parameter provided in the URI
-for the SSE stream by the client to reduce the amount of data returned to the
-client.
+服務應支援使用 client 在 SSE 串流的 URI 中提供的 $filter 查詢參數，以減少回傳給
+client 的資料量。
 
-Supported filters are:
+支援的篩選條件為：
 
 - RegistryPrefix
 - ResourceType
@@ -813,7 +729,7 @@ Supported filters are:
 - MessageId
 - OriginResource
 
-Example for subscribing SSE with filters:
+使用篩選條件訂閱 SSE 的範例：
 
 ```text
 MessageId based filter:
@@ -831,48 +747,40 @@ https://sseuri?$filter=(ResourceType eq 'Power') or (ResourceType eq
 
 ### Push style events (HTTP/HTTPS)
 
-Unlike the SSE (where bmcweb act as server) push style events works in different
-way. In this case, BMC acts as HTTP client and send the data to webserver
-running on external system. In case of SSE, connection will be kept alive till
-stream closes but in push style events, connections are opened on need and
-closes immediately after pushing event/report data.
+push 樣式事件的運作方式與 SSE（bmcweb 扮演伺服器）不同。在此情況下，BMC 扮演 HTTP
+client，將資料傳送至在外部系統上執行的 webserver。在 SSE 的情況下，連線會保持存活直到
+串流關閉；但在 push 樣式事件中，連線依需求開啟，並在推送事件／回報資料後立即關閉。
 
-By using POST method on '/redfish/v1/EventService/Subscriptions' URI with
-desired request body (mandatory fields: Destination, Protocol), user can
-subscribe for the events. The monitor and formatter resources (both Event log
-and MetricReport) uses the subscribed data for match rules, when there is event
-log or Telemetry data available. The 'Event service sender' uses the destination
-field in subscribed data for opening the connection and pushing data to
-webserver running externally.
+使用者可使用 POST 方法於 '/redfish/v1/EventService/Subscriptions' URI，搭配所需的
+要求 body（必要欄位：Destination、Protocol）來訂閱事件。當有事件記錄或 Telemetry 資料
+可用時，monitor 與 formatter 資源（Event log 與 MetricReport 兩者）會使用訂閱資料
+作為比對規則。'Event service sender' 使用訂閱資料中的 destination 欄位來開啟連線，
+並將資料推送至外部執行的 webserver。
 
-It shall support both http and https (https is not defined in Redfish
-specification) connections which will be created using the boost::beast library.
-For https connection it uses the self-signed certificates which are loaded in
-certificate store. If establishing connection fails, it retries for configured
-retry attempts (DeliveryRetryAttempts) and delete the subscription if it reaches
-threshold limit. If SSL negotiation fails, it will not retry for connection
-establishment. Users can upload new certificates. More details about certificate
-can be found at
+它應支援 http 與 https（Redfish 規格未定義 https）兩種連線，這些連線將使用
+boost::beast 函式庫建立。對於 https 連線，它使用載入於 certificate store 中的自簽
+憑證。若建立連線失敗，它會依設定的重試次數（DeliveryRetryAttempts）重試，並在達到
+門檻上限時刪除訂閱。若 SSL 協商失敗，則不會重試建立連線。使用者可上傳新憑證。更多
+關於憑證的細節可於
 [TLS design](https://github.com/openbmc/docs/blob/master/designs/redfish-tls-user-authentication.md)
+找到。
 
-Example for created Push style event is documented in testing section of same
-document.
+建立 Push 樣式事件的範例記錄於本文件的 testing 章節。
 
 ### SubmitTestEvent
 
-This action shall add a test event to the event service with the event data
-specified in the action parameters. This message should then be sent to any all
-subscribed Listener destination targets depending on subscription data.
+此動作會以動作參數中指定的事件資料，將一筆測試事件新增到事件服務。根據訂閱資料，
+這則訊息接著應傳送至所有已訂閱的 Listener 目的地目標。
 
 - URI: `/redfish/v1/EventService/Actions/EventService.SubmitTestEvent`
 - SCHEMA:
   [EventService](https://redfish.dmtf.org/schemas/v1/EventService_v1.xml)
 - METHODS : `POST`
 
-Note: EventService.v1_3_0 was updated to deprecate the EventType parameter in
-SubmitTestEvent, and add the EventGroupId parameter in SubmitTestEvent.
+注意：EventService.v1_3_0 已更新，棄用 SubmitTestEvent 中的 EventType 參數，並新增
+SubmitTestEvent 中的 EventGroupId 參數。
 
-Example POST Request body:
+POST 要求 body 範例：
 
 ```json
 {
@@ -884,144 +792,112 @@ Example POST Request body:
 }
 ```
 
-## Alternatives considered
+## 曾考慮的替代方案
 
 ### HTTP POLLING
 
-Polling is a traditional technique where client repeatedly polls a server for
-data. The client makes a request and waits for the server to respond with data.
-BMC provides a way to pool the event logs (using Events schema). Client can run
-continuously http GET on Events LogService and get the all the events from BMC.
-But in HTTP protocol fetching data revolves around request/response which is
-greater HTTP overhead.
+輪詢（polling）是一種傳統技術，由 client 反覆地向伺服器輪詢資料。client 提出要求並
+等待伺服器回應資料。BMC 提供了一種輪詢事件記錄的方式（使用 Events schema）。client 可
+持續對 Events LogService 執行 http GET，並從 BMC 取得所有事件。但在 HTTP 通訊協定中，
+抓取資料繞著 request/response 進行，造成較高的 HTTP 開銷。
 
-Push style(https) eventing or SSE will avoid the http overhead of continuous
-polling and send the data/events when it happens on server side to the
-subscribed clients.
+Push 樣式(https) 事件傳遞或 SSE 可避免持續輪詢的 http 開銷，並在伺服器端發生時將
+資料／事件傳送給已訂閱的 client。
 
 ### WEBSOCKET
 
-WebSocket provides a richer protocol to perform bi-directional, full-duplex
-communication. Having a two-way channel is more attractive for some case but in
-some scenarios data doesn't need to be sent from the client(Client just need
-updates from server errors/events when it happens.)
+WebSocket 提供了更豐富的協定，以進行雙向、全雙工通訊。擁有雙向通道對某些情境更具
+吸引力，但在某些情境下，資料不需要從 client 送出（client 只需要在發生時收到來自伺服器的
+錯誤／事件更新）。
 
-SSE provides uni-directional connection and operates over traditional HTTP. SSE
-do not require a special protocol or server implementation to get working.
-WebSocket on the other hand, require full-duplex connections and new Web Socket
-servers to handle the protocol.
+SSE 提供單向連線，並在傳統 HTTP 上運作。SSE 不需要特殊的協定或伺服器實作即可運作。
+另一方面，WebSocket 需要全雙工連線以及新的 Web Socket 伺服器來處理該協定。
 
 ### IPMI PEF
 
-Platform Event Filtering (PEF) provides a mechanism for configuring the BMC to
-take selected actions on event messages that it receives. This mechanism is IPMI
-centric which has its own limitation in terms of security, scalability etc. when
-compared with Redfish.
+Platform Event Filtering (PEF) 提供了一種機制，可設定 BMC 對其收到的事件訊息採取選取的
+動作。此機制以 IPMI 為中心，與 Redfish 相比，在安全性、擴展性等方面有其自身的限制。
 
-## Implementation design alternatives
+## 實作設計替代方案
 
-- Direct journal logs vs Redfish event log file using inotify
+- 直接讀取 journal logs，對比使用 inotify 讀取 Redfish 事件記錄檔
 
-Considered reading direct journald logs using `sd*journal*<xyz>` api's but that
-seems to be in-efficient because
+曾考慮使用 `sd*journal*<xyz>` api 直接讀取 journald logs，但這似乎效率不佳，因為
 
-1. sdjournal has multiple logs currently( not just event logs) and so this
-   become very inefficient to monitor and process data to identify just for
-   redfish event logs.
+1. sdjournal 目前同時包含多種記錄（不只是事件記錄），因此要監控並處理資料、僅辨識出
+   redfish 事件記錄會非常沒有效率。
 
-2. Some hooks need to be added to sdjournal to emit signals whenever messages
-   are logged to sdjournal.
+2. 需要在 sdjournal 中加入一些 hook，以在有任何訊息記錄到 sdjournal 時發出 signal。
 
-To overcome above challenges currently redfish event logs are filtered and
-logged to separate file using rsyslog. Same file is used by EventService by
-monitor the file using inotify.
+為克服上述挑戰，目前會使用 rsyslog 將 redfish 事件記錄篩選後記錄到獨立的檔案。
+EventService 同樣使用該檔案，透過 inotify 監控它。
 
-- D-Bus service vs Event Service config store
+- D-Bus 服務，對比 Event Service config store
 
-Considered creating separate D-Bus service for storing EventService
-configuration and subscriptions data. Also considered using settings D-Bus
-service for persisting the data across the reboots. But since EventService is
-specific to redfish/bmcweb and not consumed/updated by any other processes in
-system, there is no real gain with having D-Bus service.
+曾考慮建立獨立的 D-Bus 服務，以儲存 EventService 設定與訂閱資料。也曾考慮使用
+settings D-Bus 服務在重新開機之間持續保存資料。但由於 EventService 僅限
+redfish/bmcweb 使用，且不會被系統中其他任何程序消費／更新，因此擁有 D-Bus 服務並沒有
+實質的好處。
 
-## Impacts
+## 影響
 
-Security issue with Push style events:
+Push 樣式事件的安全性問題：
 
-Push style events also support HTTP protocol which is not secured and is
-susceptible to man-in-the-middle attacks and eavesdropping which may lead to
-virus injections and leak sensitive information to attackers. The push style
-event subscription or changes to the BMC will be done over the secure HTTPS
-channel with full authentication and authorization. So, BMC side security is NOT
-compromised. Event Listener on client may get hacked data in-case of
-man-in-the-middle attacks. To avoid such attacks, it is recommended to use SSE
-event mechanism or https-based push style events.
+push 樣式事件也支援 HTTP 通訊協定，其並非安全，易受中間人攻擊（man-in-the-middle）與
+竊聽影響，可能導致病毒注入，並向攻擊者洩露敏感資訊。push 樣式事件的訂閱或對 BMC 的變更，
+會透過安全的 HTTPS 通道，並以完整的驗證與授權進行。因此 BMC 端的安全性並未被破壞。
+在中間人攻擊的情況下，client 端的 Event Listener 可能收到遭竄改的資料。為避免這類攻擊，
+建議使用 SSE 事件機制或基於 https 的 push 樣式事件。
 
-SSE works on HTTPS protocol which is encrypted and secured. SSE EventService
-subscriptions can be created or updated over HTTPS protocol along with proper
-authentication and authorization on BMC users. Please refer security details
-(section 13) in DSP0266 for more information.
+SSE 運作於 HTTPS 通訊協定之上，其為加密且安全的。SSE EventService 訂閱可透過 HTTPS
+通訊協定建立或更新，並搭配對 BMC 使用者的適當驗證與授權。更多資訊請參閱 DSP0266 中的
+安全性細節（section 13）。
 
-SSE connections:
+SSE 連線：
 
-When client opens the SSE HTTPS connection, it will be on open state until
-client or server closes the connection. On Linux, there is a limit on each file
-descriptor(Of course this is very huge number > 8K). Multiple open http
-connections on bmcweb can slow down the performance.
+當 client 開啟 SSE HTTPS 連線後，它會保持開啟狀態，直到 client 或伺服器關閉連線。
+在 Linux 上，每個檔案描述元都有上限（當然這是一個非常大的數字 > 8K）。bmcweb 上有多個
+開啟的 http 連線可能會拖慢效能。
 
-Since open SSE client connection is proxied under multiple level of BMC side
-protection (like Authentication is required, User should have proper privilege
-level to establish the SSE connection etc.), these impacts are mitigated. Also
-BMC will have support for maximum of 10 SSE subscriptions which will limit the
-number of http connections exhaust scenario. This can be compile time option.
+由於已開啟的 SSE client 連線受到 BMC 端多層保護的代理（例如需要驗證、使用者必須具備
+適當的權限等級才能建立 SSE 連線等），這些影響已獲得緩解。此外，BMC 將支援最多 10 個
+SSE 訂閱，這將限制 http 連線耗盡的情況。這可以作為一個編譯期選項。
 
-## Testing
+## 測試
 
-User should cover below functionalists.
+使用者應涵蓋下列功能。
 
-- View and update EventService configuration using GET and PATCH methods and
-  validate the functionality.
-- Subscribe for Events (Both "Push style event" and "SSE") as described below
-  and validate http status code for positive and negative use cases (Body
-  parameter invalid, Invalid request, improper privilege - forbidden etc.).
-- Validate all subscription collections and each individual subscription.
-- Using delete method on subscription URI specific to ID and see connection
-  closing properly on client side and subscription data clear on server side.
-- Enable and disable EventService, generate events and validate whether Events
-  are sending properly to all subscriptions when its enabled and stopped sending
-  when disabled.
-- Use SubmitTestEvent for generating Test Events. Also cover negative cases with
-  invalid body data.
-- Validate the functionality of retry attempts and retry timeout with both
-  positive and negative cases.
-- Client connection close: Close client connection which are listening for SSE
-  and check server-side connection closes after configured retry attempts and
-  clears the subscription information.
-- Reboot BMC or reset bmcweb service and check all "push style events"
-  subscription is preserved and functional by generating and checking events.
-- Reboot BMC or reset bmcweb service and check all "SSE" subscription data is
-  not preserved and client-side connection is closed properly.
-- Create user with multiple privileges and check create/delete/update
-  subscription and configuration data are performed only for user having
-  'ConfiguredManager' privilege and view EventService information works only for
-  'Login'.
-- Create new subscription and check is the event message logged in redfish event
-  logs or not. Also modify, delete subscription and see Redfish events are
-  logged or not.
-- Validate the authenticity of events sent to client on subscription with proper
-  filtered data(Ex: If RegistryPrefixes is set to "OpenBMC.0.1", it should not
-  send events with prefixes "OpenBMC.0.2") should be validated.
-- For security, validate GET on URI specified in "ServerSentEventUri" with
-  un-authorized users and see it responds with properly http status code and
-  should not create any subscription or open any http connection.
-- Max limit check: Creates max supported event subscriptions and validate.
+- 使用 GET 與 PATCH 方法檢視並更新 EventService 設定，並驗證其功能。
+- 如下所述訂閱 Events（「Push style event」與「SSE」兩者），並針對正面與負面用例
+  （body 參數無效、無效要求、權限不當 - forbidden 等）驗證 http 狀態碼。
+- 驗證所有訂閱集合以及每一個個別訂閱。
+- 對特定 ID 的訂閱 URI 使用 delete 方法，觀察 client 端連線是否正常關閉、server 端
+  訂閱資料是否清除。
+- 啟用與停用 EventService，產生事件，並驗證在啟用時 Events 是否正常傳送至所有訂閱、
+  停用時是否停止傳送。
+- 使用 SubmitTestEvent 產生測試事件。也涵蓋帶有無效 body 資料的負面用例。
+- 同時針對正面與負面用例，驗證重試次數與重試逾時的功能。
+- client 連線關閉：關閉正在聆聽 SSE 的 client 連線，檢查在設定次數的重試之後 server 端
+  連線會關閉，並清除訂閱資訊。
+- 重新開機 BMC 或重設 bmcweb 服務，並透過產生與檢查事件，確認所有「push style events」
+  訂閱皆被保留且功能正常。
+- 重新開機 BMC 或重設 bmcweb 服務，並確認所有「SSE」訂閱資料皆未被保留，且 client 端
+  連線正常關閉。
+- 建立具有多重權限的使用者，檢查建立／刪除／更新訂閱與設定資料僅對具備
+  'ConfiguredManager' 權限的使用者開放，且檢視 EventService 資訊僅對 'Login' 開放。
+- 建立新訂閱，檢查事件訊息是否記錄在 redfish 事件記錄中。也修改、刪除訂閱，並觀察
+  Redfish 事件是否被記錄。
+- 驗證在具有適當篩選資料的訂閱上，傳送至 client 的事件之正確性（例：若 RegistryPrefixes
+  設為 "OpenBMC.0.1"，則不應傳送具有 "OpenBMC.0.2" 前綴的事件）。
+- 就安全性而言，以未授權使用者驗證對 "ServerSentEventUri" 指定 URI 的 GET，觀察它以
+  適當的 http 狀態碼回應，且不應建立任何訂閱或開啟任何 http 連線。
+- 上限檢查：建立最多支援的事件訂閱並驗證。
 
-### Push style events
+### Push 樣式事件
 
-1. EventListener: Client should configure the web service for listening the
-   events (Example: `http://192.168.1.2/Events`).
+1. EventListener：client 應設定 web 服務以聆聽事件（範例：`http://192.168.1.2/Events`）。
 
-2. Subscription: Client can subscribe for events on BMC using below
+2. Subscription：client 可使用以下方式向 BMC 訂閱事件
 
    ```text
    URI: /redfish/v1/EventService/Subscriptions
@@ -1034,22 +910,19 @@ User should cover below functionalists.
    }
    ```
 
-   On successful event subscription client will receive 201(Created) http status
-   code along with created subscription ID. At this point onwards, client will
-   receive events associated with subscribed data.
+   事件訂閱成功後，client 會收到 201(Created) http 狀態碼，連同建立的訂閱 ID。從此刻
+   起，client 會收到與訂閱資料相關的事件。
 
-   Client can use "SubmitTestEvent" (Documented above) to test the working
-   state.
+   client 可使用 "SubmitTestEvent"（上方文件已說明）來測試運作狀態。
 
-3. ViewSubscription: Client can get the subscriptions details using
+3. ViewSubscription：client 可使用以下方式取得訂閱詳細資訊
 
    ```text
    URI: /redfish/v1/EventService/Subscriptions/<ID>
    METHOD: GET
    ```
 
-4. UpdateSubscription: At any point client can update the subscription
-   information.
+4. UpdateSubscription：client 可隨時更新訂閱資訊。
 
    ```text
    URI: /redfish/v1/EventService/Subscriptions/<ID>
@@ -1062,26 +935,25 @@ User should cover below functionalists.
    }
    ```
 
-5. DeleteSubscription: Client can unsubscribe and stop receiving events by
-   deleting the subscription.
+5. DeleteSubscription：client 可取消訂閱，並透過刪除訂閱來停止接收事件。
 
    ```text
    URI: /redfish/v1/EventService/Subscriptions/<ID>
    METHOD: DELETE
    ```
 
-### Server-Sent events subscription
+### Server-Sent events 訂閱
 
-1. EventListener and Subscription: Client can open latest browser (chrome) and
-   fire GET URI on "ServerSentEventUri" along with filters.
+1. EventListener and Subscription：client 可開啟最新版的瀏覽器（chrome），並在
+   "ServerSentEventUri" 上搭配篩選條件對其發出 GET URI。
 
    ```text
    URI: /redfish/v1/EventService/SSE?RegistryPrefix='OpenBMC.0.2'&MessageId='OpenBMC.0.2.xyz"
    METHOD: GET
    ```
 
-   On successful event subscription client will receive 200(Created) http status
-   code, subscription id along with below response headers for streaming.
+   事件訂閱成功後，client 會收到 200(Created) http 狀態碼、訂閱 id，連同下列用於串流的
+   回應標頭。
 
    ```text
    'Content-Type': 'text/event-stream',
@@ -1089,22 +961,19 @@ User should cover below functionalists.
    'Connection': 'keep-alive'
    ```
 
-   At this point onwards, client browser will receive events associated with
-   subscribed data.
+   從此刻起，client 瀏覽器會收到與訂閱資料相關的事件。
 
-   Client can use "SubmitTestEvent" (Documented above) to test the working
-   state.
+   client 可使用 "SubmitTestEvent"（上方文件已說明）來測試運作狀態。
 
-2. ViewSubscription: Client can get the subscriptions details using
+2. ViewSubscription：client 可使用以下方式取得訂閱詳細資訊
 
    ```text
    URI: /redfish/v1/EventService/Subscriptions/<ID>
    METHOD: GET
    ```
 
-3. UpdateSubscription: At any point client can update the subscription
-   information. Note Client can't change the destination as that is opaque
-   associated with opened SSE connection.
+3. UpdateSubscription：client 可隨時更新訂閱資訊。注意，client 無法變更 destination，
+   因為它是與已開啟 SSE 連線相關聯的 opaque 值。
 
    ```text
    URI: /redfish/v1/EventService/Subscriptions/<ID>
@@ -1116,12 +985,10 @@ User should cover below functionalists.
    }
    ```
 
-4. DeleteSubscription: There are two ways to close the connection from client.
-   - Client can close the browser directly which will close the SSE http
-     connection and so bmcweb service can close and delete the subscription
-     data.
-   - Client can also unsubscribe and stop receiving events by deleting the
-     subscription.
+4. DeleteSubscription：從 client 端有兩種方式可關閉連線。
+   - client 可直接關閉瀏覽器，這將關閉 SSE http 連線，因此 bmcweb 服務可關閉並刪除
+     訂閱資料。
+   - client 也可透過刪除訂閱來取消訂閱並停止接收事件。
 
    ```text
    URI: /redfish/v1/EventService/Subscriptions/<ID>
@@ -1130,14 +997,12 @@ User should cover below functionalists.
 
 ### EventListener
 
-Push style Events:
+Push 樣式 Events：
 
-To listen the push style events, client can have web server running on any
-external system and subscribe to BMC with the subscription details along with
-destination URI.
+要聆聽 push 樣式事件，client 可在任何外部系統上執行 web server，並搭配 destination URI
+與訂閱詳細資訊向 BMC 訂閱。
 
-There are multiple EventListeners exist and here is simple node js server, which
-can be run using "node server.js".
+存在多種 EventListener，以下是一個簡單的 node js 伺服器，可使用 "node server.js" 執行。
 
 ```js
 // server.js
@@ -1193,19 +1058,16 @@ http
   });
 ```
 
-Server-Sent Events (SSE):
+Server-Sent Events (SSE)：
 
-Client can open an SSE connection to the service by performing a GET on the URI
-specified by the "ServerSentEventUri" in the Event Service along with filters.
-Browser automatically prompt for credentials and upon successful completion of
-authentication and authorization, client connection will be established for
-listening events.
+client 可透過在 Event Service 中對 "ServerSentEventUri" 所指定的 URI，搭配篩選條件執行
+GET，來向服務開啟 SSE 連線。瀏覽器會自動提示輸入憑證，在驗證與授權成功完成後，即會
+建立 client 連線以聆聽事件。
 
-You can also refer below link for details on Server-Sent events.
+您也可以參考下方連結以取得關於 Server-Sent events 的詳細資訊。
 <https://developer.mozilla.org/en-US/docs/Web/API/Server-sent_events/Using_server-sent_events>
 
-Another simple python script for testing SSE using EventSource. Run it using
-"python sse-client.py".
+另一個簡單的 python 腳本，使用 EventSource 測試 SSE。使用 "python sse-client.py" 執行。
 
 ```python
 // sse-client.py
@@ -1240,24 +1102,24 @@ except Exception as exc:
 
 #### EventService
 
-Supported properties:
+支援的屬性：
 
 | PROPERTY NAME                | TYPE          | DESCRIPTION                                                                                                                                                                                                                                                                                                 |
 | ---------------------------- | ------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| ServiceEnabled               | Boolean       | This indicates whether event service is enabled. Default: True                                                                                                                                                                                                                                              |
-| DeliveryRetryAttempts        | Integer       | This is the number of attempts an event posting is retried before the subscription is terminated. Default: 3                                                                                                                                                                                                |
-| DeliveryRetryIntervalSeconds | Integer       | This represents the number of seconds between retry attempts for sending any given Event. Default: 30                                                                                                                                                                                                       |
-| EventFormatTypes             | Array(string) | Indicates the content types of the message that this service can send to the event destination. **Event:** Resource types of 'Event' sent to subscribed destination. This is default value if nothing is specified. **MetricReport:** Resource types of 'MetricReport' only sent to subscribed destination. |
-| RegistryPrefixes             | Array(string) | A list of the Prefixes of the Message Registries that can be used for the RegistryPrefix property on a subscription. If this property is absent or contains an empty array, the service does not support RegistryPrefix-based subscriptions.                                                                |
-| ResourceTypes                | Array(string) | A list of the Prefixes of the message registries that can be used for the RegistryPrefix property on a subscription. If this property is absent or contains an empty array, the service does not support RegistryPrefix-based subscriptions                                                                 |
-| ServerSentEventUri           | String        | The value of this property shall be a URI that specifies an HTML5 Server-Sent Event conformant endpoint. URI: /redfish/v1/EventService/SSE                                                                                                                                                                  |
-| Subscriptions                | Object        | The value of this property shall contain the link to a collection of type EventDestinationCollection.                                                                                                                                                                                                       |
-| Actions                      | Object        | This action shall add a test event to the event service with the event data specified in the action parameters. More details on TestEvents captured below.                                                                                                                                                  |
+| ServiceEnabled               | Boolean       | 這表示事件服務是否已啟用。預設：True                                                                                                                                                                                                                                              |
+| DeliveryRetryAttempts        | Integer       | 這是在訂閱被終止之前，事件遞送會重試的次數。預設：3                                                                                                                                                                                                |
+| DeliveryRetryIntervalSeconds | Integer       | 這代表傳送任何給定 Event 時，兩次重試之間相隔的秒數。預設：30                                                                                                                                                                                                       |
+| EventFormatTypes             | Array(string) | 表示此服務可傳送至事件目的地的訊息內容類型。**Event：** 將 'Event' 的資源類型傳送至已訂閱的目的地。若未指定任何內容，此為預設值。**MetricReport：** 僅將 'MetricReport' 的資源類型傳送至已訂閱的目的地。 |
+| RegistryPrefixes             | Array(string) | 可用於訂閱上 RegistryPrefix 屬性的 Message Registries 之前綴清單。若此屬性不存在或包含空陣列，則服務不支援以 RegistryPrefix 為基礎的訂閱。                                                                |
+| ResourceTypes                | Array(string) | 可用於訂閱上 RegistryPrefix 屬性的 message registries 之前綴清單。若此屬性不存在或包含空陣列，則服務不支援以 RegistryPrefix 為基礎的訂閱                                                                 |
+| ServerSentEventUri           | String        | 此屬性的值應為一個 URI，指定一個符合 HTML5 Server-Sent Event 的端點。URI：/redfish/v1/EventService/SSE                                                                                                                                                                  |
+| Subscriptions                | Object        | 此屬性的值應包含一個連結，指向類型為 EventDestinationCollection 的集合。                                                                                                                                                                                                       |
+| Actions                      | Object        | 此動作會以動作參數中指定的事件資料，將一筆測試事件新增到事件服務。關於 TestEvents 的更多細節於下方記錄。                                                                                                                                                  |
 
-Note: EventService.v1_3_0 was created to deprecate the EventTypesForSubscription
-and SSEFilterPropertiesSupported\EventType properties.
+注意：建立 EventService.v1_3_0 是為了棄用 EventTypesForSubscription 與
+SSEFilterPropertiesSupported\EventType 屬性。
 
-Example GET Response:
+GET 回應範例：
 
 ```json
 {
@@ -1285,7 +1147,7 @@ Example GET Response:
 
 #### Subscription Collections
 
-Example GET output:
+GET 輸出範例：
 
 ```json
 {
@@ -1306,19 +1168,19 @@ Example GET output:
 
 #### Subscriptions
 
-Supported properties:
+支援的屬性：
 
 | PROPERTY NAME    | TYPE          | DESCRIPTION                                                                                                                                                   |
 | ---------------- | ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Destination      | String        | The URI of the destination Event Service.                                                                                                                     |
-| Context          | String        | A client-supplied string that is stored with the event destination subscription. Default: null                                                                |
-| Protocol         | Enum          | The protocol type of the event connection. Default: redfish                                                                                                   |
-| HttpHeaders      | array(string) | This is for setting HTTP headers, such as authorization information. Default: null                                                                            |
-| RegistryPrefixes | String        | A list of the Prefixes for the Message Registries that contain the MessageIds that will be sent to this event destination. Default: null                      |
-| ResourceTypes    | Array(String) | A list of Resource Type values (Schema names) that correspond to the OriginOfCondition. The version and full namespace should not be specified. Default: null |
-| EventFormatType  | String        | Indicates the content types of the message that will be sent to the EventDestination. Supported types are 'Event' and 'MetricReport'. Default: Event          |
+| Destination      | String        | 目的地 Event Service 的 URI。                                                                                                                     |
+| Context          | String        | 由 client 提供、會與事件目的地訂閱一起儲存的字串。預設：null                                                                |
+| Protocol         | Enum          | 事件連線的通訊協定類型。預設：redfish                                                                                                   |
+| HttpHeaders      | array(string) | 用於設定 HTTP 標頭，例如授權資訊。預設：null                                                                            |
+| RegistryPrefixes | String        | 包含將傳送至本事件目的地之 MessageIds 所屬 Message Registries 的前綴清單。預設：null                      |
+| ResourceTypes    | Array(String) | 與 OriginOfCondition 對應的 Resource Type 值（Schema 名稱）清單。不應指定版本與完整 namespace。預設：null |
+| EventFormatType  | String        | 表示將傳送至 EventDestination 的訊息內容類型。支援的類型為 'Event' 與 'MetricReport'。預設：Event          |
 
-Example GET Request:
+GET 要求範例：
 
 ```json
 {
@@ -1338,7 +1200,7 @@ Example GET Request:
 }
 ```
 
-- Event log formatted response body looks like:
+- Event log 格式化後的回應 body 看起來像：
 
 ```text
 id: 1
@@ -1367,7 +1229,7 @@ data: ]
 data:}
 ```
 
-- Configuration structure pseudo code:
+- 設定結構的偽程式碼：
 
 ```cpp
 struct EventSrvConfig
@@ -1378,7 +1240,7 @@ struct EventSrvConfig
 };
 ```
 
-- Subscription structure pseudo code:
+- 訂閱結構的偽程式碼：
 
 ```cpp
 struct EventSrvSubscription

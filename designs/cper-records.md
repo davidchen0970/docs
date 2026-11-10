@@ -1,102 +1,87 @@
 # CPER records - CPER
 
-Author: Ed Tanous - edtanous
+作者：Ed Tanous - edtanous
 
-Created: 5-22-2024
+建立日期：2024-05-22
 
-## Problem Description
+## 問題說明
 
-Server CPUs expose a manageability interface referred to as CPER records. A user
-outside of the BMC would like to read these records in a decoded state, rather
-than as a raw package.
+伺服器 CPU 會揭露一個被稱為 CPER records 的可管理性介面。BMC 之外的使用者
+希望能够以解碼後的狀態讀取這些 records，而不是一包包的原始資料。
 
-## Background and References
+## 背景與參考資料
 
-CPER stands for Common Platform Error Record and is defined as an industry
-standard in the [UEFI Specification][uefi_spec], with CPU ISA specific
-definitions for aarch64, x64, Itanium, and IA32. Within this document there are
-several architecture definitions for BMC, including section C.2.2 RAS IPMI
-Message Format, and IPMI based RAS Event Receiver.
+CPER 是 Common Platform Error Record 的縮寫，作為產業標準定義於
+[UEFI Specification][uefi_spec] 中，並針對 aarch64、x64、Itanium 與 IA32 提供
+各 CPU ISA 專屬的定義。在本文件中包含數個關於 BMC 的架構定義，其中包含
+C.2.2 RAS IPMI Message Format 章節，以及 IPMI based RAS Event Receiver。
 
-In Redfish specification drop 2021.3, Redfish added support for CPER records
-into the [LogEntry resource][logentry]. These expose a section by section
-decoded CPER instance. In addition to Redfish, there is a proposed DMTF
-interface for sending CPER log events to the BMC using [MCTP/PLDM][cperevent],
-which is proposed to be added in a future version of DMTF [DSP0248].
+在 Redfish specification 2021.3 版中，Redfish 新增了對 [LogEntry resource][logentry]
+中 CPER records 的支持。這些資源會以逐 section 解碼的方式揭露 CPER instance。
+除了 Redfish 之外，DMTF 也提出了一個介面提案，用於透過 [MCTP/PLDM][cperevent]
+將 CPER log events 傳送到 BMC，並預計在未來的 DMTF [DSP0248] 版本中加入。
 
-ARM has developed a reference library for decoding CPER records that does not
-have a contribution mechanism, releases, or maintenance, and they have made
-[clear][cper_examples] that they would like OpenBMC to be the long-term
-custodian of this library.
+ARM 已經開發了一個用於解碼 CPER records 的參考函式庫，但它沒有貢獻機制、
+版本發布或維護，而且他們已經[明確表示][cper_examples]希望 OpenBMC 成為
+這個函式庫的長期維護者。
 
-This library hosts the meson-dev branch, which was added for the purpose of this
-design, and passes the OpenBMC CI tests currently. This is the proposed branch
-that will be pushed to openbmc/libcper, if approved.
+這個函式庫 hosting 了 meson-dev 分支，該分支是為了本設計而新增的，目前可以
+通過 OpenBMC CI 測試。如果獲得批准，這將被推送到 openbmc/libcper。
 
-## Requirements
+## 需求
 
-- A BMC should be able to decode binary CPER records originated from a CPER
-  compatible CPU.
+- BMC 應該能夠解碼源自 CPER 相容 CPU 的二進位 CPER records。
 
-- BMC should be able to receive and decode CPER records from a CPU per the [CPER
-  specification][cper_records].
+- BMC 應該能夠依照 [CPER 規格][cper_records]從 CPU 接收並解碼 CPER records。
 
-- A BIOS/EDK2 build should be able to share decoding code with OpenBMC, to the
-  end that added records do not require manual effort to implement in each
-  codebase.
+- BIOS/EDK2 build 應該能夠與 OpenBMC 共用解碼程式碼，其目的是當新增 records
+  時，不需要在每個 codebase 中手動實作。
 
-- A CPU vendor should be able to add support for CPER extensions that OpenBMC
-  will now be able to decode, without impacting users of other vendors, as
-  promised in the CPER specification.
+- CPU 供應商應該能夠新增對 CPER extensions 的支持，讓 OpenBMC 也能夠解碼，
+  且如 CPER 規格所承諾的那樣，不會影響其他供應商的用戶。
 
-- CPER decoder should allow decoding of multiple CPU complexes.
+- CPER 解碼器應該允許解碼多個 CPU complexes。
 
-## Proposed Design
+## 提議的設計
 
-While this design fits into a much more elaborate design alluded to in the
-aforementioned ARM document, this document only requests the first step,
-creating a shared library implementation within the OpenBMC organization that
-can be built upon over time, but might not implement the complete implementation
-at this time. It is expected that the ubiquity of CPER records in the BMC
-ecosystem justifies the creation of the repository, even if the initial
-implementation might not meet all design goals for all contributors, having a
-common contribution model, CI testing, and license is beneficial as a whole.
+雖然本設計屬於前述 ARM 文件中暗示的一個更完整設計的一部分，但本文件只要求
+第一步，也就是在 OpenBMC 組織內建立一個共用的函式庫實作，未來可以在此基礎
+上持續擴展，但此時可能不會實作完整的方案。預期 CPER records 在 BMC 生態系
+中的普及程度，足以證明建立這個 repository 是合理的；即使最初的實作可能無法
+滿足所有貢獻者的所有設計目標，擁有共用的貢獻模型、CI 測試與授權條款，整體
+而言是有益的。
 
-Future design docs (or amendments to this design) will iterate on implementing
-more of the design referenced in this [CPER specification][cper_records], for
-common ARM platforms, but getting the custody transferred for the libcper repo,
-getting the quality up to standards is the initial goal of this design.
+未來的設計文件（或對本設計的修訂）將會持續迭代，以實作此
+[CPER 規格][cper_records]中引用的更多設計內容，用於常見的 ARM 平台；但取得
+libcper repo 的保管權、將品質提升到標準之上，是本設計的初始目標。
 
-## Alternatives Considered
+## 曾考慮的替代方案
 
-Rewrite libcper decoding from a new design point. While this is certainly
-possible given the small size of the libcper repo as it exists today, it would
-bifurcate already existing implementations of the decode.
+從全新的設計角度重寫 libcper 的解碼。考慮到目前 libcper repo 的規模相當小，
+這當然是可行的，但這會讓既有的解碼實作產生分岔。
 
-## Impacts
+## 影響
 
-New repo will be created within the organization. New recipe will be added to
-OpenBMC.
+將在組織內建立新的 repository。將在 OpenBMC 中新增新的 recipe。
 
-### Organizational
+### 組織面
 
-- Does this repository require a new repository? Yes
-- Who will be the initial maintainer(s) of this repository? Ed Tanous
-- Which repositories are expected to be modified to execute this design?
+- 這個 repository 是否需要一個新的 repository？是
+- 誰將是這個 repository 的初始維護者？Ed Tanous
+- 預期為了執行本設計，會修改哪些 repositories？
   - openbmc/openbmc
   - openbmc/libcper
 
-#### Potentially in the future
+#### 未來可能
 
 - openbmc/phosphor-debug-collector
 - openbmc/bmcweb
 - openbmc/phosphor-logging
 
-## Testing
+## 測試
 
-Unit tests are already present in the repo to verify basic functionality.
-CPU-model specific error generators will be used to simulate the full path, once
-design is complete.
+repo 中已經存在單元測試，用於驗證基本功能。等到設計完成後，將使用 CPU
+型號專屬的錯誤產生器來模擬完整的路徑。
 
 [cper_records]:
   https://uefi.org/specs/UEFI/2.10_A/Apx_N_Common_Platform_Error_Record.html

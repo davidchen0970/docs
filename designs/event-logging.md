@@ -1,49 +1,27 @@
-# Error and Event Logging
+# 錯誤與事件記錄
 
-Author: [Patrick Williams][patrick-email] `<stwcx>`
+作者：[Patrick Williams][patrick-email] `<stwcx>`
 
 [patrick-email]: mailto:patrick@stwcx.xyz
 
-Other contributors:
+其他貢獻者：
 
-- Created: May 16, 2024
-- Updated: Aug 07, 2026
+- 建立日期：2024 年 5 月 16 日
+- 更新日期：2026 年 8 月 7 日
 
-## Problem Description
+## 問題描述
 
-There is currently not a consistent end-to-end error and event reporting design
-for the OpenBMC code stack. There are two different implementations, one
-primarily using phosphor-logging and one using rsyslog, both of which have gaps
-that a complete solution should address. This proposal is intended to be an
-end-to-end design handling both errors and tracing events which facilitate
-external management of the system in an automated and maintainable manner.
+目前 OpenBMC 程式碼堆疊沒有一套一致、端對端的錯誤與事件回報設計。現有兩套不同的實作，一套主要使用 phosphor-logging，另一套使用 rsyslog，兩者都存在完整解決方案應該處理的缺口。本提案旨在提供一套端對端的設計，同時處理錯誤與追蹤事件，以利以自動化且可維護的方式對系統進行外部管理。
 
-## Background and References
+## 背景與參考資料
 
-### Redfish LogEntry and Message Registry
+### Redfish LogEntry 與 Message Registry
 
-In Redfish, the [`LogEntry` schema][LogEntry] is used for a range of items that
-could be considered "logs", but one such use within OpenBMC is for an equivalent
-of the IPMI "System Event Log (SEL)".
+在 Redfish 中，[`LogEntry` schema][LogEntry] 用於各種可被視為「記錄」的項目，但在 OpenBMC 中的一種用途是用來對應 IPMI 的「System Event Log（SEL）」。
 
-The IPMI SEL is the location where the BMC can collect errors and events,
-sometimes coming from other entities, such as the BIOS. Examples of these might
-be "DIMM-A0 encountered an uncorrectable ECC error" or "System boot successful".
-These SEL records are exposed as human readable strings, either natively by a
-OEM SEL design or by tools such as `ipmitool`, which are typically unique to
-each system or manufacturer, and could hypothethically change with a BMC or
-firmware update, and are thus difficult to create automated tooling around. Two
-different vendors might use different strings to represent a critical
-temperature threshold exceeded: ["temperature threshold exceeded"][HPE-Example]
-and ["Temperature #0x30 Upper Critical going high"][Oracle-Example]. There is
-also no mechanism with IPMI to ask the machine "what are all of the SELs you
-might create".
+IPMI SEL 是 BMC 可以收集錯誤與事件的地方，這些錯誤與事件有時來自其他實體，例如 BIOS。這類記錄的例子可能是「DIMM-A0 發生不可更正的 ECC 錯誤」或「系統開機成功」。這些 SEL 記錄以人類可讀的字串呈現，無論是透過 OEM SEL 設計原生提供，或是透過 `ipmitool` 之類的工具，這些字串通常因各系統或各製造商而異，並且可能隨著 BMC 或韌體更新而改變，因此很難圍繞它們建立自動化工具。兩家不同的供應商可能會使用不同的字串來表示超過溫度臨界值，例如 ["temperature threshold exceeded"][HPE-Example] 與 ["Temperature #0x30 Upper Critical going high"][Oracle-Example]。此外，IPMI 也沒有任何機制可以詢問機器「你可能會產生哪些 SEL」。
 
-In order to solve two aspects of this problem, listing of possible events and
-versioning, Redfish has Message Registries. A message registry is a versioned
-collection of all of the error events that a system could generate and hints as
-to how they might be parsed and displayed to a user. An [informative
-reference][Registry-Example] from the DMTF gives this example:
+為了同時解決這個問題的兩個層面，也就是可列舉的事件清單與版本控管，Redfish 提供了 Message Registries。一個 message registry 是一套經過版本控管的集合，包含系統可能產生的所有錯誤事件，以及關於這些事件如何被解析並呈現給使用者的提示。DMTF 的一份[參考資料][Registry-Example]給出以下範例：
 
 ```json
 {
@@ -63,10 +41,7 @@ reference][Registry-Example] from the DMTF gives this example:
 }
 ```
 
-This example defines an event, `Alert.1.0.LanDisconnect`, which can record the
-disconnect state of a network device and contains placeholders for the affected
-device and system. When this event occurs, there might be a `LogEntry` recorded
-containing something like:
+這個範例定義了一個事件 `Alert.1.0.LanDisconnect`，它可以記錄網路裝置的連線中斷狀態，並包含受影響裝置與系統的佔位符。當此事件發生時，可能會記錄下一筆 `LogEntry`，其中包含類似以下的內容：
 
 ```json
 {
@@ -76,20 +51,9 @@ containing something like:
 }
 ```
 
-The `Message` contains a human readable string which was created by applying the
-`MessageArgs` to the placeholders from the `Message` field in the registry.
-System management software can rely on the message registry (referenced from the
-`MessageId` field in the `LogEntry`) and `MessageArgs` to avoid needing to
-perform string processing for reacting to the event.
+`Message` 包含一個人類可讀的字串，這個字串是將 `MessageArgs` 套用到 registry 中 `Message` 欄位的佔位符上所產生。系統管理軟體可以依賴 message registry（可透過 `LogEntry` 中的 `MessageId` 欄位引用）與 `MessageArgs`，而不必為了反應該事件而執行字串處理。
 
-Within OpenBMC, there is currently a [limited design][existing-design] for this
-Redfish feature and it requires inserting specially formed Redfish-specific
-logging messages into any application that wants to record these events, tightly
-coupling all applications to the Redfish implementation. It has also been
-observed that these [strings][app-example], when used, are often out of date
-with the [message registry][obmc-registry-example] advertised by `bmcweb`. Some
-maintainers have rejected adding new Redfish-specific logging messages to their
-applications.
+在 OpenBMC 內部，目前針對此 Redfish 功能存在一個[有限的設計][existing-design]，它要求在所有想要記錄這些事件的應用程式中插入特別構造的 Redfish 專用記錄訊息，這使得所有應用程式都與 Redfish 實作緊密耦合。此外也觀察到，這些[字串][app-example]在使用時，往往與 `bmcweb` 所公告的 [message registry][obmc-registry-example] 不同步。部分維護者已拒絕將新的 Redfish 專用記錄訊息加入他們的應用程式。
 
 [LogEntry]:
   https://github.com/openbmc/bmcweb/blob/de0c960c4262169ea92a4b852dd5ebbe3810bf00/redfish-core/schema/dmtf/json-schema/LogEntry.v1_16_0.json
@@ -106,29 +70,20 @@ applications.
 [obmc-registry-example]:
   https://github.com/openbmc/bmcweb/blob/4ba5be51e3fcbeed49a6a312b4e6b2f1ea7447ba/redfish-core/include/registries/openbmc.json#L5
 
-### Existing phosphor-logging implementation
+### 現有的 phosphor-logging 實作
 
-**Note**: While the word 'exception' is used in this section, the existing (and
-proposed) types can be used by applications and execution contexts with
-exceptions disabled. They are 'exceptions' because they do inherit from
-`std::exception` and there is support in the `sdbusplus` bindings for them to be
-used in exception handling.
+**注意**：雖然本節使用了「exception（例外）」一詞，但現有（以及提案中）的型別可以被停用例外功能的應用程式與執行環境使用。它們被稱為「例外」是因為它們確實繼承自 `std::exception`，而且 `sdbusplus` 綁定支援將它們用於例外處理。
 
-The `sdbusplus` bindings have the capability to define new C++ exception types
-which can be thrown by a DBus server and turned into an error response to the
-client. `phosphor-logging` extended this to also add metadata associated to the
-log type. See the following example error definitions and usages.
+`sdbusplus` 綁定具備定義新的 C++ 例外型別的能力，這些型別可由 DBus 伺服器拋出，並轉換為給客戶端的錯誤回應。`phosphor-logging` 擴充了這個功能，額外加入了與記錄類型相關的中繼資料。請參考以下錯誤定義與使用的範例。
 
-`sdbusplus` error binding definition (in
-`xyz/openbmc_project/Certs.errors.yaml`):
+`sdbusplus` 錯誤綁定定義（位於 `xyz/openbmc_project/Certs.errors.yaml`）：
 
 ```yaml
 - name: InvalidCertificate
   description: Invalid certificate file.
 ```
 
-`phosphor-logging` metadata definition (in
-`xyz/openbmc_project/Certs.metadata.yaml`):
+`phosphor-logging` 中繼資料定義（位於 `xyz/openbmc_project/Certs.metadata.yaml`）：
 
 ```yaml
 - name: InvalidCertificate
@@ -137,7 +92,7 @@ log type. See the following example error definitions and usages.
       type: string
 ```
 
-Application code reporting an error:
+回報錯誤的應用程式程式碼：
 
 ```cpp
 elog<InvalidCertificate>(Reason("Invalid certificate file format"));
@@ -145,201 +100,102 @@ elog<InvalidCertificate>(Reason("Invalid certificate file format"));
 report<InvalidCertificate>(Reason("Existing certificate file is corrupted"));
 ```
 
-In this sample, an error named
-`xyz.openbmc_project.Certs.Error.InvalidCertificate` has been defined, which can
-be sent between applications as a DBus response. The `InvalidCertificate` is
-expected to have additional metadata `REASON` which is a string. The two APIs
-`elog` and `report` have slightly different behaviors: `elog` throws an
-exception which can either result in an error DBus result or be handled
-elsewhere in the application, while `report` sends the event directly to
-`phosphor-logging`'s daemon for recording. As a side-effect of both calls, the
-metadata is inserted into the `systemd` journal.
+在這個範例中，定義了一個名為 `xyz.openbmc_project.Certs.Error.InvalidCertificate` 的錯誤，它可以作為 DBus 回應在應用程式之間傳送。`InvalidCertificate` 預期會帶有一個名為 `REASON` 的額外中繼資料，型別為字串。兩個 API `elog` 與 `report` 的行為略有不同：`elog` 會拋出一個例外，可能導致錯誤的 DBus 結果，或在應用程式的其他地方被處理；而 `report` 會直接將事件傳送至 `phosphor-logging` 的守護程序進行記錄。這兩種呼叫的副作用是，中繼資料會被插入 `systemd` journal。
 
-When an error is sent to the `phosphor-logging` daemon, it will:
+當錯誤被傳送至 `phosphor-logging` 守護程序時，它會：
 
-1. Search back through the journal for recorded metadata associated with the
-   event (this is a relative slow operation).
-2. Create an [`xyz.openbmc_project.Logging.Entry`][Logging-Entry] DBus object
-   with the associated data extracted from the journal.
-3. Persist a serialized version of the object.
+1. 回溯搜尋 journal 中與該事件相關、已記錄的中繼資料（這是一個相對緩慢的操作）。
+2. 建立一個 [`xyz.openbmc_project.Logging.Entry`][Logging-Entry] DBus 物件，帶有從 journal 擷取出來的相關資料。
+3. 持久化儲存該物件的序列化版本。
 
-Within `bmcweb` there is support for translating
-`xyz.openbmc_project.Logging.Entry` objects advertised by `phosphor-logging`
-into Redfish `LogEntries`, but this support does not reference a Message
-Registry. This makes the events of limited utility for consumption by system
-management software, as it cannot know all of the event types and is left to
-perform (hand-coded) regular-expressions to extract any information from the
-`Message` field of the `LogEntry`. Furthermore, these regular-expressions are
-likely to become outdated over time as internal OpenBMC error reporting
-structure, metadata, or message strings evolve.
+在 `bmcweb` 內部，支援將 `phosphor-logging` 公告的 `xyz.openbmc_project.Logging.Entry` 物件轉換為 Redfish `LogEntries`，但這項支援並未引用 Message Registry。這使得這些事件對於系統管理軟體的消費實用性有限，因為它無法得知所有的事件類型，只能依靠（手寫程式碼的）正規表示式從 `LogEntry` 的 `Message` 欄位擷取任何資訊。此外，隨著內部 OpenBMC 錯誤回報結構、中繼資料或訊息字串的演進，這些正規表示式很可能會隨著時間過時。
 
 [Logging-Entry]:
   https://github.com/openbmc/phosphor-dbus-interfaces/blob/9012243e543abdc5851b7e878c17c991b2a2a8b7/yaml/xyz/openbmc_project/Logging/Entry.interface.yaml#L1
 
-### Issues with the Status Quo
+### 現況的問題
 
-- There are two different implementations of error logging, neither of which are
-  both complete and fully accepted by maintainers. These implementations also do
-  not cover tracing events.
+- 有兩套不同的錯誤記錄實作，兩者都不完整，也未完全為維護者所接受。這些實作也未涵蓋追蹤事件。
 
-- The `REDFISH_MESSAGE_ID` log approach leads to differences between the Redfish
-  Message Registry and the reporting application. It also requires every
-  application to be "Redfish aware" which limits decoupling between applications
-  and external management interfaces. This also leaves gaps for reporting errors
-  in different management interfaces, such as inband IPMI and PLDM. The approach
-  also does not provide comple-time assurance of appropriate metadata
-  collection, which can lead to producing code being out-of-date with the
-  message registry definitions.
+- `REDFISH_MESSAGE_ID` 記錄方式會導致 Redfish Message Registry 與回報應用程式之間出現差異。它也要求每個應用程式都必須「知道 Redfish」，這限制了應用程式與外部管理介面之間的解耦。這也為在不同管理介面（例如同帶內 IPMI 與 PLDM）中回報錯誤留下了缺口。此做法也未在編譯期確保適當收集中繼資料，可能導致產生程式碼與 message registry 定義不同步。
 
-- The `phosphor-logging` approach does not provide compile-time assurance of
-  appropriate metadata collection and requires expensive daemon processing of
-  the `systemd` journal on each error report, which limits scalability.
+- `phosphor-logging` 做法未在編譯期確保適當收集中繼資料，並且在每次回報錯誤時都需要守護程序對 `systemd` journal 進行昂貴的處理，這限制了可擴展性。
 
-- The `sdbusplus` bindings for error reporting do not currently handle lossless
-  transmission of errors between DBus servers and clients.
+- 用於錯誤回報的 `sdbusplus` 綁定目前無法處理錯誤在 DBus 伺服器與客戶端之間的無損傳輸。
 
-- Similar applications can result in different Redfish `LogEntry` for the same
-  error scenario. This has been observed in sensor threshold exceeded events
-  between `dbus-sensors`, `phosphor-hwmon`, `phosphor-virtual-sensor`, and
-  `phosphor-health-monitor`. One cause of this is two different error reporting
-  approaches and disagreements amongst maintainers as to the preferred approach.
+- 類似的應用程式對於相同的錯誤情境可能產生不同的 Redfish `LogEntry`。這已在 `dbus-sensors`、`phosphor-hwmon`、`phosphor-virtual-sensor` 與 `phosphor-health-monitor` 之間的感測器臨界值超過事件中觀察到。其中一個原因是存在兩種不同的錯誤回報方式，以及維護者之間對於偏好方式存在分歧。
 
-## Requirements
+## 需求
 
-- Applications running on the BMC must be able to report errors and failure
-  which are persisted and available for external system management through
-  standards such as Redfish.
-  - These errors must be structured, versioned, and the complete set of errors
-    able to be created by the BMC should be available at build-time of a BMC
-    image.
-  - The set of errors, able to be created by the BMC, must be able to be
-    transformed into relevant data sets, such as Redfish Message Registries.
-    - For Redfish, the transformation must comply with the Redfish standard
-      requirements, such as conforming to semantic versioning expectations.
-    - For Redfish, the transformation should allow mapping internally defined
-      events to pre-existing Redfish Message Registries for broader
-      compatibility.
-    - For Redfish, the implementation must also support the EventService
-      mechanics for push-reporting.
-  - Errors reported by the BMC should contain sufficient information to allow
-    service of the system for these failures, either by humans or automation
-    (depending on the individual system requirements).
+- 在 BMC 上執行的應用程式必須能夠回報錯誤與失敗，這些錯誤與失敗會被持久化，並可透過 Redfish 等標準供外部系統管理使用。
+  - 這些錯誤必須是結構化的、經過版本控管的，並且 BMC 所能建立的完整錯誤集合應在 BMC 映像檔的建置期即可取得。
+  - BMC 所能建立的錯誤集合，必須能夠被轉換為相關的資料集，例如 Redfish Message Registries。
+    - 對於 Redfish，此轉換必須符合 Redfish 標準需求，例如符合語意化版本控管的期待。
+    - 對於 Redfish，此轉換應允許將內部定義的事件對應到既有的 Redfish Message Registries，以獲得更廣泛的相容性。
+    - 對於 Redfish，實作也必須支援 EventService 的推送回報機制。
+  - BMC 回報的錯誤應包含足夠的資訊，以便為這些失敗對系統進行服務，無論是透過人工或自動化（取決於各系統的個別需求）。
 
-- Applications running on the BMC should be able to report important tracing
-  events relevant to system management and/or debug, such as the system
-  successfully reaching a running state.
-  - All requirements relevant to errors are also applicable to tracing events.
-  - The implementation must have a mechanism for vendors to be able to disable
-    specific tracing events to conform to their own system design requirements.
+- 在 BMC 上執行的應用程式應能夠回報與系統管理及／或除錯相關的重要追蹤事件，例如系統成功達到執行中狀態。
+  - 所有與錯誤相關的需求同樣適用於追蹤事件。
+  - 實作必須具備一套機制，讓供應商能夠停用特定的追蹤事件，以符合其自身的系統設計需求。
 
-- Applications running on the BMC should be able to determine when a previously
-  reported error is no longer relevant and mark it as "resolved", while
-  maintaining the persistent record for future usages such as debug.
+- 在 BMC 上執行的應用程式應能夠判斷先前回報的錯誤何時不再相關，並將其標記為「已解決」，同時為未來的用途（例如除錯）維護持久化的記錄。
 
-- The BMC should provide a mechanism for managed entities within the server to
-  report their own errors and events. Examples of managed entities would be
-  firmware, such as the BIOS, and satellite management controllers.
+- BMC 應提供一套機制，讓伺服器內受管理的實體能夠回報它們自己的錯誤與事件。受管理實體的例子包括韌體（例如 BIOS）以及衛星管理控制器。
 
-- The implementation on the BMC should scale to a minimum of
-  [10,000][error-discussion] error and events without impacting the BMC or
-  managed system performance.
+- BMC 上的實作應能擴展至至少 [10,000][error-discussion] 筆錯誤與事件，且不影響 BMC 或受管理系統的效能。
 
-- The implementation should provide a mechanism to allow OEM or vendor
-  extensions to the error and event definitions (and generated artifacts such as
-  the Redfish Message Registry) for usage in closed-source or non-upstreamed
-  code. These extensions must be clearly identified, in all interfaces, as
-  vendor-specific and not be tied to the OpenBMC project.
+- 實作應提供一套機制，允許對錯誤與事件定義（以及所產生的產出物，例如 Redfish Message Registry）進行 OEM 或供應商擴充，供閉源或未上游化的程式碼使用。這些擴充在所有介面中都必須被清楚標示為供應商專屬，且不得與 OpenBMC 專案綁定。
 
-- APIs to implement error and event reporting should have good ergonomics. These
-  APIs must provide compile-time identification, for applicable programming
-  languages, of call sites which do not conform to the BMC error and event
-  specifications.
-  - The generated error classes and APIs should not require exceptions but
-    should also integrate with the `sdbusplus` client and server bindings, which
-    do leverage exceptions.
+- 用於實作錯誤與事件回報的 API 應具有良好的易用性。這些 API 必須為適當的程式語言在編譯期辨識出不符合 BMC 錯誤與事件規範的呼叫點。
+  - 所產生的錯誤類別與 API 不應要求使用例外，但也應與確實利用例外的 `sdbusplus` 客戶端與伺服器綁定整合。
 
 [error-discussion]:
   https://discord.com/channels/775381525260664832/855566794994221117/867794201897992213
 
-## Proposed Design
+## 提案設計
 
-The proposed design has a few high-level design elements:
+提案設計有以下幾個高階設計元素：
 
-- Consolidate the `sdbusplus` and `phosphor-logging` implementation of error
-  reporting; expand it to cover tracing events; improve the ergonomics of the
-  associated APIs and add compile-time checking of missing metadata.
+- 整合 `sdbusplus` 與 `phosphor-logging` 的錯誤回報實作；將其擴展以涵蓋追蹤事件；改善相關 API 的易用性，並加入對缺少中繼資料的編譯期檢查。
 
-- Add APIs to `phosphor-logging` to enable daemons to easily look up their own
-  previously reported events (for marking as resolved).
+- 在 `phosphor-logging` 中加入 API，讓守護程序能夠輕鬆查詢它們自己先前回報的事件（用以標記為已解決）。
 
-- Add to `phosphor-logging` a compile-time mechanism to disable recording of
-  specific tracing events for vendor-level customization.
+- 在 `phosphor-logging` 中加入一套編譯期機制，停用特定追蹤事件的記錄，以進行供應商層級的客製化。
 
-- Generate a Redfish Message Registry for all error and events defined in
-  `phosphor-dbus-interfaces`, using binding generators from `sdbusplus`. Enhance
-  `bmcweb` implementation of the `Logging.Entry` to `LogEvent` transformation to
-  cover the Redfish Message Registry and `phosphor-logging` enhancements;
-  Leverage the Redfish `LogEntry.DiagnosticData` field to provide a
-  Base64-encoded JSON representation of the entire `Logging.Entry` for
-  additional diagnostics [[does this need to be optional?]]. Add support to the
-  `bmcweb` EventService implementation to support `phosphor-logging`-hosted
-  events.
+- 使用來自 `sdbusplus` 的綁定產生器，為 `phosphor-dbus-interfaces` 中定義的所有錯誤與事件產生一個 Redfish Message Registry。增強 `bmcweb` 中 `Logging.Entry` 到 `LogEvent` 的轉換實作，以涵蓋 Redfish Message Registry 與 `phosphor-logging` 的增強功能；利用 Redfish `LogEntry.DiagnosticData` 欄位提供整個 `Logging.Entry` 經 Base64 編碼的 JSON 表示，以利額外的診斷[[這是否需要設為選用？]]。在 `bmcweb` EventService 實作中加入支援，以支援由 `phosphor-logging` 托管的事件。
 
 ### `sdbusplus`
 
-The `Foo.errors.yaml` content will be combined with the content formerly in the
-`Foo.metadata.yaml` files specified by `phosphor-logging` and specified by a new
-file type `Foo.events.yaml`. This `Foo.events.yaml` format will cover both the
-current `error` and `metadata` information as well as augment with additional
-information necessary to generate external facing datasets, such as Redfish
-Message Registries. The current `Foo.errors.yaml` and `Foo.metadata.yaml` files
-will be deprecated as their usage is replaced by the new format.
+`Foo.errors.yaml` 的內容將與原本位於 `phosphor-logging` 所指定的 `Foo.metadata.yaml` 檔案中的內容合併，並由新的檔案類型 `Foo.events.yaml` 來指定。這個 `Foo.events.yaml` 格式將涵蓋目前 `error` 與 `metadata` 的資訊，並補充產生對外資料集（例如 Redfish Message Registries）所需的額外資訊。目前的 `Foo.errors.yaml` 與 `Foo.metadata.yaml` 檔案將被棄用，因為它們的用途將被新格式取代。
 
-The `sdbusplus` library will be enhanced to provide the following:
+`sdbusplus` 函式庫將被增強以提供以下功能：
 
-- JSON serialization and de-serialization of generated exception types with
-  their assigned metadata; assignment of the JSON serialization to the `message`
-  field of `sd_bus_error_set` calls when errors are returned from DBus server
-  calls.
+- 對所產生的例外型別及其指派的中繼資料進行 JSON 序列化與反序列化；當錯誤從 DBus 伺服器呼叫回傳時，將 JSON 序列化結果指派給 `sd_bus_error_set` 呼叫的 `message` 欄位。
 
-- A facility to register exception types, at library load time, with the
-  `sdbusplus` library for automatic conversion back to C++ exception types in
-  DBus clients.
+- 一套機制，在函式庫載入時向 `sdbusplus` 函式庫註冊例外型別，以便在 DBus 客戶端中自動轉換回 C++ 例外型別。
 
-The binding generator(s) will be expanded to do the following:
+綁定產生器將被擴展以執行以下工作：
 
-- Generate complete C++ exception types, with compile-time checking of missing
-  metadata and JSON serialization, for errors and events. Metadata can be of one
-  of the following types:
-  - size-type and signed integer
-  - floating-point number
-  - string
-  - DBus object path
+- 為錯誤與事件產生完整的 C++ 例外型別，具備對缺少中繼資料的編譯期檢查以及 JSON 序列化。中繼資料可以是以下型別之一：
+  - size 型別與有號整數
+  - 浮點數
+  - 字串
+  - DBus 物件路徑
 
-- Generate a format that `bmcweb` can use to create and populate a Redfish
-  Message Registry, and translate from `phosphor-logging` to Redfish `LogEntry`
-  for a set of errors and events
+- 產生一種 `bmcweb` 可用來建立並填充 Redfish Message Registry 的格式，並針對一組錯誤與事件將 `phosphor-logging` 轉換為 Redfish `LogEntry`
 
-For general users of `sdbusplus` these changes should have no impact, except for
-the availability of new generated exception types and that specialized instances
-of `sdbusplus::exception::generated_exception` will become available in DBus
-clients.
+對於 `sdbusplus` 的一般使用者而言，這些變更應不造成影響，除了新增可用的產生例外型別，以及在 DBus 客戶端中將可使用特定化實例的 `sdbusplus::exception::generated_exception`。
 
 ### `phosphor-dbus-interfaces`
 
-Refactoring will be done to migrate existing `Foo.metadata.yaml` and
-`Foo.errors.yaml` content to the `Foo.events.yaml` as migration is done by
-applications. Minor changes will take place to utilize the new binding
-generators from `sdbusplus`. A small library enhancement will be done to
-register all generated exception types with `sdbusplus`. Future contributors
-will be able to contribute new error and tracing event definitions.
+將進行重構，隨著應用程式逐步遷移，把現有的 `Foo.metadata.yaml` 與 `Foo.errors.yaml` 內容遷移至 `Foo.events.yaml`。將做一些小改變以使用來自 `sdbusplus` 的新綁定產生器。也將進行一項小型函式庫增強，向 `sdbusplus` 註冊所有產生的例外型別。未來的貢獻者將能夠貢獻新的錯誤與追蹤事件定義。
 
 ### `phosphor-logging`
 
-The `Logging.Entry` interface's `AdditionalData` property should change to
-`dict[string, variant[string,int64_t,size_t,object_path]]`.
+`Logging.Entry` 介面的 `AdditionalData` 屬性應變更為 `dict[string, variant[string,int64_t,size_t,object_path]]`。
 
-The `Logging.Create` interface will have a new method added:
+`Logging.Create` 介面將新增一個新方法：
 
 ```yaml
 - name: CreateEntry
@@ -355,87 +211,35 @@ The `Logging.Create` interface will have a new method added:
       type: object_path
 ```
 
-A `lg2::commit` API will be added to support the new `sdbusplus` generated
-exception types, calling the new `Logging.Create.CreateEntry` method proposed
-earlier. This new API will support `sdbusplus::bus_t` for synchronous DBus
-operations and both `sdbusplus::async::context_t` and
-`sdbusplus::asio::connection` for asynchronous DBus operations.
+將新增一個 `lg2::commit` API 以支援新的 `sdbusplus` 產生例外型別，呼叫前述新提出的 `Logging.Create.CreateEntry` 方法。這個新 API 將支援 `sdbusplus::bus_t` 進行同步 DBus 操作，以及 `sdbusplus::async::context_t` 與 `sdbusplus::asio::connection` 進行非同步 DBus 操作。
 
-There are outstanding performance concerns with the `phosphor-logging`
-implementation that may impact the ability for scaling to 10,000 event records.
-This issue is expected to be self-contained within `phosphor-logging`, except
-for potential future changes to the log-retrieval interfaces used by `bmcweb`.
-In order to decouple the transition to this design, by callers of the logging
-APIs, from the experimentation and improvements in `phosphor-logging`, we will
-add a compile option and Yocto `DISTRO_FEATURE` that can turn `lg2::commit`
-behavior into an `OPENBMC_MESSAGE_ID` record in the journal, along the same
-approach as the previous `REDFISH_MESSAGE_ID`, and corresponding `rsyslog`
-configuration and `bmcweb` support to use these directly. This will allow
-systems which knowingly scale to a large number of event records, using
-`rsyslog` mechanics, the same level of performance. One caveat of this support
-is that the hint and resolution behavior will not exist when that option is
-enabled.
+`phosphor-logging` 實作仍存在尚未解決的效能顧慮，可能會影響擴展至 10,000 筆事件記錄的能力。這個問題預期是自-contained 於 `phosphor-logging` 之內，除了未來可能對 `bmcweb` 所使用的記錄擷取介面所做的變更。為了將此設計的過渡（由記錄 API 的呼叫者進行）與 `phosphor-logging` 中的實驗與改進解耦，我們將新增一個編譯選項與一個 Yocto `DISTRO_FEATURE`，可將 `lg2::commit` 行為轉換為 journal 中的一筆 `OPENBMC_MESSAGE_ID` 記錄，採用與先前 `REDFISH_MESSAGE_ID` 相同的方式，並提供相對應的 `rsyslog` 設定與 `bmcweb` 支援以直接使用這些記錄。這將讓那些明知會擴展至大量事件記錄、使用 `rsyslog` 機制的系統，享有相同層級的效能。此支援的一項注意事項是：當啟用該選項時，hint 與 resolution 行為將不存在。
 
 ### `bmcweb`
 
-`bmcweb` already has support for build-time conversion from a Redfish Message
-Registry, codified in JSON, to header files it uses to serve the registry; this
-will be expanded to support Redfish Message Registries generated by `sdbusplus`.
-`bmcweb` will add a Meson option for additional message registries, provided
-from bitbake from `phosphor-dbus-interfaces` and vendor-specific event
-definitions as a path to a directory of Message Registry JSONs. Support will
-also be added for adding `phosphor-dbus-interfaces` as a Meson subproject for
-stand-alone testing.
+`bmcweb` 已支援在建置期將以 JSON 編寫的 Redfish Message Registry 轉換為它用來提供 registry 的標頭檔；這將被擴展以支援由 `sdbusplus` 產生的 Redfish Message Registries。`bmcweb` 將加入一個 Meson 選項，用於額外的 message registries，這些 registry 由 bitbake 從 `phosphor-dbus-interfaces` 提供，以及供應商專屬的事件定義，作為指向一個 Message Registry JSON 目錄的路徑。也將加入支援，將 `phosphor-dbus-interfaces` 作為 Meson 子專案加入，以便進行獨立測試。
 
-It is desirable for `sdbusplus` to generate a Redfish Message Registry directly,
-leveraging the existing scripts for integration with `bmcweb`. As part of this
-we would like to support mapping a `Logging.Entry` event to an existing
-standardized Redfish event (such as those in the Base registry). The generated
-information must contain the `Logging.Entry::Message` identifier, the
-`AdditionalData` to `MessageArgs` mapping, and the translation from the
-`Message` identifier to the Redfish Message ID (when the Message ID is not from
-"this" registry). In order to facilitate this, we will need to add OEM fields to
-the Redfish Message Registry JSON, which are only used by the `bmcweb`
-processing scripts, to generate the information necessary for this additional
-mapping.
+我們希望 `sdbusplus` 能直接產生一個 Redfish Message Registry，利用現有腳本與 `bmcweb` 整合。作為此工作的一部分，我們希望支援將 `Logging.Entry` 事件對應到一個既有的標準化 Redfish 事件（例如 Base registry 中的那些）。所產生的資訊必須包含 `Logging.Entry::Message` 識別碼、`AdditionalData` 到 `MessageArgs` 的對應，以及從 `Message` 識別碼到 Redfish Message ID 的轉換（當 Message ID 並非來自「此」registry 時）。為了促成這一點，我們將需要在 Redfish Message Registry JSON 中加入 OEM 欄位，這些欄位僅供 `bmcweb` 處理腳本使用，以產生此项額外對應所需的資訊。
 
-The `xyz.openbmc_project.Logging.Entry` to `LogEvent` conversion needs to be
-enhanced, to utilize these Message Registries, in four ways:
+`xyz.openbmc_project.Logging.Entry` 到 `LogEvent` 的轉換需要加以增強，以利用這些 Message Registries，共四種方式：
 
-1. A Base64-encoded JSON representation of the `Logging.Entry` will be assigned
-   to the `DiagnosticData` property.
+1. `Logging.Entry` 經 Base64 編碼的 JSON 表示將被指派給 `DiagnosticData` 屬性。
 
-2. If the `Logging.Entry::Message` contains an identifier corresponding to a
-   Registry entry, the `MessageId` property will be set to the corresponding
-   Redfish Message ID. Otherwise, the `Logging.Entry::Message` will be used
-   directly with no further transformation (as is done today).
+2. 如果 `Logging.Entry::Message` 包含一個對應到某 Registry 條目的識別碼，則 `MessageId` 屬性將被設為相對應的 Redfish Message ID。否則，將直接使用 `Logging.Entry::Message`，不再進一步轉換（如同目前的作法）。
 
-3. If the `Logging.Entry::Message` contains an identifier corresponding to a
-   Registry entry, the `MessageArgs` property will be filled in by obtaining the
-   corresponding values from the `AdditionalData` dictionary and the `Message`
-   field will be generated from combining these values with the `Message` string
-   from the Registry.
+3. 如果 `Logging.Entry::Message` 包含一個對應到某 Registry 條目的識別碼，則 `MessageArgs` 屬性將透過從 `AdditionalData` 字典取得相對應的值來填充，而 `Message` 欄位將由將這些值與來自 Registry 的 `Message` 字串組合而產生。
 
-4. A mechanism should be implemented to translate DBus `object_path` references
-   to Redfish Resource URIs. When an `object_path` cannot be translated,
-   `bmcweb` will use a prefix such as `object_path:` in the `MessageArgs` value.
+4. 應實作一套機制，將 DBus `object_path` 引用轉換為 Redfish Resource URIs。當某個 `object_path` 無法被轉換時，`bmcweb` 將在 `MessageArgs` 值中使用類似 `object_path:` 的前綴。
 
-The implementation of `EventService` should be enhanced to support
-`phosphor-logging` hosted events. The implementation of `LogService` should be
-enhanced to support log paging for `phosphor-logging` hosted events.
+`EventService` 的實作應加以增強，以支援由 `phosphor-logging` 托管的事件。`LogService` 的實作應加以增強，以支援針對 `phosphor-logging` 托管事件的記錄分頁。
 
 ### `phosphor-sel-logger`
 
-The `phosphor-sel-logger` has a meson option `send-to-logger` which toggles
-between using `phosphor-logging` or the [`REDFISH_MESSAGE_ID`
-mechanism][existing-design]. The `phosphor-logging`-utilizing paths will be
-updated to utilize `phosphor-dbus-interfaces` specified errors and events.
+`phosphor-sel-logger` 有一個 meson 選項 `send-to-logger`，用來切換使用 `phosphor-logging` 或是 [`REDFISH_MESSAGE_ID` 機制][existing-design]。使用 `phosphor-logging` 的路徑將被更新，以使用 `phosphor-dbus-interfaces` 所指定的錯誤與事件。
 
-### YAML format
+### YAML 格式
 
-Consider an example file in `phosphor-dbus-interfaces` as
-`yaml/xyz/openbmc_project/Software/Update.events.yaml` with hypothetical errors
-and events:
+考慮 `phosphor-dbus-interfaces` 中一個範例檔案 `yaml/xyz/openbmc_project/Software/Update.events.yaml`，其中含有假設的錯誤與事件：
 
 ```yaml
 version: 1.3.1
@@ -478,12 +282,9 @@ events:
       message: Updating of {TARGET} is {COMPLETION}% complete.
 ```
 
-Each `foo.events.yaml` file would be used to generate both the C++ classes (via
-`sdbusplus`) for exception handling and event reporting, as well as a versioned
-Redfish Message Registry for the errors and events. The [YAML
-schema][yaml-schema] is contained in the sdbusplus repository.
+每個 `foo.events.yaml` 檔案將用於同時產生 C++ 類別（透過 `sdbusplus`）以供例外處理與事件回報，以及一個經過版本控管的 Redfish Message Registry，用於錯誤與事件。[YAML schema][yaml-schema] 位於 sdbusplus 倉儲中。
 
-The above example YAML would generate C++ classes similar to:
+上述範例 YAML 將會產生類似以下的 C++ 類別：
 
 ```cpp
 namespace sdbusplus::errors::xyz::openbmc_project::software::update
@@ -510,10 +311,7 @@ class UpdateProgress
 }
 ```
 
-The constructors here are variadic templates because the generated constructor
-implementation will provide compile-time assurance that all of the metadata
-fields have been populated (in any order). To raise an `UpdateFailure` a
-developers might do something like:
+這裡的建構子是可變參數範本，因為所產生的建構子實作將在編譯期確保所有中繼資料欄位都已被填充（順序不拘）。若要拋出一個 `UpdateFailure`，開發者可能會做類似以下的事情：
 
 ```cpp
 // Immediately report the event:
@@ -522,35 +320,29 @@ lg2::commit(UpdateFailure("TARGET", "BMC Flash A", "ERRNO", rc, "CALLOUT_HARDWAR
 throw UpdateFailure("TARGET", "BMC Flash A", "ERRNO", rc, "CALLOUT_HARDWARE", bmc_object_path);
 ```
 
-If one of the fields, such as `ERRNO` were omitted, a compile failure will be
-raised indicating the first missing field.
+如果其中一個欄位（例如 `ERRNO`）被省略，將引發一個編譯失敗，指出第一個缺少的欄位。
 
 [yaml-schema]:
   https://github.com/openbmc/sdbusplus/blob/master/tools/sdbusplus/schemas/events.schema.yaml
 
-### Versioning Policy
+### 版本控管政策
 
-Assume the version follows semantic versioning `MAJOR.MINOR.PATCH` convention.
+假設版本遵循語意化版本控管 `MAJOR.MINOR.PATCH` 慣例。
 
-- Adjusting a description or message should result in a `PATCH` increment.
-- Adding a new error or event, or adding metadata to an existing error or event,
-  should result in a `MINOR` increment.
-- Deprecating an error or event should result in a `MAJOR` increment.
+- 調整描述或訊息應導致 `PATCH` 遞增。
+- 新增錯誤或事件，或為既有的錯誤或事件新增中繼資料，應導致 `MINOR` 遞增。
+- 棄用一個錯誤或事件應導致 `MAJOR` 遞增。
 
-There is [guidance on maintenance][registry-guidance] of the OpenBMC Message
-Registry. We will incorporate that guidance into the equivalent
-`phosphor-dbus-interfaces` policy.
+有關 OpenBMC Message Registry 的[維護指引][registry-guidance]。我們將把該指引納入 `phosphor-dbus-interfaces` 中相對應的政策。
 
 [registry-guidance]:
   https://github.com/openbmc/bmcweb/blob/master/redfish-core/include/registries/openbmc_message_registry.readmefirst.md
 
-### Generated Redfish Message Registry
+### 產生的 Redfish Message Registry
 
-[DSP0266][dsp0266], the Redfish specification, gives requirements for Redfish
-Message Registries and dictates guidelines for identifiers.
+[DSP0266][dsp0266]，即 Redfish 規範，規定了 Redfish Message Registries 的需求，並制訂了識別碼的準則。
 
-The hypothetical events defined above would create a message registry similar
-to:
+上述定義的假設事件將建立一個類似以下的 message registry：
 
 ```json
 {
@@ -577,58 +369,28 @@ to:
 }
 ```
 
-The prefix `OpenBMC_Base` shall be exclusively reserved for use by events from
-`phosphor-logging`. Events defined in other repositories will be expected to use
-some other prefix. Vendor-defined repositories should use a vendor-owned prefix
-as directed by [DSP0266][dsp0266].
+前綴 `OpenBMC_Base` 應專屬保留給來自 `phosphor-logging` 的事件使用。在其他倉儲中定義的事件預期將使用某種其他前綴。供應商定義的倉儲應依 [DSP0266][dsp0266] 的指示使用供應商拥有的前綴。
 
 [dsp0266]:
   https://www.dmtf.org/sites/default/files/standards/documents/DSP0266_1.20.0.pdf
 
-### Vendor implications
+### 對供應商的影響
 
-As specified above, vendors must use their own identifiers in order to conform
-with the Redfish specification (see [DSP0266][dsp0266] for requirements on
-identifier naming). The `sdbusplus` (and `phosphor-logging` and `bmcweb`)
-implementation(s) will enable vendors to create their own events for downstream
-code and Registries for integration with Redfish, by creating downstream
-repositories of error definitions. Vendors are responsible for ensuring their
-own versioning and identifiers conform to the expectations in the [Redfish
-specification][dsp0266].
+如上所述，供應商必須使用它們自己的識別碼，以符合 Redfish 規範（關於識別碼命名的需求請見 [DSP0266][dsp0266]）。`sdbusplus`（以及 `phosphor-logging` 與 `bmcweb`）的實作將讓供應商能夠為下游程式碼建立它們自己的事件，並建立 Registries 以與 Redfish 整合，方法是建立下游的錯誤定義倉儲。供應商有責任確保它們自己的版本控管與識別碼符合 [Redfish 規範][dsp0266]中的期待。
 
-One potential bad behavior on the part of vendors would be forking and modifying
-`phosphor-dbus-interfaces` defined events. Vendors must not add their own events
-to `phosphor-dbus-interfaces` in downstream implementations because it would
-lead to their implementation advertising support for a message in an
-OpenBMC-owned Registry which is not the case, but they should add them to their
-own repositories with a separate identifier. Similarly, if a vendor were to
-_backport_ upstream changes into their fork, they would need to ensure that the
-`foo.events.yaml` file for that version matches identically with the upstream
-implementation.
+供應商可能出現的一種不良行為是分岔並修改 `phosphor-dbus-interfaces` 定義的事件。供應商不得在下游實作中將它們自己的事件加入 `phosphor-dbus-interfaces`，因為這會導致它們的實作在某個 OpenBMC 拥有的 Registry 中公告支援某個訊息，而事實卻並非如此；它們應該把這些事件加入自己的倉儲，並使用一個獨立的識別碼。類似地，如果供應商將上游變更「回溯移植」到它們的分岔中，它們需要確保該版本的 `foo.events.yaml` 檔案與上游實作完全一致。
 
-### Event Extensions
+### 事件擴充
 
-The metadata defined by an event in its `foo.events.yaml` specifically carries
-the information required to create its Redfish Message Args, which are
-standardized through message registries. There is also additional data for
-specific events that can be carried by Redfish, such as the CPER property for
-certain hardware failures. Additionally, some vendors have non-standard schemas
-for OEM data. In order to create an extensible framework for encapsulating
-these, we are allowing events to be extended with additional data represented by
-a method-less dbus interface. This custom data can be populated in this manner:
+事件在其 `foo.events.yaml` 中定義的中繼資料，專門承載了建立其 Redfish Message Args 所需的資訊，這些訊息引數透過 message registries 標準化。此外，某些事件還有可由 Redfish 承載的額外資料，例如特定硬體失敗的 CPER 屬性。另外，一些供應商對於 OEM 資料使用非標準的 schema。為了建立一個可擴充的框架來封裝這些資料，我們允許事件以額外資料進行擴充，這些資料由一個沒有方法的 dbus 介面表示。可以使用以下方式填充這些自訂資料：
 
 ```cpp
     lg2::commit(PlatformError(...).extend(CPER::properties_t{...});
 ```
 
-In this way we can schematize, through the use of dbus interfaces, these
-extensions to standard events allowing `phosphor-logging` to store them
-along-side the `Logging.Entry` and for other daemons to consume them (such as
-`bmcweb` for CPER data). When `phosphor-logging` creates a `Logging.Entry` at
-`/xyz/openbmc_project/logging/entry/<N>` it would also create any known
-extension interfaces at the same object path if provided.
+透過這種方式，我們可以利用 dbus 介面為這些對標準事件的擴充進行 schema 化，讓 `phosphor-logging` 能夠將它們與 `Logging.Entry` 一起儲存，並讓其他守護程序能夠消費它們（例如 `bmcweb` 用於 CPER 資料）。當 `phosphor-logging` 在 `/xyz/openbmc_project/logging/entry/<N>` 建立一個 `Logging.Entry` 時，如果提供了擴充，它也會在同一個物件路徑上建立任何已知的擴充介面。
 
-Currently anticipated extension are:
+目前預期的擴充有：
 
 - Search Hints
 - Processed CPER data
@@ -636,19 +398,14 @@ Currently anticipated extension are:
 
 #### Search Hints
 
-A `SearchHint` is used for daemons to be able to query for their previously
-recorded errors, for uses such as marking them resolved. These strings need to
-be globally unique and are suggested to be of the format
-`"<service_name>:<key>"`. A `Logging.SearchHint` interface will be defined and
-allowed as a supported extension by `phosphor-logging`:
+`SearchHint` 供守護程序查詢它們先前記錄的錯誤使用，用於例如將它們標記為已解決。這些字串需要是全域唯一的，建議格式為 `"<service_name>:<key>"`。將定義一個 `Logging.SearchHint` 介面，並允許其作為 `phosphor-logging` 支援的擴充：
 
 ```yaml
 - property: Hint
   type: string
 ```
 
-The `Logging.Manager` interface will be added with a single method at
-`/xyz/openbmc_project/logging`:
+將在 `/xyz/openbmc_project/logging` 加入一個帶有單一方法的 `Logging.Manager` 介面：
 
 ```yaml
 - name: FindEntry
@@ -662,27 +419,21 @@ The `Logging.Manager` interface will be added with a single method at
     - xyz.openbmc_project.Common.Error.ResourceNotFound
 ```
 
-## Alternatives Considered
+## 考慮過的替代方案
 
-Many alternatives have been explored and referenced through earlier work. Within
-this proposal there are many minor-alternatives that have been assessed.
+先前的工作已探索並引用了許多替代方案。在本提案中，也已評估了許多小型替代方案。
 
-### Exception inheritance
+### 例外繼承
 
-The original `phosphor-logging` error descriptions allowed inheritance between
-two errors. This is not supported by the proposal for two reasons:
+原本的 `phosphor-logging` 錯誤描述允許兩個錯誤之間的繼承。本提案不支援這一點，原因有二：
 
-- This introduces complexity in the Redfish Message Registry versioning because
-  a change in one file should induce version changes in all dependent files.
+- 這會在 Redfish Message Registry 的版本控管中引入複雜性，因為某個檔案中的變更應導致所有相依檔案的版本變更。
 
-- It makes it difficult for a developer to clearly identify all of the fields
-  they are expected to populate without traversing multiple files.
+- 這會讓開發者難以在不 traversing 多個檔案的情況下清楚辨識他們預期需要填充的所有欄位。
 
-### sdbusplus Exception APIs
+### sdbusplus 例外 API
 
-There are a few possible syntaxes I came up with for constructing the generated
-exception types. It is important that these have good ergonomics, are easy to
-understand, and can provide compile-time awareness of missing metadata fields.
+我想出了幾種可能的語法來構造所產生的例外型別。重要的是這些語法要具有良好的易用性、易於理解，並能對缺少的中繼資料欄位提供編譯期的感知。
 
 ```cpp
     using Example = sdbusplus::error::xyz::openbmc_project::Example;
@@ -703,129 +454,88 @@ understand, and can provide compile-time awareness of missing metadata fields.
     throw Example({.fru = "Motherboard", .value = 42});
 ```
 
-**Note**: These examples are all show using `throw` syntax, but could also be
-saved in local variables, returned from functions, or immediately passed to
-`lg2::commit`.
+**注意**：這些範例全部以 `throw` 語法展示，但它們也可以被儲存在區域變數中、從函式回傳，或直接傳給 `lg2::commit`。
 
-1. This would be my preference for ergonomics and clarity, as it would allow
-   LSP-enabled editors to give completions for the metadata fields but
-   unfortunately there is no mechanism in C++ to define a type which can be
-   constructed but not thrown, which means we cannot get compile-time checking
-   of all metadata fields.
+1. 這會是我在易用性與清晰度上的偏好，因為它會讓支援 LSP 的編輯器提供中繼資料欄位的補全，但可惜 C++ 中沒有任何機制可以定義一個可被構造但不可被拋出的型別，這意味著我們無法取得對所有中繼資料欄位的編譯期檢查。
 
-2. This syntax uses tag-dispatch to enables compile-time checking of all
-   metadata fields and potential LSP-completion of the tag-types, but is more
-   verbose than option 3.
+2. 這個語法使用標籤分派（tag-dispatch），能夠對所有中繼資料欄位進行編譯期檢查，並可能對標籤型別進行 LSP 補全，但比選項 3 更冗長。
 
-3. This syntax is less verbose than (2) and follows conventions already used in
-   `phosphor-logging`'s `lg2` API, but does not allow LSP-completion of the
-   metadata tags.
+3. 這個語法比 (2) 更不冗長，並遵循 `phosphor-logging` 的 `lg2` API 中已使用的慣例，但不允許對中繼資料標籤進行 LSP 補全。
 
-4. This syntax is similar to option (1) but uses an indirection of a lambda to
-   enable compile-time checking that all metadata fields have been populated by
-   the lambda. The LSP-completion is likely not as strong as option (1), due to
-   the use of `auto`, and the lambda necessity will likely be a hang-up for
-   unfamiliar developers.
+4. 這個語法類似選項 (1)，但使用 lambda 的間接層，以啟用編譯期檢查，確認所有中繼資料欄位都已被 lambda 填充。由於使用了 `auto`，LSP 補全可能不如選項 (1) 強大，而 lambda 的必要性對於不熟悉的開發者而言可能是一個障礙。
 
-5. This syntax has similar characteristics as option (1) but similarly does not
-   provide compile-time confirmation that all fields have been populated.
+5. 這個語法具有與選項 (1) 類似的特性，但同樣無法提供對所有欄位都已被填充的編譯期確認。
 
-The proposal therefore suggests option (3) is most suitable.
+因此，本提案建議選項 (3) 最為適合。
 
-### Redfish Translation Support
+### Redfish 翻譯支援
 
-The proposed YAML format allows future addition of translation but it is not
-enabled at this time. Future development could enable the Redfish Message
-Registry to be generated in multiple languages if the `message:language` exists
-for those languages.
+提案的 YAML 格式允許未來加入翻譯，但目前尚未啟用。未來的開發可以在 `message:language` 存在於那些語言時，讓 Redfish Message Registry 以多種語言產生。
 
-### Redfish Registry Versioning
+### Redfish Registry 版本控管
 
-The Redfish Message Registries are required to be versioned and has 3 digit
-fields (ie. `XX.YY.ZZ`), but only the first 2 are suppose to be used in the
-Message ID. Rather than using the manually specified version we could take a few
-other approaches:
+Redfish Message Registries 必須經過版本控管，並有 3 個數位欄位（例如 `XX.YY.ZZ`），但 Message ID 中只應使用前 2 個欄位。我們可以不使用手動指定的版本，而採取其他幾種做法：
 
-- Use a date code (ex. `2024.17.x`) representing the ISO 8601 week when the
-  registry was built.
-  - This does not cover vendors that may choose to branch for stabilization
-    purposes, so we can end up with two machines having the same
-    OpenBMC-versioned message registry with different content.
+- 使用日期碼（例如 `2024.17.x`）表示 registry 建置時的 ISO 8601 週。
+  - 這無法涵蓋可能為穩定目的而選擇分岔的供應商，因此我們可能最終出現兩台機器具有相同 OpenBMC 版本控管的 message registry，但內容卻不同。
 
-- Use the most recent `openbmc/openbmc` tag as the version.
-  - This does not cover vendors that build off HEAD and may deploy multiple
-    images between two OpenBMC releases.
+- 使用最近的 `openbmc/openbmc` 標籤作為版本。
+  - 這無法涵蓋從 HEAD 建置並可能在兩次 OpenBMC 發佈之間部署多個映像檔的供應商。
 
-- Generate the version based on the git-history.
-  - This requires `phosphor-dbus-interfaces` to be built from a git repository,
-    which may not always be true for Yocto source mirrors, and requires
-    non-trivial processing that continues to scale over time.
+- 根據 git 歷史記錄產生版本。
+  - 這要求 `phosphor-dbus-interfaces` 必須從一個 git 倉儲建置，而這對 Yocto 來源鏡像而言未必總是成立，且需要非簡單的處理，並會隨著時間持續擴展。
 
-### Existing OpenBMC Redfish Registry
+### 現有的 OpenBMC Redfish Registry
 
-There are currently 191 messages defined in the existing Redfish Message
-Registry at version `OpenBMC.0.4.0`. Of those, not a single one in the codebase
-is emitted with the correct version. 96 of those are only emitted by
-Intel-specific code that is not pulled into any upstreamed machine, 39 are
-emitted by potentially common code, and 56 are not even referenced in the
-codebase outside of the bmcweb registry. Of the 39 common messages half of them
-have an equivalent in one of the standard registries that should be leveraged
-and many of the others do not have attributes that would facilitate a multi-host
-configuration, so the registry at a minimum needs to be updated. None of the
-current implementation has the capability to handle Redfish Resource URIs.
+目前版本為 `OpenBMC.0.4.0` 的現有 Redfish Message Registry 中定義了 191 則訊息。在這些訊息中，程式碼庫裡沒有一則是以正確的版本發出的。其中 96 則僅由 Intel 專屬的程式碼發出，而這些程式碼未被納入任何上游化的機器；39 則由潛在通用的程式碼發出；另有 56 則甚至在 bmcweb registry 之外完全未被程式碼庫引用。在這 39 則通用訊息中，有一半在標準 registries 之一中存在一個應被利用的對應訊息，而許多其他訊息不具備能促進多主機設定的屬性，因此這個 registry 至少需要更新。目前的實作完全沒有處理 Redfish Resource URIs 的能力。
 
-The proposal therefore is to deprecate the existing registry and replace it with
-the new generated registries. For repositories that currently emit events in the
-existing format, we can maintain those call-sites for a time period of 1-2
-years.
+因此，本提案是要棄用現有的 registry，並以新產生的 registries 取代它。對於目前以既有格式發出事件的倉儲，我們可以在 1 到 2 年的期間內維持那些呼叫點。
 
-If this aspect of the proposal is rejected, the YAML format allows mapping from
-`phosphor-dbus-interfaces` defined events to the current `OpenBMC.0.4.0`
-registry `MessageIds`.
+如果本提案的這一方面被否決，YAML 格式允許從 `phosphor-dbus-interfaces` 定義的事件對應到目前 `OpenBMC.0.4.0` registry 的 `MessageIds`。
 
-Potentially common:
+潛在通用：
 
 - phosphor-post-code-manager
-  - BIOSPOSTCode (unique)
+  - BIOSPOSTCode（unique）
 - dbus-sensors
-  - ChassisIntrusionDetected (unique)
-  - ChassisIntrusionReset (unique)
+  - ChassisIntrusionDetected（unique）
+  - ChassisIntrusionReset（unique）
   - FanInserted
-  - FanRedundancyLost (unique)
-  - FanRedudancyRegained (unique)
+  - FanRedundancyLost（unique）
+  - FanRedudancyRegained（unique）
   - FanRemoved
   - LanLost
   - LanRegained
-  - PowerSupplyConfigurationError (unique)
-  - PowerSupplyConfigurationErrorRecovered (unique)
+  - PowerSupplyConfigurationError（unique）
+  - PowerSupplyConfigurationErrorRecovered（unique）
   - PowerSupplyFailed
-  - PowerSupplyFailurePredicted (unique)
+  - PowerSupplyFailurePredicted（unique）
   - PowerSupplyFanFailed
   - PowerSupplyFanRecovered
   - PowerSupplyPowerLost
   - PowerSupplyPowerRestored
-  - PowerSupplyPredictiedFailureRecovered (unique)
+  - PowerSupplyPredictiedFailureRecovered（unique）
   - PowerSupplyRecovered
 - phosphor-sel-logger
-  - IPMIWatchdog (unique)
-  - `SensorThreshold*` : 8 different events
+  - IPMIWatchdog（unique）
+  - `SensorThreshold*`：8 個不同的事件
 - phosphor-net-ipmid
-  - InvalidLoginAttempted (unique)
+  - InvalidLoginAttempted（unique）
 - entity-manager
-  - InventoryAdded (unique)
-  - InventoryRemoved (unique)
+  - InventoryAdded（unique）
+  - InventoryRemoved（unique）
 - estoraged
   - ServiceStarted
 - x86-power-control
-  - NMIButtonPressed (unique)
-  - NMIDiagnosticInterrupt (unique)
-  - PowerButtonPressed (unique)
-  - PowerRestorePolicyApplied (unique)
-  - PowerSupplyPowerGoodFailed (unique)
-  - ResetButtonPressed (unique)
-  - SystemPowerGoodFailed (unique)
+  - NMIButtonPressed（unique）
+  - NMIDiagnosticInterrupt（unique）
+  - PowerButtonPressed（unique）
+  - PowerRestorePolicyApplied（unique）
+  - PowerSupplyPowerGoodFailed（unique）
+  - ResetButtonPressed（unique）
+  - SystemPowerGoodFailed（unique）
 
-Intel-only implementations:
+Intel 專屬實作：
 
 - intel-ipmi-oem
   - ADDDCCorrectable
@@ -837,11 +547,11 @@ Intel-only implementations:
   - IntelUPILinkWidthReducedToQuarter
   - LegacyPCIPERR
   - LegacyPCISERR
-  - `ME*` : 29 different events
-  - `Memory*` : 9 different events
+  - `ME*`：29 個不同的事件
+  - `Memory*`：9 個不同的事件
   - MirroringRedundancyDegraded
   - MirroringRedundancyFull
-  - `PCIeCorrectable*`, `PCIeFatal` : 29 different events
+  - `PCIeCorrectable*`、`PCIeFatal`：29 個不同的事件
   - SELEntryAdded
   - SparingRedundancyDegraded
 - pfr-manager
@@ -864,43 +574,31 @@ Intel-only implementations:
   - DriveError
   - InventoryAdded
 
-## Impacts
+## 衝擊
 
-- New APIs are defined for error and event logging. This will deprecate existing
-  `phosphor-logging` APIs, with a time to migrate, for error reporting.
+- 為錯誤與事件記錄定義了新的 API。這將棄用現有的 `phosphor-logging` API（用於錯誤回報），並留有遷移時間。
 
-- The design should improve performance by eliminating the regular parsing of
-  the `systemd` journal. The design may decrease performance by allowing the
-  number of error and event logs to be dramatically increased, which have an
-  impact to file system utilization and potential for DBus impacts some services
-  such as `ObjectMapper`.
+- 此設計應能透過消除對 `systemd` journal 的常態性解析來改善效能。此設計也可能因為允許錯誤與事件記錄的數量大幅增加而降低效能，這會影響檔案系統的使用率，並有可能對某些服務（例如 `ObjectMapper`）造成 DBus 衝擊。
 
-- Backwards compatibility and documentation should be improved by the automatic
-  generation of the Redfish Message Registry corresponding to all error and
-  event reports.
+- 透過自動產生對應所有錯誤與事件回報的 Redfish Message Registry，應能改善向後相容性與文件。
 
-### Organizational
+### 組織層面
 
-- **Does this repository require a new repository?**
-  - No
-- **Who will be the initial maintainer(s) of this repository?**
-  - N/A
-- **Which repositories are expected to be modified to execute this design?**
+- **這個倉儲是否需要一個新的倉儲？**
+  - 否
+- **誰會是這個倉儲的初始維護者？**
+  - 不適用
+- **預期需要修改哪些倉儲以執行此設計？**
   - `sdbusplus`
   - `phosphor-dbus-interfaces`
   - `phosphor-logging`
   - `bmcweb`
-  - Any repository creating an error or event.
+  - 任何建立錯誤或事件的倉儲。
 
-## Testing
+## 測試
 
-- Unit tests will be written in `sdbusplus` and `phosphor-logging` for the error
-  and event generation, creation APIs, and to provide coverage on any changes to
-  the `Logging.Entry` object management.
+- 將在 `sdbusplus` 與 `phosphor-logging` 中撰寫單元測試，針對錯誤與事件產生、建立 API，並為對 `Logging.Entry` 物件管理的任何變更提供涵蓋率。
 
-- Unit tests will be written for `bmcweb` for basic `Logging.Entry`
-  transformation and Message Registry generation.
+- 將為 `bmcweb` 撰寫單元測試，針對基本的 `Logging.Entry` 轉換與 Message Registry 產生。
 
-- Integration tests should be leveraged (and enhanced as necessary) from
-  `openbmc-test-automation` to cover the end-to-end error creation and Redfish
-  reporting.
+- 應利用（並視需要增強）來自 `openbmc-test-automation` 的整合測試，以涵蓋端對端的錯誤建立與 Redfish 回報。

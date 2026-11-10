@@ -1,168 +1,149 @@
-# Error handling for power Hardware Abstraction Layer (pHAL)
+# 電源硬體抽象層（pHAL）的錯誤處理
 
-Author: Devender Rao <devenrao@in.ibm.com> `devenrao`
+作者：Devender Rao <devenrao@in.ibm.com> `devenrao`
 
-Other contributors: None
+其他貢獻者：無
 
-Created: 14/01/2020
+建立日期：14/01/2020
 
-## Problem Description
+## 問題描述
 
-Proposal to provide a mechanism to convert the failure data captured as part of
-power Hardware Abstraction Layer(pHAL) library calls to [Platform Event Log][1]
-(PEL) format.
+提出一個機制，將電源硬體抽象層（pHAL）函式庫呼叫所擷取的失敗資料，轉換為
+[Platform Event Log][1]（PEL）格式。
 
-## Background and References
+## 背景與參考資料
 
-OpenBmc Applications use the pHAL layer for hardware access and hardware
-initialization, any software/hardware error returned by the pHAL layer need to
-be converted to PEL format for logging the error entry. PEL helps to improve the
-firmware and platform serviceability during product development, manufacturing
-and in customer environment.
+OpenBMC 應用程式使用 pHAL 層進行硬體存取與硬體初始化，pHAL 層回傳的任何
+軟體／硬體錯誤都需要轉換為 PEL 格式，以便記錄錯誤項目。PEL 有助於在產品開發、
+製造以及客戶環境中，改善韌體與平台的可服務性。
 
-Error data includes register data, targets to [guard][2] and callout. Guard
-refers to the action of "guarding" faulty hardware from impacting future system
-operation. Callout points to a specific hardware with in the server that relates
-to the identified error.
+錯誤資料包含暫存器資料、要 [guard][2] 的目標，以及 callout。Guard 指的
+是「保護（guarding）」故障硬體、使其不影響後續系統動作的動作。Callout 則指向
+伺服器內與已識別錯誤相關的特定硬體。
 
-[Phosphor-logging][3] [Create][4] interface is used for creating PELs.
+建立 PEL 會使用 [Phosphor-logging][3] 的 [Create][4] 介面。
 
-pHAL layer constitutes below libraries and and these libraries return different
-return codes.
+pHAL 層包含下列函式庫，而這些函式庫會回傳不同的回傳碼。
 
-1. libipl used for initial program load
-2. libfdt for device tree access
-3. libekb for hardware procedure execution
-4. libpdbg for hardware access
+1. libipl，用於初始程式載入（initial program load）
+2. libfdt，用於裝置樹存取
+3. libekb，用於硬體程序執行
+4. libpdbg，用於硬體存取
 
-Proposal is to structure the return data to a standard return code format so
-that the caller can just handle the single return code format for conversion to
-PEL.
+本提案將回傳資料結構化為標準回傳碼格式，讓呼叫端只需處理單一回傳碼格式，
+即可轉換為 PEL。
 
-### Glossary
+### 術語表
 
-pHAL: power Hardware Abstraction Layer. pHAL is group of libraries running in
-BMC. These libraries are used by Open Power specific application for hardware
-complex interactions, hostboot and Self Boot Engine initialization, diagnostics
-and debugging.
+pHAL：電源硬體抽象層（power Hardware Abstraction Layer）。pHAL 是一組執行於
+BMC 上的函式庫。Open Power 專屬應用程式會使用這些函式庫，進行複雜的硬體互動、
+hostboot 與 Self Boot Engine 初始化、診斷與偵錯。
 
-libfdt: pHAL uses to construct the in-memory tree structure of all targets.
-[Reference][5]
+libfdt：pHAL 使用它來建構所有目標的記憶體中樹狀結構。[參考資料][5]
 
-libpdbg: library to allow debugging of the host POWER processors from the BMC
-[Reference][6]
+libpdbg：讓 BMC 得以從主控端偵錯 POWER 處理器的函式庫。[參考資料][6]
 
-MRW: Machine readable workbook. An XML description of a machine as specified by
-the system owner.
+MRW：機器可讀取工作手冊（Machine readable workbook）。由系統擁有者所指定、
+以 XML 描述的機器說明。
 
-HWP: Hardware procedure. A "black box" code module supplied by the hardware team
-that initializes host processor and memory subsystems in a platform -independent
-fashion.
+HWP：硬體程序（Hardware procedure）。由硬體團隊提供的「黑盒子」程式碼模組，
+以與平台無關的方式初始化主控端處理器與記憶體子系統。
 
-Device Tree: A device tree is a data structure describing the hardware
-components of a particular computer so that the operating system's kernel can
-use and manage those components, including the CPU or CPUs, the memory, the
-buses and the peripherals. [Reference][7]
+Device Tree（裝置樹）：裝置樹是一種資料結構，用以描述特定電腦的硬體元件，
+讓作業系統核心能夠使用並管理這些元件，包含 CPU、記憶體、匯流排與週邊設備。
+[參考資料][7]
 
-EKB: EKB library contains all the hardware procedures (HWP) for the specific
-platform and corresponding error XML files for each hardware procedure.
+EKB：EKB 函式庫包含特定平台的所有硬體程序（HWP），以及每個硬體程序對應的
+錯誤 XML 檔案。
 
-PEL: [Platform Entity Log][1]
+PEL：[Platform Entity Log][1]
 
-## Requirement
+## 需求
 
 ### libekb
 
-EKB library contains hardware procedures for the specific platform and the
-corresponding error xml files for each hardware procedure. Error XML specifies
-attribute data, targets to callout, targets to guard, and targets to deconfigure
-for a specific error. Parsers in EKB library parse the error XML file and
-generate a c++ header file which is used by the hardware procedure in capturing
-the failure data.
+EKB 函式庫包含特定平台的硬體程序，以及每個硬體程序對應的錯誤 xml 檔案。
+錯誤 XML 會針對特定錯誤，指定屬性資料、要 callout 的目標、要 guard 的目標，
+以及要 deconfigure 的目標。EKB 函式庫中的解析器會解析錯誤 XML 檔案，並產生
+C++ 標頭檔，供硬體程序在擷取失敗資料時使用。
 
-Add parser in libekb to parse the error XML file and provide methods that can
-parse the failure data returned by the hardware procedure methods and return
-data in key, value pairs so that the same can be used in the creation of PEL.
+在 libekb 中加入解析器以解析錯誤 XML 檔案，並提供可解析硬體程序方法所回傳
+失敗資料的方法，將資料以鍵值（key、value）配對的形式回傳，使其可用於建立
+PEL。
 
 ### libipl
 
-Initial program load library used for booting the system. Library internally
-calls hardware procedures (HWP) of EKB library. Hardware procedure execution
-status need to be returned to the caller so that caller can create PEL on
-hardware procedure execution failure.
+初始程式載入函式庫，用於開機系統。該函式庫內部會呼叫 EKB 函式庫的硬體程序
+（HWP）。硬體程序的執行狀態需要回傳給呼叫端，讓呼叫端能在硬體程序執行失敗時
+建立 PEL。
 
 ### libpdbg
 
-libpdbg library is used for hardware access, any hardware access errors need to
-be captured as part of the PEL.
+libpdbg 函式庫用於硬體存取，任何硬體存取錯誤都需要擷取並納入 PEL。
 
-### Message Registry Entries
+### 訊息登錄項目（Message Registry Entries）
 
-For errors to be raised in pHal corresponding error message registry entries
-need to be created in the [message registry][8].
+若要在 pHal 中引發錯誤，需要在[訊息登錄][8]中建立對應的錯誤訊息登錄項目。
 
-## Proposed design
+## 設計提案
 
-### Hardware procedure failure
+### 硬體程序失敗
 
-Add parser in libekb to parse the error XML file and provide methods that can
-parse the failure data returned by the hardware procedure methods and return
-data in key, value pairs so that the same can be used in the [Create][4]
-interface for the creation of PEL.
+在 libekb 中加入解析器以解析錯誤 XML 檔案，並提供可解析硬體程序方法所回傳
+失敗資料的方法，將資料以鍵值（key、value）配對的形式回傳，使其可用於
+[Create][4] 介面以建立 PEL。
 
-Inventory strings for the targets to Callout/Guard/Deconfig need to be added to
-the additional data section of the Create interface.
+需要將要 Callout／Guard／Deconfig 目標的庫存（inventory）字串，加入 Create
+介面的額外資料（additional data）區段。
 
-Applications need to register callback methods in libekb library to get back the
-error logging traces.
+應用程式需要在 libekb 函式庫中註冊回呼（callback）方法，以取回錯誤記錄追蹤
+資訊。
 
-Debug traces returned through the callback method will be added to the PEL.
+透過回呼方法回傳的偵錯追蹤資訊將加入 PEL。
 
-### libipl internal failure
+### libipl 內部失敗
 
-Applications need to register callback methods in libipl library to get back the
-error logging traces.
+應用程式需要在 libipl 函式庫中註冊回呼（callback）方法，以取回錯誤記錄追蹤
+資訊。
 
-Debug traces returned through the callback method will be added to the PEL.
+透過回呼方法回傳的偵錯追蹤資訊將加入 PEL。
 
-### libpdbg internal failure
+### libpdbg 內部失敗
 
-Applications need to register callback methods to get the debug traces from
-libpdbg library.
+應用程式需要註冊回呼（callback）方法，以從 libpdbg 函式庫取得偵錯追蹤資訊。
 
-Debug traces returned through the callback method will be added to the PEL.
+透過回呼方法回傳的偵錯追蹤資訊將加入 PEL。
 
-## Sequence diagrams
+## 序列圖
 
-### Register for debug traces and boot errors
+### 註冊偵錯追蹤與開機錯誤
 
 ![image](https://user-images.githubusercontent.com/26330444/76838214-e4e7dc80-6859-11ea-818c-031bf5a191d6.png)
 
-### Process debug traces
+### 處理偵錯追蹤
 
 ![image](https://user-images.githubusercontent.com/26330444/76838355-152f7b00-685a-11ea-9975-4091ae1064cc.png)
 
-### Process boot failures
+### 處理開機失敗
 
 ![image](https://user-images.githubusercontent.com/26330444/76838503-3a23ee00-685a-11ea-9f2a-559e233b408f.png)
 
-## Alternatives Considered
+## 已考慮的替代方案
 
-None
+無
 
-## Impacts
+## 影響
 
-None
+無
 
-## Future changes
+## 未來變更
 
-At present using [Create][4] by providing the data in std::map format the same
-will be changed to JSON format when the corresponding support to pass JSON files
-to the Create interface is added.
+目前使用 [Create][4]，並以 std::map 格式提供資料；當加入可將 JSON 檔案傳遞給
+Create 介面對應支援後，將會改為 JSON 格式。
 
-## Testing
+## 測試
 
-1. Simulate hardware procedure failure and check if PEL is created.
+1. 模擬硬體程序失敗，並檢查是否已建立 PEL。
 
 [1]:
   (https://github.com/openbmc/phosphor-logging/blob/master/extensions/openpower-pels/README.md)

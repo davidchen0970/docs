@@ -1,61 +1,53 @@
-# Discord Rules
+# Discord 規則
 
-## General Rules
+## 一般規則
 
-1. This community works together to build an Open Source BMC firmware. It's a
-   community expectation that you will provide access to your code in the course
-   of discussions. We are unable to build together if you are unable to share
-   your code. The community is not a substitute for a support contract.
+1. 本社群共同協作開發開放原始碼的 BMC 韌體。在討論過程中提供您的程式碼存取權，
+   是社群的期望。若您無法分享程式碼，我們便無法共同協作。本社群並非支援合約的
+   替代品。
 
-2. OpenBMC community members are volunteering their time to answer your
-   questions. Please keep this in mind if you are waiting for a response.
+2. OpenBMC 社群成員是犧牲個人時間來回答您的問題。若您正在等待回應，請將這一點
+   牢記在心。
 
-3. All support questions must be asked in public channels. Do not send uninvited
-   private messages to other community members. Private requests for help place
-   an unfair burden of expectation on people volunteering their time. Further,
-   others in the community cannot help if they cannot see the question.
+3. 所有支援相關的問題都必須在公開頻道中提出。請勿向其他社群成員發送未經邀請的
+   私訊。私下的求助請求會無端加重義務，對付出時間做志工的人造成不公平的負擔。
+   此外，若社群中的其他人看不到這個問題，他們也無能為力。
 
-4. Don't post the same question in multiple channels. Doing so fragments the
-   conversation. If you're unsure of which channel to use, ask your question in
-   `#general` and we may redirect you elsewhere.
+4. 請勿在同一個以上的頻道重複張貼相同的問題。這麼做會使對話分散。若您不確定
+   該使用哪個頻道，請在 `#general` 中提出您的問題，我們可能會將您引導至其他
+   頻道。
 
-5. Reflect on whether your standing in the community is appropriate for the help
-   you are requesting. If you are new to the community, you will likely have the
-   most success by asking detailed, specific questions about detailed, specific
-   problems. Vague questions by unfamiliar people often go unanswered.
+5. 請審視您在社群中的身分是否適合您所請求的協助。若您剛加入社群，針對具體而
+   明確的問題提出詳細、特定的詢問，通常最能獲得協助。由不熟悉的人提出的模糊
+   問題往往不會有人回覆。
 
-6. Do not discuss undisclosed bugs that may have a security impact in Discord.
-   Instead, email `openbmc-security@lists.ozlabs.org` and follow the [documented
-   directions][1].
+6. 請勿在 Discord 中討論可能具有安全影響的未公開錯誤。請改為發信至
+   `openbmc-security@lists.ozlabs.org`，並依照[文件說明的步驟][1]進行。
 
-## Channel Specific Rules
+## 頻道專屬規則
 
 ### #code-reviews
 
-1. All code review requests must only be posted to the #code-reviews channel.
+1. 所有程式碼審查請求都只能張貼在 #code-reviews 頻道。
 
-2. Review requests on Discord must wait at least 48 hours from submission (or
-   subsequent revisions) and should only be sent on working days[^working-days].
-   Maintainers and reviewers are expected to work primarily in Gerrit;
-   availability on Discord is a courtesy. Avoid unnecessary noise to others.
+2. 在 Discord 上發出的審查請求，必須在提交（或後續修訂）後至少等待 48 小時，
+   且只應在平日[^working-days]發出。維護者與審查者主要都應在 Gerrit 上作業；
+   在 Discord 上的可用性屬於禮貌性的額外配合。請避免對其他人造成不必要的騷擾。
 
-3. An exception to (1) and (2) is for active investigation and resolution of
-   issues already being discussed. For example, "I just uploaded a fix for this
-   problem at ..." is a productive communication. If you feel your work is
-   "critical" for unblocking others, such as due to a widespread regression,
-   make sure you already have buy-in from maintainers that it is indeed a
-   critical problem, by discussing the issue before posting code. Your
-   individual desire to merge code doesn't make it critical.
+3. 第 (1) 與 (2) 點的一項例外，是用於針對已在討論中的問題進行即時的調查與解決。
+   舉例來說，「我剛上傳了這個問題的修正，位於……」是一種有建設性的溝通。若您
+   認為自己的工作對於解除他人阻塞而言是「緊急關鍵的」，例如因為某個大範圍的
+   效能倒退（regression），請務必在張貼程式碼之前先討論該問題，確保您已經取得
+   維護者的認同，確認這確實是個緊急關鍵的問題。您個人想要合併程式碼的渴望，
+   並不會使它成為緊急關鍵的問題。
 
 ### #jobs
 
-1. All jobs related posts (including looking for work) must only be posted to
-   the #jobs channel.
+1. 所有與工作職缺相關的文章（包括找工作）都只能張貼在 #jobs 頻道。
 
 [1]:
   https://github.com/openbmc/docs/blob/master/security/how-to-report-a-security-vulnerability.md
 
 [^working-days]:
-    Be mindful that maintainers are in various countries around the world. We
-    don't expect you to know everyone's holiday schedule, but understand you're
-    not likely to get a response if the person you mentioned is on a holiday.
+    請留意維護者遍布世界各國。我們不期望您了解每個人的假期時程，但請理解，
+    若您所提及的人正在休假，您可能不會收到回應。

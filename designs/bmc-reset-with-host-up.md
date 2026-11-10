@@ -1,192 +1,114 @@
-# BMC Reset with Host Booted
+# BMC 於主機開機狀態下重設
 
-Author: Andrew Geissler (geissonator)
+作者：Andrew Geissler (geissonator)
 
-Other contributors:
+其他貢獻者：
 
-Created: June 23rd, 2020
+建立日期：2020 年 6 月 23 日
 
-## Problem Description
+## 問題描述
 
-BMCs can reboot for a lot of different reasons. User request, firmware update,
-and a variety of different error scenarios. When the BMC is rebooted while the
-host is up and running, there needs to be a process by which the two synchronize
-with each other and the BMC gets itself into a state that matches with the host.
+BMC 可能因為許多不同的原因而重新開機，例如使用者要求、韌體更新，以及各種不同的錯誤情境。當 BMC 在主機開機並運行的期間重新開機時，必須有一套流程讓兩者彼此同步，使 BMC 進入一個與主機狀態相符的狀態。
 
-## Background and References
+## 背景與參考資料
 
-A good portion of this is explained in the phosphor-state-manager [README][1].
+其中有相當大的一部分已在 phosphor-state-manager 的 [README][1] 中說明。
 
-This design doc is written to formalize the design and add some more details on
-dealing with both IPMI and PLDM communication to the host as well as desired
-behavior when unable to talk with the host.
+本設計文件的目的是將設計正式化，並補充更多關於同時處理與主機之間 IPMI 及 PLDM 通訊的細節，以及在無法與主機通訊時所期望的行為。
 
-The high level flow is that OpenBMC software first checks for pgood, and if set,
-it then checks the host to see if it is up and alive. If the power is on and the
-host is running, then files are created in the filesystem to indicate this:
+高階流程是：OpenBMC 軟體首先檢查 pgood，若已設定，接著檢查主機是否已開機並存活。若電源已開啟且主機正在執行，則會在檔案系統中建立檔案以表示此狀態：
 
 - /run/openbmc/chassis@0-on
 - /run/openbmc/host@0-on
 
-It should be noted that although full support is not in place for multi-chassis
-and multi-host systems, the framework is there to build on.
-`op-reset-chassis-running@.service` is a templated service, checking pgood in
-its instances power domain. It creates a file in the filesystem,
-/run/openbmc/chassis@%i-on, to indicate power is on for that instance. Similar
-implementation is done for the host via `phosphor-reset-host-check@.service` and
-the file /run/openbmc/host@%i-on.
+需要注意的是，雖然對於多機箱（multi-chassis）與多主機（multi-host）系統的完整支援尚未到位，但框架已具備可供進一步建構的基礎。`op-reset-chassis-running@.service` 是一個範本化服務（templated service），會在其執行個體（instance）所屬的電源域（power domain）中檢查 pgood。它會在檔案系統中建立一個檔案 /run/openbmc/chassis@%i-on，以表示該執行個體的電源已開啟。主機也採用了類似的實作，透過 `phosphor-reset-host-check@.service` 以及檔案 /run/openbmc/host@%i-on 來完成。
 
-If chassis power is on and the host is up, then `obmc-chassis-poweron@.target`
-and `obmc-host-start@.target` are started.
+若機箱電源已開啟且主機已開機，則會啟動 `obmc-chassis-poweron@.target` 與 `obmc-host-start@.target`。
 
-The /run/ files are used by OpenBMC services to determine if they need to run or
-not when the chassis and host targets are started. For example, if the chassis
-is already powered on and the host is running, there is no need to actually turn
-power on, or start the host. The behavior wanted is that these services "start"
-but do nothing. That is commonly done within a systemd service file via the
-following:
+/run/ 下的檔案供 OpenBMC 服務使用，以判斷當機箱與主機目標（target）啟動時是否需要執行。舉例來說，如果機箱已經開啟電源且主機已在執行，就真的不需要再實際開啟電源或啟動主機。所期望的行為是這些服務會「啟動」但什麼都不做。這通常在 systemd 服務檔案中以下列方式達成：
 
 - `ConditionPathExists=!/run/openbmc/chassis@%i-on`
 - `ConditionPathExists=!/run/openbmc/host@%i-on`
 
-This allows the targets to start and for the BMC to get in synch with the state
-of the chassis and host without any special software checks.
+這讓目標得以啟動，並讓 BMC 與機箱及主機的狀態保持同步，而無需任何特殊的軟體檢查。
 
-Different systems have different requirements on what the behavior should be
-when the chassis power is on, but the host is unreachable. This design needs to
-allow this customization. For example, some systems would prefer to just leave
-the system in whatever state it is in and let the user correct things. Some
-systems want to recover automatically (i.e. reboot the host) for the user. Some
-systems have a hybrid approach where depending on where the host was in its
-boot, the BMC may leave it or recover.
+不同的系統對於「機箱電源已開啟但主機無法連線」時的行為應如何，有著不同的需求。本設計必須允許這種客製化。舉例來說，有些系統傾向只是將系統維持在其當前狀態，讓使用者自行修正。有些系統希望為使用者自動復原（亦即重啟主機）。有些系統則採用混合式做法，視主機在開機過程中的進度位置，BMC 可能維持現狀或進行復原。
 
-## Requirements
+## 需求
 
-- Support both IPMI and PLDM as mechanisms to determine if the host is running.
-  - Allow either or both to be enabled
-- Support custom behavior when chassis power is on but the BMC is unable to
-  communicate with the host
-- Both IPMI and PLDM stacks will give the host a set amount of time to respond.
-  Lack of response within this time limit will result in the BMC potentially
-  taking recovery actions.
-  - This time limit must be configurable at build time
-- IPMI and PLDM will implement a phosphor-dbus-interface interface,
-  `xyz.openbmc_project.Condition.HostFirmware`, which will have a
-  `CurrentFirmwareCondition` property which other applications can read to
-  determine if the host is running.
+- 同時支援 IPMI 與 PLDM 作為判斷主機是否在執行的機制。
+  - 允許啟用其中一種或兩種皆啟用
+- 當機箱電源已開啟但 BMC 無法與主機通訊時，支援自訂行為
+- IPMI 與 PLDM 堆疊（stack）都會給主機一段固定的時間來回應。若在此時間限制內未獲回應，BMC 可能會採取復原動作。
+  - 此時間限制必須可在建置時（build time）設定
+- IPMI 與 PLDM 將實作一個 phosphor-dbus-interface 介面 `xyz.openbmc_project.Condition.HostFirmware`，其中有一個 `CurrentFirmwareCondition` 屬性，其他應用程式可讀取該屬性以判斷主機是否在執行。
 
-### IPMI Detailed Requirements
+### IPMI 詳細需求
 
-- IPMI will continue to utilize the SMS_ATN command to indicate to the host that
-  a "Get Message Flags Command" is requested. Upon the host issuing that
-  command, it will be considered up and running
+- IPMI 將持續使用 SMS_ATN 命令，向主機表示已提出「Get Message Flags Command」請求。當主機發出該命令時，即被視為已開機並正在執行
 
-### PLDM Detailed Requirements
+### PLDM 詳細需求
 
-- PLDM will utilize a GetTID command to the host to determine if it is running
-- Where applicable, PLDM will provide a mechanism to distinguish between
-  different host firmware stacks
-  - For example, on IBM systems there is a difference between the hostboot (host
-    initialization) firmware and Hypervisor firmware stacks. Both are host
-    firmware and talking PLDM but the BMC recovery paths will differ based on
-    which is running. The `CurrentFirmwareCondition` property should not return
-    "Running" unless the Hypervisor firmware is running.
+- PLDM 將使用對主機的 GetTID 命令來判斷其是否在執行
+- 在適用之處，PLDM 將提供一種機制來區分不同的主機韌體堆疊
+  - 舉例來說，在 IBM 系統上，hostboot（主機初始化）韌體與 Hypervisor 韌體堆疊之間有所差異。兩者都是主機韌體且都透過 PLDM 通訊，但 BMC 的復原路徑會因執行的是哪一個而不同。`CurrentFirmwareCondition` 屬性除非 Hypervisor 韌體正在執行，否則不應回傳 "Running"。
 
-## Proposed Design
+## 建議設計
 
-High Level Flow:
+高階流程：
 
-- Check pgood
-- Call mapper for all implementations of
-  `xyz.openbmc_project.Condition.HostFirmware` PDI interface
-- Read `CurrentFirmwareCondition` property of all interface. If any call returns
-  that a host is running then create file and start host target.
-- Otherwise, check host via any custom mechanisms
-- Execute automated recovery of host if desired
+- 檢查 pgood
+- 呼叫 mapper 以取得 `xyz.openbmc_project.Condition.HostFirmware` PDI 介面的所有實作
+- 讀取所有介面的 `CurrentFirmwareCondition` 屬性。若任何呼叫回傳某主機正在執行，則建立檔案並啟動主機目標。
+- 否則，透過任何自訂機制檢查主機
+- 如有需要，對主機執行自動化復原
 
-IPMI and PLDM software will be started as applicable. A combination of systemd
-services and applications within phosphor-state-manager will coordinate the
-checking of pgood, and if set, request the IPMI and PLDM applications to
-discover if the host is running. Based on the response from these queries the
-software in phosphor-state-manager will take the appropriate action of creating
-the /run files and starting the chassis and host targets or entering into
-recovery of the host.
+IPMI 與 PLDM 軟體將視適用情況啟動。systemd 服務與 phosphor-state-manager 內的應用程式的組合，將協調 pgood 的檢查，若已設定，則要求 IPMI 與 PLDM 應用程式去探索主機是否在執行。根據這些查詢的回應，phosphor-state-manager 中的軟體將採取適當的動作——建立 /run 檔案並啟動機箱與主機目標，或進入主機的復原程序。
 
-The systemd targets responsible for this and any common services will be hosted
-within phosphor-state-manager. Any system or company specific services can be
-installed in the common targets:
+負責此程序的任何相關服務以及任何通用服務，將由 phosphor-state-manager  hosting。任何系統或公司專屬的服務可安裝在下列通用目標中：
 
 - `obmc-chassis-powerreset@.target.require`
 - `obmc-host-reset@.target.requires`
 
-### Automated Recovery when host does not respond
+### 主機未回應時的自動化復原
 
-A separate service and application will be created within phosphor-state-manager
-to execute the following logic in situations where chassis power is on but the
-host has failed to respond to any of the different mechanisms to communicate
-with it:
+將在 phosphor-state-manager 內建立一個獨立的服務與應用程式，在機箱電源已開啟但主機未能回應任何一種與之通訊的機制的情況下，執行下列邏輯：
 
-- If chassis power on (/run/openbmc/chassis@%i-on)
-- And host is off (!ConditionPathExists=!/run/openbmc/host@%i-on)
-- And restored BootProgress is not None
-- Then (assume host was booting before BMC reboot)
-  - Log error indicating situation
-  - Move host to Quiesce and allow automated recovery to kick in
+- 若機箱電源已開啟 (/run/openbmc/chassis@%i-on)
+- 且主機已關閉 (!ConditionPathExists=!/run/openbmc/host@%i-on)
+- 且還原（restored）的 BootProgress 不為 None
+- 則（假設主機在 BMC 重啟前正在開機）
+  - 記錄錯誤以指出此情境
+  - 將主機移至 Quiesce 狀態，讓自動化復原得以啟動
 
-### Note on custom mechanism for IBM systems
+### 關於 IBM 系統自訂機制的說明
 
-IBM systems will utilize a processor CFAM register. The specific register is
-**Mailbox scratch register 12**.
+IBM 系統將使用一個處理器 CFAM 暫存器。該特定暫存器為 **Mailbox scratch register 12**。
 
-If the chassis power is on but the BMC is unable to communicate with the host
-via IPMI or PLDM, then the BMC will read this processor CFAM register.
+若機箱電源已開啟，但 BMC 無法透過 IPMI 或 PLDM 與主機通訊，則 BMC 將讀取此處理器 CFAM 暫存器。
 
-The Host code will write `0xA5000001` to this register to indicate when it has
-reached a state in which it can boot an operating system without needing the
-BMC. If the BMC sees this value written in the CFAM register, then it will leave
-the host as-is, even if it is unable to communicate with the host over IPMI or
-PLDM. It will log an error indicating it was unable to communicate with the host
-but it will also show the host state as `Running`.
+主機程式碼會將 `0xA5000001` 寫入此暫存器，以表示它已到達一個可以在不需要 BMC 的情況下開機作業系統的狀態。若 BMC 在 CFAM 暫存器中看到此值已被寫入，則即使它無法透過 IPMI 或 PLDM 與主機通訊，它也會讓主機維持現狀。它會記錄一個錯誤，指出無法與主機通訊，但同時也會將主機狀態顯示為 `Running`。
 
-If the register is not `0xA5000001`, then the BMC will follow whatever recovery
-mechanisms are defined for when the host has a failure (most likely a reboot of
-the host).
+若該暫存器的值不是 `0xA5000001`，則 BMC 將遵循為主機發生失敗時所定義的任何復原機制（很可能會是重啟主機）。
 
-It is the responsibility of the host firmware to set this register as applicable
-during the boot of the system. Host firmware will clear this register in
-shutdown scenarios. To handle different host crash scenarios, the register will
-also be cleared by the BMC firmware on power off's, system checkstops, and
-during Memory Preserving reboots.
+在系統開機過程中視需要設定此暫存器，是主機韌體的責任。主機韌體會在上電關閉（shutdown）情境中清除此暫存器。為處理不同的主機當機（crash）情境，此暫存器也會由 BMC 韌體在電源關閉（power off）、系統檢查停止（checkstop）以及記憶體保留（Memory Preserving）重啟期間清除。
 
-## Alternatives Considered
+## 曾考慮的替代方案
 
-One thought was to avoid IPMI/PLDM all together and only use a "lowest common
-denominator" hardware register of some sort. The problem with that is you start
-creating your own protocol, and before you know it you have something like IPMI
-or PLDM anyway, except you created something custom. So 99% of the time the IPMI
-or PLDM path will be fine, and as a backup option, system owners can put their
-own custom host-detection applications in.
+有一種想法是完全避免使用 IPMI/PLDM，而只使用某種「最小公分母」（lowest common denominator）的硬體暫存器。這樣做的問題在於你會開始建立自己的協定，不知不覺間你又做出了類似 IPMI 或 PLDM 的東西，只不過是你自行客製的。所以有 99% 的情況，IPMI 或 PLDM 路徑就足夠了；而作為備援選項，系統擁有者可以放入他們自己的自訂主機偵測應用程式。
 
-## Impacts
+## 影響
 
-None
+無
 
-## Testing
+## 測試
 
-The normal path of IPMI and PLDM will be simple to test. Boot your system and
-reboot the BMC. Verify the BMC chassis and host states are correct and verify
-the host continued to run without issue throughout the BMC reset.
+IPMI 與 PLDM 的正常路徑很容易測試。開機你的系統並重啟 BMC。驗證 BMC 的機箱與主機狀態是否正確，並驗證主機在整個 BMC 重設過程中持續無問題地運行。
 
-The more complicated tests will be error paths:
+較複雜的測試將是錯誤路徑：
 
-- Reboot the BMC while the host is booting, but before it's in a state where it
-  can continue to run without the BMC. Verify the BMC detects this error
-  scenario once it comes back from its reboot and takes the proper recovery
-  actions for the host.
-- Reboot the BMC when the host is up and running but disable the IPMI/PLDM stack
-  on the host so it does not respond to the BMC when it comes back from its
-  reboot. Ensure the BMC follows the defined recovery for the system in this
-  situation.
+- 在主機正在開機、但尚未進入可在沒有 BMC 的情況下繼續運行的狀態時重啟 BMC。驗證 BMC 在從重啟恢復後偵測到此錯誤情境，並對主機採取正確的復原動作。
+- 當主機已開機並運行時重啟 BMC，但在主機上停用 IPMI/PLDM 堆疊，使其在 BMC 從重啟恢復後不回應 BMC。確認 BMC 在此情況下遵循該系統所定義的復原程序。
 
 [1]:
   https://github.com/openbmc/phosphor-state-manager#bmc-reset-with-host-andor-chassis-on

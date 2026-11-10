@@ -1,24 +1,18 @@
-# Local CI Build
+# 本地端 CI 建置
 
-These instructions pertain to running the upstream OpenBMC CI locally.
+以下的說明適用於在本地端執行上游 OpenBMC CI。
 
-## Install Docker
+## 安裝 Docker
 
-Please install and configure Docker. The installation of Docker CE (Community
-Edition) varies by platform and may differ in your organization, but the
-[Docker Docs](https://docs.docker.com/install/) are a good place to start
-looking.
+請先安裝並設定 Docker。Docker CE（社群版）的安裝方式會依平台而異，在你所屬的組織中也可能不盡相同，不過 [Docker 文件](https://docs.docker.com/install/)是一個很好的入門參考。
 
-Check that the installation was successful by running
-`sudo docker run hello-world`.
+執行 `sudo docker run hello-world` 以確認安裝是否成功。
 
-Each repository is built locally within the CI using the bootstrap.sh and
-automake toolchain.
+每個 repository 都會在 CI 中以 bootstrap.sh 與 automake 工具鏈在本地端建置。
 
-## Download the CI Image
+## 下載 CI 映像檔
 
-Start by making a place for your CI repositories to live, and clone the CI
-scripts first:
+首先，建立一個存放 CI repository 的位置，並先複製（clone）CI 腳本：
 
 ```shell
 mkdir ci_test_area
@@ -26,15 +20,9 @@ cd ci_test_area
 git clone https://github.com/openbmc/openbmc-build-scripts.git
 ```
 
-## Add a Read-Only Repo
+## 新增唯讀 Repo
 
-If you just want to validate a project as it is upstream, without any of your
-own changes, you can clone it directly into the Docker directory. This example
-clones and builds phosphor-hwmon directly. The upstream CI will try building
-everything and this includes running `make check` if available. It will also run
-`format-code.sh` and check if the code is formatted properly if there is a
-`.clang-format` file present in the target repository, or if there is a script
-in the repo named `format-code.sh`.
+如果你只想驗證某個專案在上游的狀態、完全不加入自己的任何修改，可以直接把它複製（clone）到 Docker 目錄中。這個範例會直接複製並建置 phosphor-hwmon。上游 CI 會嘗試建置所有內容，其中也包含在有 `make check` 可用時執行它。此外，若目標 repository 中存在 `.clang-format` 檔案，或 repository 中有名為 `format-code.sh` 的腳本，CI 也會執行 `format-code.sh` 並檢查程式碼是否已正確格式化。
 
 ```shell
 cd /path/to/ci_test_area
@@ -43,70 +31,48 @@ WORKSPACE=$(pwd) UNIT_TEST_PKG=phosphor-hwmon \
 ./openbmc-build-scripts/run-unit-test-docker.sh
 ```
 
-NOTE: When running 'run-unit-test-docker.sh' make sure you do not have any
-uncommitted changes. The script runs git diff after 'format-code.sh' and
-therefore any uncommitted changes show up as output and it then fails assuming
-the code was improperly formatted.
+注意：執行 'run-unit-test-docker.sh' 時，請確認沒有任何未提交的變更。該腳本會在執行 'format-code.sh' 之後執行 git diff，因此任何未提交的變更都會出現在輸出中，接著腳本便會認為程式碼格式化不正確而失敗。
 
-NOTE: This technique is okay if you have only a quick change on a project you
-don't work on very often, but is more difficult to use if you would rather use
-an active development branch. If you plan to develop regularly on a repo, use
-the next technique instead.
+注意：如果你只是偶爾對某個專案做一點快速修改，這個做法沒問題；但如果你想改用一個頻繁開發中的分支，就會比較難使用。若你計畫在某個 repo 上定期開發，請改用下一個做法。
 
-## Run CI on local changed Repo
+## 對本地端已修改的 Repo 執行 CI
 
-If you have local changes in the repo, and you do not want to commit yet, it's
-possible to run local CI as well by setting `NO_FORMAT_CODE=1` before running
-the script.
+如果你 repo 中已有本地端變更、且暫時還不想提交，也可以透過在執行腳本前設定 `NO_FORMAT_CODE=1` 來執行本地端 CI。
 
-E.g.
+例如：
 
 ```shell
 WORKSPACE=$(pwd) UNIT_TEST_PKG=phosphor-hwmon NO_FORMAT_CODE=1 \
 ./openbmc-build-scripts/run-unit-test-docker.sh
 ```
 
-`NO_FORMAT_CODE=1` tells the script to skip the `format-code.sh` so that it will
-not format the code and thus your repo could contain un-committed changes.
+`NO_FORMAT_CODE=1` 會告訴腳本跳過 `format-code.sh`，因此不會格式化你的程式碼，如此你的 repo 就可以包含未提交的變更。
 
-## Run CI for testing purposes only
+## 僅為測試目的執行 CI
 
-To only invoke the test suite and not get caught up the various analysis passes
-that might be run otherwise, set `TEST_ONLY=1`.
+若只想呼叫測試套件（test suite）、而不想被其他可能會執行的各種分析步驟絆住，請設定 `TEST_ONLY=1`。
 
-E.g.
+例如：
 
 ```shell
 WORKSPACE=$(pwd) UNIT_TEST_PKG=phosphor-hwmon TEST_ONLY=1 \
 ./openbmc-build-scripts/run-unit-test-docker.sh
 ```
 
-## Reference an Existing Repo with `git worktree`
+## 使用 `git worktree` 引用現有的 Repo
 
-If you're actively developing on a local copy of a repo already, or you want to
-start doing so, you should use `git worktree` instead so that the Docker
-container can reference a specific branch of your existing local repo. Learn
-more about worktree by running `git help worktree` if you're curious.
+如果你已經在本機某份 repo 的複本上積極開發，或想要開始這麼做，你應該改用 `git worktree`，讓 Docker 容器可以引用你現有本機 repo 的特定分支。若有興趣，可以執行 `git help worktree` 進一步了解 worktree。
 
-This example demonstrates how to make a worktree of `phosphor-host-ipmid` in
-your Docker container.
+這個範例示範如何在你的 Docker 容器中建立 `phosphor-host-ipmid` 的 worktree。
 
 ```shell
 cd /my/dir/for/phosphor-host-ipmid
 git worktree add /path/to/ci_test_area/phosphor-host-ipmid
 ```
 
-Now, if you `cd /path/to/ci_test_area`, you should see a directory
-`phosphor-host-ipmid/`, and if you enter it and run `git status` you will see
-that you're likely on a new branch named `phosphor-host-ipmid`. This is just for
-convenience, since you can't check out a branch in your worktree that's already
-checked out somewhere else; you can safely ignore or delete that branch later.
+現在，如果你 `cd /path/to/ci_test_area`，應該會看到一個 `phosphor-host-ipmid/` 目錄；進入其中並執行 `git status`，你會發現自己很可能位於一個名為 `phosphor-host-ipmid` 的新分支上。這只是為了方便起見，因為你無法在 worktree 中簽出（check out）一個已在別處簽出的分支；之後你可以安全地忽略或刪除那個分支。
 
-However, Git won't be able to figure out how to get to your main worktree
-(`/my/dir/for/phosphor-host-ipmid`), so we'll need to mount it when we run. Open
-up `/path/to/ci_test_area/openbmc-build-scripts/run-unit-test-docker.sh` and
-find where we call `docker run`, way down at the bottom. Add an additional
-argument, remembering to escape the newline ('\'):
+不過，Git 將無法找到如何存取你的主 worktree（`/my/dir/for/phosphor-host-ipmid`），所以我們需要在執行時掛載它。開啟 `/path/to/ci_test_area/openbmc-build-scripts/run-unit-test-docker.sh`，找到我們在最底部呼叫 `docker run` 的地方。新增一個額外的引數，記得要跳脫換行字元（'\')：
 
 ```bash
 PHOSPHOR_IPMI_HOST_PATH="/my/dir/for/phosphor-host-ipmid"
@@ -117,8 +83,7 @@ docker run --blah-blah-existing-flags \
   -args
 ```
 
-Then commit this, so you can make sure not to lose it if you update the scripts
-repo:
+然後提交這個變更，如此當你更新腳本 repository 時，才能確保不會失去它：
 
 ```shell
 cd openbmc-build-scripts
@@ -126,7 +91,7 @@ git add run-unit-test-docker.sh
 git commit -m "mount phosphor-host-ipmid"
 ```
 
-The easiest workflow in this situation now looks something like this:
+在這種情況下，最簡單的工作流程現在大致如下：
 
 ```shell
 # Hack in the main worktree.
@@ -143,9 +108,6 @@ git checkout --detach add-foo
 # Now run the Docker container normally
 ```
 
-### Interactive Docker Session
+### 互動式 Docker Session
 
-To use an interactive session, you can pass the flag `INTERACTIVE=true` to
-`run-unit-test-docker.sh` which will drop you into a bash shell with a default
-D-Bus instance. This is handy if you need to run gdb on a core dump or run a
-daemon on your workstation.
+若要使用互動式 session，你可以傳入 `INTERACTIVE=true` 旗標給 `run-unit-test-docker.sh`，它會讓你進入一個帶有預設 D-Bus instance 的 bash shell。當你需要在工作站上對 core dump 執行 gdb，或執行某個 daemon 時，這會很方便。

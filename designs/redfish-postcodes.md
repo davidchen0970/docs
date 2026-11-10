@@ -1,24 +1,23 @@
-# Logging BIOS POST Codes Through Redfish
+# 透過 Redfish 記錄 BIOS POST Codes
 
 Author: Terry Duncan
 
-Other contributors: Jason Bills, Zhikui Ren
+其他貢獻者：Jason Bills、Zhikui Ren
 
-Created: December 23, 2019
+建立日期：2019 年 12 月 23 日
 
-## Problem Description
+## 問題描述
 
-BIOS Power-On Self-Test (POST) codes are exposed on DBUS but not currently over
-Redfish. This describes a method to expose the BIOS POST codes over the Redfish
-interface using the logging service.
+BIOS Power-On Self-Test (POST) codes 目前在 DBUS 上揭露，但尚未透過
+Redfish 揭露。本文說明如何利用 logging service，透過 Redfish
+介面揭露 BIOS POST codes。
 
-## Background and References
+## 背景與參考
 
-The standard Redfish LogService and LogEntry schemas will be used to expose BIOS
-POST codes. An additional log service (PostCodes) will be added to the
-LogServiceCollection.
+將使用標準的 Redfish LogService 與 LogEntry schemas 來揭露 BIOS
+POST codes。並會在 LogServiceCollection 中新增一個額外的 log service（PostCodes）。
 
-Sample [LogService](https://redfish.dmtf.org/schemas/LogService_v1.xml) entry:
+[LogService](https://redfish.dmtf.org/schemas/LogService_v1.xml) 範例條目：
 
 ```json
 https://obmc/redfish/v1/Systems/system/LogServices/PostCodes
@@ -41,8 +40,8 @@ https://obmc/redfish/v1/Systems/system/LogServices/PostCodes
 }
 ```
 
-Events will be exposed using the
-[LogEntry](https://redfish.dmtf.org/schemas/LogEntry_v1.xml) schema.
+事件（Events）將使用
+[LogEntry](https://redfish.dmtf.org/schemas/LogEntry_v1.xml) schema 來揭露。
 
 ```json
 https://obmc/redfish/v1/Systems/system/LogServices/PostCodes/Entries
@@ -76,8 +75,8 @@ https://obmc/redfish/v1/Systems/system/LogServices/PostCodes/Entries
 }
 ```
 
-A new [MessageRegistry](https://redfish.dmtf.org/schemas/MessageRegistry_v1.xml)
-schema entry defines the format for the message.
+新的 [MessageRegistry](https://redfish.dmtf.org/schemas/MessageRegistry_v1.xml)
+schema 條目定義了訊息的格式。
 
 ```json
 https://obmc/redfish/v1/Registries/OpenBMC/OpenBMC
@@ -109,19 +108,19 @@ https://obmc/redfish/v1/Registries/OpenBMC/OpenBMC
 }
 ```
 
-## Requirements
+## 需求
 
-The Redfish Interface shall be Redfish compliant and pass the Redfish compliance
-tests.
+Redfish 介面必須符合 Redfish 規範，並通過 Redfish 合規性
+測試。
 
-The Redfish interface shall expose POST codes tracked on DBUS since the last BMC
-reset.
+Redfish 介面必須揭露自上次 BMC 重置以來在 DBUS 上追蹤的 POST
+codes。
 
-## Proposed Design
+## 擬定設計
 
-Currently, OpenBMC exposes BIOS POST codes on DBus using the
-xyz.openbmc_project.State.Boot.PostCode service. The existing interface tracks
-POST codes for the past 100 host boot events and the current boot cycle index.
+目前 OpenBMC 使用 xyz.openbmc_project.State.Boot.PostCode 服務在
+DBus 上揭露 BIOS POST codes。現有的介面會追蹤過去 100 次 host 開機事件
+的 POST codes，以及目前的開機週期索引（boot cycle index）。
 
 ```json
 xyz.openbmc_project.State.Boot.PostCode
@@ -130,8 +129,8 @@ xyz.openbmc_project.State.Boot.PostCode
     MaxBootCycleIndex = 100
 ```
 
-The GetPostCodes method is called using the boot cycle index to retrieve the
-codes for the boot cycle.
+GetPostCodes 方法使用開機週期索引來呼叫，以取得該開機週期的
+codes。
 
 ```json
 {
@@ -143,9 +142,8 @@ codes for the boot cycle.
 }
 ```
 
-The existing DBus GetPostCodes method will remain for backward compatibility. A
-new method GetPostCodesTS will be added to include an ISO formatted time stamp
-with micro-second resolution along with each POST code.
+現有的 DBus GetPostCodes 方法將保留以維持向下相容性。將新增一個新方法
+GetPostCodesTS，在每個 POST code 之外附帶一個 ISO 格式、具微秒解析度的時間戳記。
 
 ```json
 {
@@ -168,8 +166,8 @@ with micro-second resolution along with each POST code.
 }
 ```
 
-The DBus DeleteAll interface will be implemented to remove entries. The Redfish
-ClearLog action will call the DBus DeleteAll interface.
+將實作 DBus DeleteAll 介面以移除條目。Redfish 的 ClearLog
+action 會呼叫 DBus DeleteAll 介面。
 
 ```json
 {
@@ -181,22 +179,21 @@ ClearLog action will call the DBus DeleteAll interface.
 }
 ```
 
-## Alternatives Considered
+## 曾考慮的替代方案
 
-Consideration was given to using the existing DBus method and not exposing
-associated time stamps. In this case, a single log entry could be used per boot
-cycle exposing a string with all POST codes associated with that boot cycle.
-Time stamp data was considered valuable even if the data may be skewed by DBUS.
+曾考慮使用現有的 DBus 方法而不揭露相關的時間戳記。在這種情況下，每個開機
+週期可以使用單一 log 條目，揭露一個字串，包含與該開機週期相關的所有 POST codes。
+大家認為時間戳記資料很有價值，即使這些資料可能會因 DBUS 而產生偏差。
 
-Consideration was also given to expose the POST codes through a OEM extension
-rather than using the LogEntry schema. Use of OEM extensions to Redfish are
-discouraged. It can be revisited if DMTF adds a schema for POST codes.
+也曾考慮透過 OEM 擴充而非使用 LogEntry schema 來揭露 POST codes。
+不建議在 Redfish 中使用 OEM 擴充。如果 DMTF 為 POST codes 新增
+schema，可以再重新檢視此決定。
 
-## Impacts
+## 影響
 
-Backward compatibility remains with the existing DBUS interface method. Minimal
-performance impact is expected to track timestamps.
+與現有的 DBUS 介面方法維持向下相容。預期追蹤時間戳記只會造成極小的
+效能影響。
 
-## Testing
+## 測試
 
-Compliance with Redfish will be tested using the Redfish Service Validator.
+將使用 Redfish Service Validator 測試 Redfish 合規性。

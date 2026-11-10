@@ -1,91 +1,89 @@
-# Physical Topology for Inventory Items
+# 盤點項目的實體拓撲
 
-Author: Benjamin Fair `benjaminfair`
+作者：Benjamin Fair `benjaminfair`
 
-Other contributors: Ed Tanous `edtanous`
+其他貢獻者：Ed Tanous `edtanous`
 
-Created: June 1, 2022
+建立日期：2022 年 6 月 1 日
 
-## Problem Description
+## 問題描述
 
-Complex systems may contain many inventory objects (such as chassis, power
-supplies, cables, fans, etc.) with different types of relationships among these
-objects. For instance, one chassis can contain another, be powered by a set of
-power supplies, connect to cables, and be cooled by fans. OpenBMC does not
-currently have a standard way to represent these types of relationships.
+複雜系統可能包含許多盤點物件（例如機箱、電源供應器、纜線、風扇等），
+而這些物件之間存在不同類型的關係。舉例來說，一個機箱可以包含另一個機箱、
+由一組電源供應器供電、連接纜線，並由風扇散熱。OpenBMC 目前
+還沒有標準方式來表示這些類型的關係。
 
-## Background and References
+## 背景與參考資料
 
-This builds on a
-[prior proposal](https://gerrit.openbmc.org/c/openbmc/docs/+/41468), but
-specifies using Associations for all relationships (Proposal II) rather than
-path hierarchies (Proposal I).
+本設計延續先前的
+[提案](https://gerrit.openbmc.org/c/openbmc/docs/+/41468)，但
+指定對所有關係都使用 Associations（提案 II），而非
+路徑階層（提案 I）。
 
-The main driver of this design is Redfish, particularly the Links section of the
-[Chassis schema](https://redfish.dmtf.org/schemas/Chassis.v1_20_0.json).
+本設計的主要驅動力來自 Redfish，特別是
+[Chassis schema](https://redfish.dmtf.org/schemas/Chassis.v1_20_0.json)
+中的 Links 區塊。
 
-Changes to phosphor-dbus-interfaces documenting new Associations have been
-[proposed](https://gerrit.openbmc.org/c/openbmc/phosphor-dbus-interfaces/+/46806)
-but not yet merged until consensus can be reached on the design.
+記錄新 Associations 的 phosphor-dbus-interfaces 變更已
+[提出](https://gerrit.openbmc.org/c/openbmc/phosphor-dbus-interfaces/+/46806)，
+但尚未合併，需等到對此設計達成共識為止。
 
-This design was initially discussed in
-[Discord](https://discord.com/channels/775381525260664832/819741065531359263/964321666790477924),
-where some initial consensus was reached.
+本設計最初在
+[Discord](https://discord.com/channels/775381525260664832/819741065531359263/964321666790477924)
+上討論過，並在該處達成了初步共識。
 
-## Requirements
+## 需求
 
-- Must represent one-to-many relationships from chassis inventory objects which:
-  - Connect to cables
-  - Contain other chassis and/or are contained by a chassis
-  - Contain storage drives
-  - Are cooled by fans
-  - Are powered by power supplies
-  - Contain processors such as CPUs
-  - Contain memory such as DIMMs
-- Must support relationships which are predefined, detected at runtime, or a
-  combination of both
-  - Runtime detection could include I2C bus scanning, USB enumeration, and/or
-    MCTP discovery
+- 必須能表示來自機箱盤點物件的一對多關係，這些物件：
+  - 連接纜線
+  - 包含其他機箱，及/或被某個機箱包含
+  - 包含儲存裝置
+  - 由風扇散熱
+  - 由電源供應器供電
+  - 包含 CPU 等處理器
+  - 包含 DIMM 等記憶體
+- 必須支援預先定義、執行期偵測，或兩者兼有的關係
+  - 執行期偵測可包含 I2C 匯流排掃描、USB 枚舉，及/或
+    MCTP 探索
 
-### Optional goals (beyond initial implementation)
+### 選定目標（初期實作之外）
 
-- Non-chassis inventory objects may also need one-to-many relationships
-  - CPUs have CPU cores and associated PCIe slots
-  - CPU cores have threads
+- 非機箱的盤點物件也可能需要一對多關係
+  - CPU 具有 CPU 核心及相關聯的 PCIe 插槽
+  - CPU 核心具有執行緒
 
-## Proposed Design
+## 建議設計
 
-The design affects three layers of the OpenBMC architecture:
-phosphor-dbus-interfaces, inventory managers, and inventory consumers such as
-bmcweb.
+本設計會影響 OpenBMC 架構的三層：phosphor-dbus-interfaces、
+盤點管理器，以及盤點消費者（例如 bmcweb）。
 
 ### phosphor-dbus-interfaces
 
-In the interface definition for Inventory/Item or the more specific subtypes, we
-add an association definition for each of the relationship types listed above
-and corresponding association definitions linking back to that item.
+在 Inventory/Item 或更具體之子型別的介面定義中，我們為
+上述每種關係類型新增一個 association 定義，並新增
+對應的 association 定義以連結回該項目。
 
-### Inventory Managers
+### 盤點管理器
 
 #### phosphor-inventory-manager
 
-phosphor-inventory-manager already has support for exporting custom
-Associations, so no changes are needed here.
+phosphor-inventory-manager 已支援匯出自訂
+Associations，因此此處無需變更。
 
 #### entity-manager
 
-For entity-manager, we add new `Exposes` stanzas for the upstream and downstream
-ports in the JSON configurations. The upstream port has a type ending in `Port`
-(such as a `BackplanePort`, `PowerInputPort`, etc). The downstream port has type
-`DownstreamPort` and a `ConnectsToType` property that refers to the upstream
-port based on its type.
+對於 entity-manager，我們在 JSON 設定中為上游與下游
+埠新增新的 `Exposes` 區塊。上游埠的類型以 `Port`
+結尾（例如 `BackplanePort`、`PowerInputPort` 等）。下游埠的類型
+為 `DownstreamPort`，並帶有一個 `ConnectsToType` 屬性，依類型
+參照到上游埠。
 
-New code in entity-manager matches these properties and exposes associations on
-D-Bus based on the types of the inventory objects involved. Two Chassis objects
-will have `containing` and `contained_by`, a Chassis and PowerSupply will have
-`powering` and `powered_by` respectively, etc.
+entity-manager 中的新程式碼會比對這些屬性，並依據所涉及
+盤點物件的類型在 D-Bus 上匯出 associations。兩個 Chassis 物件
+之間會有 `containing` 與 `contained_by`，一個 Chassis 與一個 PowerSupply
+之間則分別會有 `powering` 與 `powered_by`，以此類推。
 
-Example JSON configurations:
+JSON 設定範例：
 
 superchassis.json
 
@@ -120,19 +118,19 @@ subchassis.json:
 }
 ```
 
-#### Other inventory managers
+#### 其他盤點管理器
 
-If there are other daemons on the system exporting inventory objects, they can
-choose to include the same Associations that phosphor-inventory-manager and
-entity-manager use.
+如果系統上還有其他守護程式會匯出盤點物件，它們可以
+選擇納入 phosphor-inventory-manager 與
+entity-manager 所使用的相同 Associations。
 
-### Inventory consumers
+### 盤點消費者
 
-When a daemon such as bmcweb wants to determine what other inventory items have
-a relationship to a specific item, it makes a query to the object mapper which
-returns a list of all associated items and the relationship types between them.
+當 bmcweb 之類的守護程式想要判斷有哪些其他盤點項目
+與特定項目存在關係時，它會向 object mapper 發出查詢，
+後者會回傳所有相關聯項目及其彼此之間關係類型的清單。
 
-Example `busctl` calls:
+`busctl` 呼叫範例：
 
 ```text
 $ busctl get-property xyz.openbmc_project.ObjectMapper \
@@ -148,60 +146,60 @@ xyz.openbmc_project.Association endpoints
 as 1 "/xyz/openbmc_project/inventory/system/chassis/Superchassis"
 ```
 
-## Alternatives Considered
+## 曾考量的替代方案
 
-### Path hierarchies
+### 路徑階層
 
-An alternative proposal involves encoding the topological relationships between
-inventory items using D-Bus path names. As an example, a chassis object
-underneath another would be contained by that parent chassis. This works for
-simple relationships which fit into a tree structure, but breaks down when more
-complicated relationships are introduced such as cables or fans and power
-supplies shared by multiple objects or soldered CPUs which are "part of" instead
-of "contained by" a chassis. Introducing separate trays with their own topology
-further complicates the path hierarchy approach.
+另一種替代提案是使用 D-Bus 路徑名稱來編碼
+盤點項目之間的拓撲關係。舉例來說，位於另一個機箱下方的
+機箱物件，即被該父機箱所包含。這適用於
+符合樹狀結構的簡單關係，但當引入更複雜的關係時就會
+失效，例如纜線、由多個物件共用的風扇與
+電源供應器，或是焊接式的 CPU——它們是「屬於」機箱的一部分，而非被機箱
+「包含」。引入各自擁有獨立拓撲的獨立托盤，
+會進一步讓路徑階層的做法變得複雜。
 
-A potential compromise would be allowing a combination of path hierarchies and
-associations to communicate topology, but this significantly increases the
-complexity of consumers of this information since they would have to support
-both approaches and figure out a way to resolve conflicting information.
+一個可能的折衷方案是允許結合路徑階層與
+associations 來傳達拓撲，但這會大幅增加
+此資訊消費者的複雜度，因為它們必須同時支援
+兩種做法，並設法解決互相衝突的資訊。
 
-Associations are the only approach that fits all use cases, so we should start
-with this method. If the additional complexity of path hierarchies is needed in
-the future, it can be added as a separate design in the future.
+Associations 是唯一能符合所有使用情境的做法，因此我們應從
+這個方法開始。如果未來確實需要路徑階層所帶來的額外複雜度，
+屆時可以作為獨立設計另行加入。
 
-To improve usability for humans inspecting a system, there could also be a
-dedicated tool to query for Associations of a specific type and present a
-hierarchical view of the current topology. Additionally,
-phosphor-inventory-manager configurations can organize their D-Bus objects in
-whatever way makes sense to the author of those configurations, but the
-Association properties would still need to be present in order for inventory
-consumers to understand the topology.
+為了改善人類檢視系統時的使用體驗，也可以有專門的
+工具來查詢特定類型的 Associations，並呈現目前拓撲的
+階層檢視。此外，
+phosphor-inventory-manager 的設定可以依照其設定作者
+認為合理的方式，來組織其 D-Bus 物件，但要讓盤點
+消費者理解拓撲，仍舊必須具備
+Association 屬性。
 
-## Impacts
+## 影響
 
-This new API will be documented in phosphor-dbus-interfaces as described above.
-If no topology information is added to configuration files for entity-manager or
-phosphor-inventory-manager, then the D-Bus interfaces exported by them will not
-change. If consumers of inventory data such as bmcweb do not find the new
-associations, then their output such as Redfish will not change either.
+這個新 API 會如前所述記錄在 phosphor-dbus-interfaces 中。
+如果沒有為 entity-manager 或 phosphor-inventory-manager 的設定檔
+新增任何拓撲資訊，則它們匯出的 D-Bus 介面將不會
+改變。如果 bmcweb 之類的盤點資料消費者找不到新的
+associations，則它們的輸出（例如 Redfish）也不會改變。
 
-### Organizational
+### 組織層面
 
-Does this repository require a new repository? No - all changes will go in
-existing repositories.
+此儲存庫是否需要新的儲存庫？不需要——所有變更都會放入
+現有的儲存庫中。
 
-## Testing
+## 測試
 
-All new code in entity-manager and bmcweb will be unit tested using existing
-frameworks and infrastructure. We will add new end-to-end tests in
-openbmc-test-automation to ensure the Redfish output is correct.
+entity-manager 與 bmcweb 中的所有新程式碼都會使用現有的
+框架與基礎設施進行單元測試。我們將在新 openbmc-test-automation 中
+新增端對端測試，以確保 Redfish 輸出正確。
 
-## Update history
+## 更新歷史
 
-### February 14, 2023
+### 2023 年 2 月 14 日
 
-- Update the example port type and name from `Connector` to `Port`
-- Change the association names based on feedback from phosphor-dbus-interfaces
-  maintainers (chassisContains -> containing, chassisContainedBy ->
-  contained_by, etc)
+- 將範例埠類型與名稱從 `Connector` 更新為 `Port`
+- 根據 phosphor-dbus-interfaces 維護者的回饋，
+  變更 association 名稱（chassisContains -> containing、chassisContainedBy ->
+  contained_by 等）

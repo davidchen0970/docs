@@ -1,80 +1,42 @@
-# Control.ThermalMode dbus interface with Supported and Current properties
+# 具有 Supported 與 Current 屬性的 Control.ThermalMode dbus 介面
 
-Author: Matthew Barth !msbarth
+作者：Matthew Barth !msbarth
 
-Other contributors: None
+其他貢獻者：無
 
-Created: 2019-02-06
+建立日期：2019-02-06
 
-## Problem Description
+## 問題描述
 
-An issue was discovered where the exhaust heat from the system GPUs causes
-overtemp warnings on optical cables on certain system configurations. The issue
-can be resolved by altering the fan control application's floor table,
-effectively raising the floor when these optical cables exist but an interface
-is needed to do so. Since the issue revolves around the optical cables
-themselves, where no current mechanism exists to detect the presence of the
-optical cables plugged into a card downwind from the GPUs' exhaust, an end-user
-must be presented with an ability to enable this raised floor speed table.
+曾發現一個問題：在特定的系統設定下，系統 GPU 排出的廢熱會導致光纖纜線發出過溫警告。這個問題可以透過修改風扇控制應用程式的 floor table（下限轉速表）來解決，也就是當這些光纖纜線存在時有效提高其下限，但需要一個介面來做到這一點。由於這個問題圍繞著光纖纜線本身，而目前並沒有機制可以偵測插在 GPU 排氣下風處卡卡上的光纖纜線是否存在，因此必須讓最終使用者有能力啟用這個提高下限的轉速表。
 
-## Background and References
+## 背景與參考
 
-The witherspoon system supports pci cards that could have optical cables plugged
-in place of copper cables. These optical cables can report overtemp warnings to
-the OS when high GPU utilization workloads exist. When this occurs with low
-enough CPU utilization, the fans could be kept at a given floor speed that
-sufficiently cools the components within the chassis, but not the optical cables
-with the slow moving hot exhaust.
+witherspoon 系統支援的 PCI 卡可以插接光纖纜線來取代銅纜。這些光纖纜線在高 GPU 使用率的工作負載下，可能會向作業系統回報過溫警告。當這種情況發生而 CPU 使用率又夠低時，風扇可以維持在某個足以冷卻機殼內元件的下限轉速，但卻無法冷卻被緩慢移動的熱廢熱所影響的光纖纜線。
 
-Without an available exhaust temp sensor, there's no direct way to determine the
-exhaust temp and include that within the fan control algorithm. A similar issue
-exists on other system where mathematical calculations are done based on the
-overall power dissipation.
+在沒有可用的排氣溫度感測器的情況下，沒有直接的方法可以取得排氣溫度並將其納入風扇控制演算法。在其他系統上也有類似問題，那是根據整體功耗散逸來進行數學計算的案例。
 
-Mathematical calculations to logically estimate exit air temps:
+用以邏輯估算排出空氣溫度的數學計算：
 <https://github.com/openbmc/dbus-sensors/blob/master/src/ExitAirTempSensor.cpp>
 
-## Requirements
+## 需求
 
-Create the ability for an end-user to enable the use of a thermal control mode
-other than the default. In this use-case, the mode is specific to an
-undetectable configuration that alters the fan floor speeds unrelated to
-standardized profile/modes such "Acoustic" and "Performance". Once the end-user
-selects a documented mode for the platform, the thermal control application
-alters its control algorithm according to the defined mode, which is
-implementation specific to that instance of the application on that platform.
+讓最終使用者有能力啟用了預設值以外的散熱控制模式。在這個使用案例中，該模式專用於一種無法偵測的設定，會改變風扇下限轉速，與「Acoustic」及「Performance」等標準化的設定檔／模式無關。一旦最終使用者為該平台選取了一個有文件記錄的模式，散熱控制應用程式就會根據所定義的模式改變其控制演算法，而該演算法對於該平台上該應用程式的實例而言是實作特定的。
 
-## Proposed Design
+## 建議設計
 
-Create a Control.ThermalMode dbus interface containing a supported list of
-available thermal control modes along with what current mode is in use.
-Initially the current mode would be set to "Default" and the implementation of
-the interface would populate the supported list of modes.
+建立一個 Control.ThermalMode dbus 介面，其中包含可用散熱控制模式的支援清單，以及目前所使用的模式。最初目前的模式會被設為 "Default"，而介面的實作會填入支援的模式清單。
 
-As one implementation, phosphor-fan-presence/control would be updated to extend
-this dbus interface object which would fill in the list of supported modes from
-its fan control configuration for the platform. Once the fan control application
-starts, the interface would be added on the zone object and available to be
-queried for supported modes or update the current mode. An end-user may set the
-current mode to any of those supported modes and the current mode would be
-persisted each time it is updated. This is to ensure each time the fan control
-application zone objects are started, the last set control mode is used.
+作為其中一種實作，phosphor-fan-presence/control 會被更新以延伸這個 dbus 介面物件，並從該平台的風扇控制設定中填入支援的模式清單。一旦風扇控制應用程式啟動，該介面就會被新增到 zone 物件上，可供查詢支援的模式或更新目前的模式。最終使用者可以將目前的模式設為任何一個支援的模式，而每次更新時都會持久化儲存目前的模式。這是為了確保每次風扇控制應用程式的 zone 物件啟動時，都會使用最後一次設定的控制模式。
 
-## Alternatives Considered
+## 曾考慮的替代方案
 
-Mathematical calculation to create a virtual exhaust temp sensor value based on
-overall power dissipation. However, in the witherspoon situation, using this
-technique would not be reliable in adjusting the floor speeds for only
-configurations using optical cables. This would instead present the possibility
-of raising floor speeds for configurations where its unnecessary.
+以數學計算根據整體功耗散逸建立一個虛擬的排氣溫度感測器數值。然而，在 witherspoon 的情況中，使用這種技術無法可靠地只針對使用光纖纜線的設定來調整下限轉速。這反而可能會在沒有必要的設定下提高下限轉速。
 
-## Impacts
+## 影響
 
-The thermal control application used must be configured to provide what thermal
-control modes are supported/available on the interface as well as perform the
-associated control changes when a mode is set.
+所使用的散熱控制應用程式必須經過設定，以便在介面上提供支援／可用的散熱控制模式，並在設定某個模式時執行相關的控制變更。
 
-## Testing
+## 測試
 
-Trigger the use of an alternative fan floor table based on the thermal control
-mode selected on a witherspoon system.
+在 witherspoon 系統上，根據所選取的散熱控制模式觸發使用另一個風扇下限轉速表。

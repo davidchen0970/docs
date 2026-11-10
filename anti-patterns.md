@@ -1,115 +1,100 @@
-# OpenBMC Anti-patterns
+# OpenBMC 反模式
 
-From [Wikipedia](https://en.wikipedia.org/wiki/Anti-pattern):
+來自 [Wikipedia](https://en.wikipedia.org/wiki/Anti-pattern)：
 
-"An anti-pattern is a common response to a recurring problem that is usually
-ineffective and risks being highly counterproductive."
+「反模式是指針對反覆出現的問題所產生的常見回應，通常沒有成效，而且很可能造成嚴重的反效果。」
 
-The developers of OpenBMC do not get 100% of decisions right 100% of the time.
-That, combined with the fact that software development is often an exercise in
-copying and pasting, results in mistakes happening over and over again.
+OpenBMC 的開發者並不能百分之百的時候都做對百分之百的決定。
+這個事實，加上軟體開發經常是在複製貼上，使得同樣的錯誤一再發生。
 
-This page aims to document some of the anti-patterns that exist in OpenBMC to
-ease the job of those reviewing code. If an anti-pattern is spotted, rather that
-repeating the same explanations over and over, a link to this document can be
-provided.
+本頁面希望能記錄 OpenBMC 中存在的若干反模式，以減輕程式碼審查者的工作。
+如果發現某個反模式，不必一再重複同樣的說明，只需要提供本文件的連結即可。
 
 <!-- begin copy/paste on next line -->
 
-## Anti-pattern template [one line description]
+## 反模式模板 [一行說明]
 
-### Identification
+### 識別方式
 
-(1 paragraph) Describe how to spot the anti-pattern.
+（1 段）描述如何辨識這個反模式。
 
-### Description
+### 說明
 
-(1 paragraph) Describe the negative effects of the anti-pattern.
+（1 段）描述這個反模式的負面影響。
 
-### Background
+### 背景
 
-(1 paragraph) Describe why the anti-pattern exists. If you don't know, try
-running git blame and look at who wrote the code originally, and ask them on the
-mailing list or in Discord what their original intent was, so it can be
-documented here (and you may possibly discover it isn't as much of an
-anti-pattern as you thought). If you are unable to determine why the
-anti-pattern exists, put: "Unknown" here.
+（1 段）描述這個反模式為何存在。如果你不知道，試著執行 git blame，
+看看當初是誰寫的這段程式碼，並在郵件列表或 Discord 上詢問他們原本的意圖，
+以便在此記錄下來（你也可能因此發現它並不像你想像的那麼算是一個反模式）。
+如果你無法判斷這個反模式為何存在，請在此填入："Unknown"。
 
-### Resolution
+### 解決方式
 
-(1 paragraph) Describe the preferred way to solve the problem solved by the
-anti-pattern and the positive effects of solving it in the manner described.
+（1 段）描述解決該反模式所要處理問題的首選做法，以及以所述方式解決它的正面影響。
 
 <!-- end copy/paste on previous line -->
 
-## Custom ArgumentParser object
+## 自訂的 ArgumentParser 物件
 
-### Identification
+### 識別方式
 
-The ArgumentParser object is typically present to wrap calls to get options. It
-abstracts away the parsing and provides a `[]` operator to access the
-parameters.
+ArgumentParser 物件通常存在於包裝取得選項的呼叫。它把解析過程抽象化，
+並提供一個 `[]` 運算子來存取參數。
 
-### Description
+### 說明
 
-Writing a custom ArgumentParser object creates nearly duplicate code in a
-repository. The ArgumentParser itself is the same, however, the options provided
-differ. Writing a custom argument parser re-invents the wheel on c++ command
-line argument parsing.
+撰寫自訂的 ArgumentParser 物件會在版本庫中產生幾乎重複的程式碼。
+ArgumentParser 本身是相同的，不同的只是所提供的選項。撰寫自訂的參數解析器
+等於是把 c++ 命令列參數解析這個輪子重新發明了。
 
-### Background
+### 背景
 
-The ArgumentParser exists because it was in place early and then copied into
-each new repository as an easy way to handle argument parsing.
+ArgumentParser 之所以存在，是因為它很早就已到位，之後被複製到每個新的版本庫，
+作為處理參數解析的一個簡便方法。
 
-### Resolution
+### 解決方式
 
-The CLI11 library was designed and implemented specifically to support modern
-argument parsing. It handles the cases seen in OpenBMC daemons and has some
-handy built-in validators, and allows easy customizations to validation.
+CLI11 函式庫是專為支援現代化參數解析而設計與實作的。它能處理 OpenBMC
+_daemon_ 中常見的情境，有一些方便的內建驗證器，並允許對驗證進行容易的自訂。
 
-## Explicit listing of shared library packages in RDEPENDS in bitbake metadata
+## 在 bitbake metadata 的 RDEPENDS 中明確列出共用函式套件
 
-### Identification
+### 識別方式
 
 ```bitbake
 RDEPENDS_${PN} = "libsystemd"
 ```
 
-### Description
+### 說明
 
-Out of the box bitbake examines built applications, automatically adds runtime
-dependencies and thus ensures any library packages dependencies are
-automatically added to images, sdks, etc. There is no need to list them
-explicitly in a recipe.
+bitbake 預設會檢查建置出來的應用程式，自動加入執行期相依性，因而確保任何
+函式套件的相依性都會被自動加入映像、SDK 等。不需要在 recipe 中明確列出它們。
 
-Dependencies change over time, and listing them explicitly is likely prone to
-errors - the net effect being unnecessary shared library packages being
-installed into images.
+相依性會隨著時間改變，明確列出很容易出錯——最終的結果就是不必要的共用函式套件
+被安裝進映像之中。
 
-Consult [Yocto Project Mega-Manual][mega-manual-rdepends] for information on
-when to use explicit runtime dependencies.
+請參考 [Yocto Project Mega-Manual][mega-manual-rdepends]，了解何時該使用
+明確的執行期相依性。
 
 [mega-manual-rdepends]:
   https://www.yoctoproject.org/docs/latest/mega-manual/mega-manual.html#var-RDEPENDS
 
-### Background
+### 背景
 
-The initial bitbake metadata author for OpenBMC was not aware that bitbake added
-these dependencies automatically. Initial bitbake metadata therefore listed
-shared library dependencies explicitly, and was subsequently copy pasted.
+OpenBMC 最初的 bitbake metadata 作者並不知道 bitbake 會自動加入這些相依性。
+因此最初的 bitbake metadata 明確列出了共用函式相依性，之後便被複製貼上。
 
-### Resolution
+### 解決方式
 
-Do not list shared library packages in RDEPENDS. This eliminates the possibility
-of installing unnecessary shared library packages due to unmaintained library
-dependency lists in bitbake metadata.
+不要在 RDEPENDS 中列出共用函式套件。這樣可以排除因為 bitbake metadata 中
+未維護的函式相依性清單，而安裝不必要的共用函式套件的可能性。
 
-## Use of /usr/bin/env in systemd service files
+## 在 systemd service 檔案中使用 /usr/bin/env
 
-### Identification
+### 識別方式
 
-In systemd unit files:
+在 systemd unit 檔案中：
 
 ```systemd
 [Service]
@@ -117,37 +102,35 @@ In systemd unit files:
 ExecStart=/usr/bin/env some-application
 ```
 
-### Description
+### 說明
 
-Outside of OpenBMC, most applications that provide systemd unit files don't
-launch applications in this way. So if nothing else, this just looks strange and
-violates the
-[principle of least astonishment](https://en.wikipedia.org/wiki/Principle_of_least_astonishment).
+在 OpenBMC 之外，大多數提供 systemd unit 檔案的應用程式並不會以這種方式啟動
+應用程式。所以就算不為别的，這看起來也很奇怪，並且違反了
+[最少意外原則](https://en.wikipedia.org/wiki/Principle_of_least_astonishment)。
 
-### Background
+### 背景
 
-This anti-pattern exists because a requirement exists to enable live patching of
-applications on read-only filesystems. Launching applications in this way was
-part of the implementation that satisfied the live patch requirement. For
-example:
+這個反模式之所以存在，是因為有一項需求要求在唯讀檔案系統上能夠對應用程式
+進行即時補丁（live patching）。以這種方式啟動應用程式，是滿足即時補丁需求的
+實作之一部分。例如：
 
 ```bash
 /usr/bin/phosphor-hwmon
 ```
 
-on a read-only filesystem becomes:
+在唯讀檔案系統上會變成：
 
 ```bash
 /usr/local/bin/phosphor-hwmon`
 ```
 
-on a writable /usr/local filesystem.
+也就是放在一個可寫的 /usr/local 檔案系統上。
 
-### Resolution
+### 解決方式
 
-The /usr/bin/env method only enables live patching of applications. A method
-that supports live patching of any file in the read-only filesystem has emerged.
-Assuming a writable filesystem exists _somewhere_ on the bmc, something like:
+/usr/bin/env 的方法只能啟用到對應用程式的即時補丁。現在已經出現了一種能够
+對唯讀檔案系統中任何檔案進行即時補丁的方法。假設 BMC 上某處存在一個可寫的
+檔案系統，類似下面的做法：
 
 ```bash
 mkdir -p /var/persist/usr
@@ -155,54 +138,49 @@ mkdir -p /var/persist/work/usr
 mount -t overlay -o lowerdir=/usr,upperdir=/var/persist/usr,workdir=/var/persist/work/usr overlay /usr
 ```
 
-can enable live system patching without any additional requirements on how
-applications are launched from systemd service files. This is the preferred
-method for enabling live system patching as it allows OpenBMC developers to
-write systemd service files in the same way as most other projects.
+就能啟用即時系統補丁，而且對 systemd service 檔案中如何啟動應用程式沒有任何
+額外要求。這是啟用到即時系統補丁的首選方法，因為它讓 OpenBMC 開發者能以與
+大多數其他專案相同的方式撰寫 systemd service 檔案。
 
-To undo existing instances of this anti-pattern remove /usr/bin/env from systemd
-service files and replace with the fully qualified path to the application being
-launched. For example, given an application in /usr/bin:
+要移除這個反模式的現有案例，請從 systemd service 檔案中移除 /usr/bin/env，
+並替換成要啟動應用程式的完整路徑。例如，假設某個應用程式位於 /usr/bin：
 
 ```bash
 sed -i s,/usr/bin/env ,/usr/bin/, foo.service
 ```
 
-## Incorrect placement of executables in /sbin, /usr/sbin or /bin, /usr/bin
+## 將可執行檔錯誤地放置於 /sbin、/usr/sbin 或 /bin、/usr/bin
 
-### Identification
+### 識別方式
 
-OpenBMC executables that are installed in `/usr/sbin`. `$sbindir` in bitbake
-metadata, makefiles or configure scripts. systemd service files pointing to
-`/bin` or `/usr/bin` executables.
+安裝在 `/usr/sbin` 的 OpenBMC 可執行檔。bitbake metadata、makefile 或 configure
+腳本中的 `$sbindir`。指向 `/bin` 或 `/usr/bin` 可執行檔的 systemd service 檔案。
 
-### Description
+### 說明
 
-Installing OpenBMC applications in incorrect locations violates the
-[principle of least astonishment](https://en.wikipedia.org/wiki/Principle_of_least_astonishment)
-and more importantly violates the
-[FHS](https://en.wikipedia.org/wiki/Filesystem_Hierarchy_Standard).
+將 OpenBMC 應用程式安裝在不正確的位置，違反了
+[最少意外原則](https://en.wikipedia.org/wiki/Principle_of_least_astonishment)，
+更重要的是違反了
+[FHS](https://en.wikipedia.org/wiki/Filesystem_Hierarchy_Standard)。
 
-### Background
+### 背景
 
-There are typically two types of executables:
+通常有兩種類型的可執行檔：
 
-1. Long-running daemons started by, for instance, systemd service files and
-   _NOT_ intended to be directly executed by users.
-2. Utilities intended to be used by a user as a CLI.
+1. 由 systemd service 檔案等啟動的長時間執行_daemon_，並且*不*打算讓使用者
+   直接執行。
+2. 打算讓使用者作為 CLI 使用的工具程式。
 
-Executables of type 1 should not be placed anywhere in `${PATH}` because it is
-confusing and error-prone to users, but should instead be placed in a
-`/usr/libexec/<package>` subdirectory.
+類型 1 的可執行檔不應該放在 `${PATH}` 中的任何位置，因為這對使用者來說容易
+混淆且容易出錯，而應該放在 `/usr/libexec/<package>` 子目錄中。
 
-Executables of type 2 should be placed in `/usr/bin` because they are intended
-to be used by users and should be in `${PATH}` (also, `sbin` is inappropriate as
-we transition to having non-root access).
+類型 2 的可執行檔應該放在 `/usr/bin`，因為它們是打算讓使用者使用的，應該要
+在 `${PATH}` 中（此外，在我們過渡到擁有非 root 存取權的過程中，`sbin` 並不適當）。
 
-The sbin anti-pattern exists because the FHS was misinterpreted at an early
-point in OpenBMC project history, and has proliferated ever since.
+sbin 這個反模式之所以存在，是因為在 OpenBMC 專案歷史的早期，FHS 被誤解了，
+從那之後便持續擴散。
 
-From the hier(7) man page:
+根據 hier(7) man page：
 
 ```bash
 /usr/bin This is the primary directory for executable programs.  Most programs
@@ -217,28 +195,25 @@ repair.
 not meant to be executed directly by users shell or scripts.
 ```
 
-The FHS description for `/usr/sbin` refers to "system administration" but the
-de-facto interpretation of the system being administered refers to the OS
-installation and not a system in the OpenBMC sense of managed system. As such
-OpenBMC applications should be installed in `/usr/bin`.
+`/usr/sbin` 的 FHS 說明中提到「系統管理」，但實際上約定俗成的解讀是其所管理的
+系統指的是作業系統的安裝，而不是 OpenBMC 意義下的受管理系統。因此 OpenBMC
+應用程式應該安裝在 `/usr/bin`。
 
-It is becoming common practice in Linux for daemons to now be moved to `libexec`
-and considered "internal use" from the perspective of the systemd service file
-that controls their launch.
+在 Linux 中，將_daemon_移至 `libexec`，並從控制其啟動的 systemd service 檔案
+的角度將其視為「內部使用」，正變得越來越常見。
 
-### Resolution
+### 解決方式
 
-Install OpenBMC applications in `/usr/libexec` or `/usr/bin/` as appropriate.
+將 OpenBMC 應用程式視情況安裝在 `/usr/libexec` 或 `/usr/bin/`。
 
-## Handling unexpected error codes and exceptions
+## 處理未預期的錯誤碼與例外
 
-### Identification
+### 識別方式
 
-The anti-pattern is for an application to continue processing after it
-encounters unexpected conditions in the form of error codes and exceptions and
-not capturing the data needed to resolve the problem.
+這個反模式是指應用程式在遇到以錯誤碼和例外形式出現的未預期狀況後仍繼續處理，
+而且沒有擷取解決問題所需的資料。
 
-Example C++ code:
+C++ 程式碼範例：
 
 ```cpp
 using InternalFailure = sdbusplus::xyz::openbmc_project::Common::Error::InternalFailure;
@@ -252,159 +227,135 @@ catch (InternalFailure& e)
 }
 ```
 
-### Description
+### 說明
 
-Suppressing unexpected errors can lead an application to incorrect or erratic
-behavior which can affect the service it provides and the overall system.
+抑制未預期的錯誤可能導致應用程式出現不正確或不穩定的行為，進而影響它所提供的
+服務以及整體系統。
 
-Writing a log entry instead of a core dump may not give enough information to
-debug a truly unexpected problem, so developers do not get a chance to
-investigate problems and the system's reliability does not improve over time.
+寫入一筆日誌記錄而非產生核心傾印（core dump），可能無法提供足夠的資訊來除錯
+一個真正未預期的問題，因此開發者沒有機會調查問題，系統的可靠度也不會隨時間改善。
 
-### Background
+### 背景
 
-Programmers want their application to continue processing when it encounters
-conditions it can recover from. Sometimes they try too hard and continue when it
-is not appropriate.
+程式設計師希望在應用程式遇到可從中復原的狀況時能繼續處理。有時他們太用力了，
+在不適合繼續的時候仍繼續下去。
 
-Programmers also want to log what is happening in the application, so they write
-log entries that give debug data when something goes wrong, typically targeted
-for their use. They don't consider how the log entry is consumed by the BMC
-administrator or automated service tools.
+程式設計師也希望記錄應用程式中發生的事情，所以他們寫入日誌記錄，在出問題時
+提供除錯資料，通常是針對他們自己的用途。他們沒有考慮到日誌記錄會如何被 BMC
+管理員或自動化服務工具所使用。
 
-The `InternalFailure` in the [Phosphor logging README][] is overused.
+[Phosphor logging README][] 中的 `InternalFailure` 被過度使用了。
 
 [phosphor logging readme]:
   https://github.com/openbmc/phosphor-logging/blob/master/README.md
 
-### Resolution
+### 解決方式
 
-Several items are needed:
+需要幾件事：
 
-1. Check all places where a return code or errno value is given. Strongly
-   consider that a default error handler should throw an exception, for example
-   `std::system_error`.
-2. Have a good reason to handle specific error codes. See below.
-3. Have a good reason to handle specific exceptions. Allow other exceptions to
-   propagate.
-4. Document (in terms of impacts to other services) what happens when this
-   service fails, stops, or is restarted. Use that to inform the recovery
-   strategy.
+1. 檢查所有會給出回傳碼或 errno 值的地方。認真考慮預設的錯誤處理程式應該擲出
+   例外，例如 `std::system_error`。
+2. 要有充分的理由來處理特定的錯誤碼。請參考下方。
+3. 要有充分的理由來處理特定的例外。讓其他例外向外傳播。
+4. 記錄（以對其他服務的影響而言）當這個服務失敗、停止或重新啟動時會發生什麼事。
+   用這些資訊來決定復原策略。
 
-In the error handler:
+在錯誤處理程式中：
 
-1. Consider what data (if any) should be logged. Determine who will consume the
-   log entry: BMC developers, administrator, or an analysis tool. Usually the
-   answer is more than one of these.
+1. 考慮應該記錄哪些資料（如果有的話）。決定誰會使用這筆日誌記錄：BMC 開發者、
+   管理員，還是分析工具。通常答案會是多於其中一種。
 
-   The following example log entries use an IPMI request to set network access
-   on, but the user input is invalid.
-   - BMC Developer: Reference internal applications, services, pids, etc. the
-     developer would be familiar with.
+   以下的日誌記錄範例使用一個 IPMI 請求來開啟網路存取，但使用者輸入無效。
+   - BMC 開發者：引用開發者會熟悉的內部應用程式、服務、pid 等。
 
-     Example:
+     範例：
      `ipmid service successfully processed a network setting packet, however the user input of USB0 is not a valid network interface to configure.`
 
-   - Administrator: Reference the external interfaces of the BMC such as the
-     REST API. They can respond to feedback about invalid input, or a need to
-     restart the BMC.
+   - 管理員：引用 BMC 的對外介面，例如 REST API。他們能夠針對無效輸入或需要
+     重新啟動 BMC 的回饋作出回應。
 
-     Example:
+     範例：
      `The network interface of USB0 is not a valid option. Retry the IPMI command with a valid interface.`
 
-   - Analyzer tool: Consider breaking the log down and including several
-     properties which an analyzer can leverage. For instance, tagging the log
-     with 'Internal' is not helpful. However, breaking that down into something
-     like `[UserInput][IPMI][Network]` tells at a quick glance that the input
-     received for configuring the network via an IPMI command was invalid.
-     Categorization and system impact are key things to focus on when creating
-     logs for an analysis application.
+   - 分析工具：考慮將日誌拆解並納入多個分析工具能够利用的屬性。例如，將日誌
+     標記為 'Internal' 沒有幫助。然而，把它拆解成類似
+     `[UserInput][IPMI][Network]` 的東西，就能一眼看出透過 IPMI 命令設定網路時
+     所收到的輸入是無效的。建立給分析應用程式使用的日誌時，分類與系統影響是
+     需要著重的關鍵要素。
 
-     Example:
+     範例：
      `[UserInput][IPMI][Network][Config][Warning] Interface USB0 not valid.`
 
-2. Determine if the application can fully recover from the condition. If not,
-   don't continue. Allow the system to determine if it writes a core dump or
-   restarts the service. If there are severe impacts when the service fails,
-   consider using a better error recovery mechanism.
+2. 判斷應用程式能否完全從該狀況中復原。如果不能，就不要繼續。讓系統自行決定
+   是否寫入核心傾印或重新啟動服務。如果服務失敗時會造成嚴重影響，考慮使用更好的
+   錯誤復原機制。
 
-## Non-standard debug application options and logging
+## 非標準的除錯應用程式選項與日誌記錄
 
-### Identification
+### 識別方式
 
-An application uses non-standard methods on startup to indicate verbose logging
-and/or does not utilize standard systemd-journald debug levels for logging.
+應用程式在啟動時使用非標準的方法來表示詳細日誌記錄，及／或不使用標準的
+systemd-journald 除錯層級來記錄日誌。
 
-### Description
+### 說明
 
-When debugging issues within OpenBMC that cross multiple applications, it's very
-difficult to enable the appropriate debug when different applications have
-different mechanisms for enabling debug. For example, different OpenBMC
-applications take the following as command line parameters to enable extra
-debug:
+在除錯 OpenBMC 中橫跨多個應用程式的問題時，如果不同的應用程式有不同啟用除錯的
+機制，要啟用適當的除錯會非常困難。例如，不同的 OpenBMC 應用程式會接受以下這些
+作為啟用額外除錯的命令列參數：
 
 - 0xff, --vv, -vv, -v, --verbose, `<and more>`
 
-Along these same lines, some applications then have their own internal methods
-of writing debug data. They use std::cout, printf, fprintf, ... Doing this
-causes other issues when trying to compare debug data across different
-applications that may be having their buffers flushed at different times (and
-picked up by journald).
+依同樣的道理，有些應用程式接著有它們自己內部寫入除錯資料的方法。它們使用
+std::cout、printf、fprintf 等。這樣做在試圖比較不同應用程式的除錯資料時會造成
+其他問題，因為這些應用程式的緩衝區可能在不同時間被清除（並被 journald 接手）。
 
-### Background
+### 背景
 
-Everyone has their own ways to debug. There was no real standard within OpenBMC
-on how to do it so everyone came up with whatever they were familiar with.
+每個人都有自己除錯的方法。OpenBMC 內部對於該怎麼做並沒有真正的標準，所以每個
+人都用他們自己熟悉的方式。
 
-### Resolution
+### 解決方式
 
-If an OpenBMC application is to support enhanced debug via a command line then
-it will support the standard "-v,--verbose" option.
+如果一個 OpenBMC 應用程式要透過命令列支援增強的除錯，它就會支援標準的
+"-v,--verbose" 選項。
 
-In general, OpenBMC developers should utilize the "debug" journald level for
-debug messages. This can be enabled/disabled globally and would apply to all
-applications. If a developer believes this would cause too much debug data in
-certain cases then they can protect these journald debug calls around a
---verbose command line option.
+一般來說，OpenBMC 開發者應該使用 "debug" journald 層級來記錄除錯訊息。這可以
+全域啟用／停用，並適用於所有應用程式。如果開發者認為這在某些情況下會產生太多
+除錯資料，他們可以把這些 journald 除錯呼叫包在 --verbose 命令列選項的保護之下。
 
-## DBus interface representing GPIOs
+## 代表 GPIO 的 DBus 介面
 
-### Identification
+### 識別方式
 
-Desire to expose a DBus interface to drive GPIOs, for example:
+想要暴露一個 DBus 介面來驅動 GPIO，例如：
 
 - <https://lore.kernel.org/openbmc/YV21cD3HOOGi7K2f@heinlein/>
 - <https://lore.kernel.org/openbmc/CAH2-KxBV9_0Dt79Quy0f4HkXXPdHfBw9FsG=4KwdWXBYNEA-ew@mail.gmail.com/>
 - <https://lore.kernel.org/openbmc/YtPrcDzaxXiM6vYJ@heinlein.stwcx.org.github.beta.tailscale.net/>
 
-### Description
+### 說明
 
-Platform functionality selected by GPIOs might equally be selected by other
-means with a shift in system design philosophy. As such, GPIOs are a (hardware)
-implementation detail. Exposing the implementation on DBus forces the
-distribution of platform design details across multiple applications, which
-violates the software design principle of [low coupling][coupling] and impacts
-our confidence in maintenance.
+由 GPIO 選取的平台功能，若系統設計理念有所轉變，同樣也能用其他方式選取。因此
+GPIO 是一項（硬體）實作細節。在 DBus 上暴露這個實作，會迫使平台的設計細節散布
+到多個應用程式之中，這違反了軟體設計中
+[低耦合][coupling]的原則，並影響我們對維護的信心。
 
 [coupling]: https://en.wikipedia.org/wiki/Coupling_%28computer_programming%29
 
-### Background
+### 背景
 
-GPIOs are often used to select functionality that might be hard to generalise,
-and therefore hard to abstract. If this is the case, then the functionality in
-question is probably best wrapped up as an implementation detail of a behaviour
-that is more generally applicable (e.g. host power-on procedures).
+GPIO 常用來選取那些難以通用化、因此也難以抽象化的功能。如果是這種情況，那麼
+相關的功能最好被包裝成一個更普遍適用之行為的實作細節（例如主機開機程序）。
 
-### Resolution
+### 解決方式
 
-Consider what functionality the GPIO provides and design or exploit an existing
-interface to expose that behaviour instead.
+考慮這個 GPIO 提供了什麼功能，並設計或利用一個現有的介面來暴露該行為。
 
-## Very long lambda callbacks
+## 非常長的 lambda 回呼函式
 
-### Identification
+### 識別方式
 
-C++ code that is similar to the following:
+類似以下的 C++ 程式碼：
 
 ```cpp
 dbus::utility::getSubTree("/", interfaces,
@@ -414,31 +365,26 @@ dbus::utility::getSubTree("/", interfaces,
                          })
 ```
 
-### Description
+### 說明
 
-Inline lambdas, while useful in some contexts, are difficult to read, and have
-inconsistent formatting with tools like `clang-format`, which causes significant
-problems in review, and in applying patchsets that might have minor conflicts.
-In addition, because they are declared in a function scope, they are difficult
-to unit test, and produce log messages that are difficult to read given their
-unnamed nature. They are also difficult to debug, lacking any symbol name to
-which to attach breakpoints or tracepoints.
+內嵌 lambda 雖然在某些情境下很有用，但難以閱讀，而且與 `clang-format` 這類工具的
+格式化結果不一致，這在審查時，以及在套用可能有小衝突的補丁集時，都會造成嚴重
+問題。此外，因為它們是在函式作用域中宣告的，所以難以進行單元測試，而且由於它們
+沒有名稱，所產生的日誌訊息也很難閱讀。它們還難以除錯，因為沒有任何符號名稱可以
+用來掛上斷點或追蹤點。
 
-### Background
+### 背景
 
-Lambdas are a natural approach to implementing callbacks in the context of
-asynchronous IO. Further, the Boost and sdbusplus ASIO APIs tend to encourage
-this approach. Doing something other than lambdas requires more effort, and so
-these options tend not to be chosen without pressure to do so.
+在非同步 IO 的情境中，lambda 是實作回呼函式的一種自然方法。此外，Boost 和
+sdbusplus 的 ASIO API 傾向於鼓勵這種做法。要採用 lambda 以外的方式需要更多努力，
+因此若沒有壓力，這些選項往往不會被選擇。
 
-### Resolution
+### 解決方式
 
-Prefer to either use `std::bind_front` and a method or static function to handle
-the return, or a lambda that is less than 10 lines of code to handle an error
-inline. In cases where `std::bind_front` cannot be used, such as in
-`sdbusplus::asio::connection::async_method_call`, keep the lambda length less
-than 10 lines, and call the appropriate function for handling non-trivial
-transforms.
+優先使用 `std::bind_front` 搭配一個方法或靜態函式來處理回傳值，或者使用一個少於
+10 行程式碼的 lambda 來內嵌處理錯誤。在無法使用 `std::bind_front` 的情況下，例如
+在 `sdbusplus::asio::connection::async_method_call` 中，請讓 lambda 長度少於 10 行，
+並呼叫適當的函式來處理非平凡的轉換。
 
 ```cpp
 void afterGetSubTree(std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
@@ -447,61 +393,50 @@ void afterGetSubTree(std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
    <many lines of code>
 }
 dbus::utility::getSubTree("/xyz/openbmc_project/inventory", interfaces,
-                         std::bind_front(afterGetSubTree, asyncResp));
+                          std::bind_front(afterGetSubTree, asyncResp));
 ```
 
-See also the [Cpp Core Guidelines][] for generalized guidelines on when lambdas
-are appropriate. The above recommendation is aligned with the Cpp Core
-Guidelines.
+另請參考 [Cpp Core Guidelines][]，其中關於 lambda 何時適用有通则性的指引。上述建議
+與 Cpp Core Guidelines 一致。
 
 [Cpp Core Guidelines]:
   https://isocpp.github.io/CppCoreGuidelines/CppCoreGuidelines#f11-use-an-unnamed-lambda-if-you-need-a-simple-function-object-in-one-place-only
 
-## Placing internal headers in a parallel subtree
+## 將內部標頭檔放在平行的子樹中
 
-### Identification
+### 識別方式
 
-Declaring types and functions that do not participate in a public API of a
-library in header files that do not live alongside their implementation in the
-source tree.
+宣告那些不参與函式庫公開 API 的型別與函式，卻把它們放在來源樹中沒有與其實作
+並存（adjacent）的標頭檔裡。
 
-### Description
+### 說明
 
-There's no reason to put internal headers in a parallel subtree (for example,
-`include/`). It's more effort to organise, puts unnecessary distance between
-declarations and definitions, and increases effort required in the build system
-configuration.
+沒有理由把內部標頭檔放在平行的子樹中（例如 `include/`）。這樣整理起來更費力，
+讓宣告與定義之間產生了不必要的距離，並增加了建置系統設定所需的心力。
 
-### Background
+### 背景
 
-In C and C++, header files expose the public API of a library to its consumers
-and need to be installed onto the developer's system in a location known to the
-compiler. To delineate which header files are to be installed and which are not,
-the public header files are often placed into an `include/` subdirectory of the
-source tree to mark their importance.
+在 C 與 C++ 中，標頭檔把函式庫的公開 API 暴露給它的使用者，需要被安裝到開發者
+系統中一個編譯器已知的位置。為了區分哪些標頭檔要安裝、哪些不要，公開的標頭檔
+常被放進來源樹的一個 `include/` 子目錄中，以標明它們的重要性。
 
-Any functions or structures that are implementation details of the library
-should not be provided in its installed header files. Ignoring this philosophy
-over-exposes the library's design and may lead to otherwise unnecessary API or
-ABI breaks in the future.
+任何屬於函式庫實作細節的函式或結構，都不應該出現在它已安裝的標頭檔中。忽略這個
+理念會過度暴露函式庫的設計，並可能在未來導致本來不必要的 API 或 ABI 破壞。
 
-Further, projects whose artifacts are only application binaries have no public
-API or ABI in the sense of a library. Any header files in the source tree of
-such projects have no need to be installed onto a developer's system and
-segregation in path from the implementation serves no purpose.
+此外，其產出物只有應用程式二進位檔的專案，在函式庫的意義上並沒有公開的 API 或
+ABI。這類專案的來源樹中任何標頭檔都不需要安裝到開發者的系統上，把它們在路徑上
+與實作隔離並沒有任何用處。
 
-### Resolution
+### 解決方式
 
-Place internal header files immediately alongside source files containing the
-corresponding implementation.
+把內部標頭檔直接放在包含對應實作的來源檔旁。
 
-## Ill-defined data structuring in `lg2` message strings
+## `lg2` 訊息字串中定義不良的資料結構化
 
-### Identification
+### 識別方式
 
-Attempts at encoding information into the journal's MESSAGE string that is at
-most only plausible to parse using a regex while also reducing human
-readability. For example:
+試圖把資訊編碼進日誌的 MESSAGE 字串中，而這些資訊最多只能用 regex 勉強解析，
+同時又降低了人類可讀性。例如：
 
 ```cpp
 error(
@@ -510,39 +445,32 @@ error(
     "ERR_EXCEP", e);
 ```
 
-### Description
+### 說明
 
-[`lg2` is OpenBMC's preferred C++ logging interface][phosphor-logging-lg2] and
-is implemented on top of the systemd journal and its library APIs.
-[systemd-journald provides structured logging][systemd-structured-logging],
-which allows us to capture additional metadata alongside the provided message.
+[`lg2` 是 OpenBMC 首選的 C++ 日誌記錄介面][phosphor-logging-lg2]，它實作在 systemd
+日誌及其函式庫 API 之上。[systemd-journald 提供結構化日誌記錄]
+[systemd-structured-logging]，讓我們能在所提供的訊息旁擷取額外中繼資料。
 
 [phosphor-logging-lg2]:
   https://github.com/openbmc/phosphor-logging/blob/master/docs/structured-logging.md
 [systemd-structured-logging]:
   https://0pointer.de/blog/projects/journal-submit.html
 
-The concept of structured logging allows for convenient programmable access to
-metadata associated with a log event. The journal captures a default set of
-metadata with each message logged. However, the primary way the entries are
-exposed to users is `journalctl`'s default behaviour of printing just the
-`MESSAGE` value for each log entry. This may lead to a misunderstanding that the
-printed message is the only way to expose related metadata for investigating
-defects.
+結構化日誌記錄的概念，讓我們能以方便的方式以程式存取與日誌事件相關的中繼資料。
+日誌會為每筆記錄的訊息擷取一組預設的中繼資料。然而，這些記錄項暴露給使用者的
+主要方式，是 `journalctl` 預設的行為——只印出每筆日誌記錄的 `MESSAGE` 值。這可能
+讓人誤以為印出的訊息是暴露相關中繼資料以調查瑕疵的唯一方式。
 
-For human ergonomics `lg2` provides the ability to interpolate structured data
-into the journal's `MESSAGE` string. This aids with human inspection of the logs
-as it becomes possible to highlight important metadata for a log event. However,
-it's not intended that this interpolation be used for ad-hoc, ill-defined
-attempts at exposing metadata for automated analysis.
+為了人因上的考量，`lg2` 提供了一種能力，可以把結構化資料內插（interpolate）進
+日誌的 `MESSAGE` 字串。這有助於人工檢視日誌，因為可以突顯某個日誌事件的重要
+中繼資料。然而，這並不打算被用於臨時的、定義不良地試圖暴露中繼資料給自動化分析。
 
-All key-value pairs provided to the `lg2` logging APIs are captured in the
-structured log event, regardless of whether any particular key is interpolated
-into the `MESSAGE` string. It is always possible to recover the information
-associated with the log event even if it's not captured in the `MESSAGE` string.
+提供給 `lg2` 日誌記錄 API 的所有鍵值對都會被擷取進結構化的日誌事件中，不論某個
+特定的鍵是否有被內插進 `MESSAGE` 字串。即使資訊沒有被擷取進 `MESSAGE` 字串，也總是
+能够還原與該日誌事件相關的資訊。
 
-`phosphor-time-manager` demonstrates a reasonable use of the `lg2` APIs. One
-logging instance in the code [is as follows][phosphor-time-manager-lg2]:
+`phosphor-time-manager` 示範了一個對 `lg2` API 的合理用法。程式碼中的一個日誌記錄
+範例[如下][phosphor-time-manager-lg2]：
 
 [phosphor-time-manager-lg2]:
   https://github.com/openbmc/phosphor-time-manager/blob/5ce9ac0e56440312997b25771507585905e8b360/manager.cpp#L98
@@ -551,14 +479,13 @@ logging instance in the code [is as follows][phosphor-time-manager-lg2]:
 info("Time mode has been changed to {MODE}", "MODE", newMode);
 ```
 
-By default, this renders in the output of `journalctl` as:
+預設情況下，這在 `journalctl` 的輸出中會呈現為：
 
 ```text
 Sep 23 06:09:57 bmc phosphor-time-manager[373]: Time mode has been changed to xyz.openbmc_project.Time.Synchronization.Method.NTP
 ```
 
-However, we can use some journalctl commandline options to inspect the
-structured data associated with the log entry:
+然而，我們可以使用一些 journalctl 命令列選項來檢視與該日誌記錄項相關的結構化資料：
 
 ```bash
 # journalctl --identifier=phosphor-time-manager --boot --output=verbose | grep -v '^    _' | head -n 9
@@ -573,24 +500,22 @@ Sat 2023-09-23 06:09:57.645208 UTC [s=85c1cb5f8e02445aa110a5164c9c07f6;i=244;b=f
     SYSLOG_IDENTIFIER=phosphor-time-manager
 ```
 
-Here we find that `MODE` and its value are captured as its own metadata entry in
-the structured data, as well as being interpolated into `MESSAGE` as requested.
-Additionally, from the log entry we can find _how_ `MODE` was interpolated into
-`MESSAGE` using the format string captured in the `LOG2_FMTMSG` metadata entry.
+在這裡我們發現 `MODE` 及其值被擷取為結構化資料中一個獨立的中繼資料記錄項，同時也
+如要求般被內插進 `MESSAGE`。此外，從日誌記錄項中我們可以用記錄在 `LOG2_FMTMSG`
+中繼資料記錄項裡的格式字串，找出 `MODE` 是*如何*被內插進 `MESSAGE` 的。
 
-`LOG2_FMTMSG` also provides a stable handle for identifying the existence of a
-specific class of log events in the journal, further aiding automated analysis.
+`LOG2_FMTMSG` 也提供了一個穩定的把手，用以識別日誌中某個特定類別日誌事件的存在，
+進一步協助自動化分析。
 
-### Background
+### 背景
 
-A variety of patches such as [PLDM:Catching exception precisely and printing
-it][openbmc-gerrit-67994] added a number of ad-hoc, ill-defined attempts at
-providing all the metadata through the `MESSAGE` entry.
+各種補丁，例如 [PLDM:Catching exception precisely and printing
+it][openbmc-gerrit-67994]，加入了一些臨時的、定義不良、試圖透過 `MESSAGE` 記錄項
+提供所有中繼資料的做法。
 
 [openbmc-gerrit-67994]: https://gerrit.openbmc.org/c/openbmc/pldm/+/67994
 
-### Resolution
+### 解決方式
 
-`lg2` messages should be formatted for consumption by humans. They should not
-contain ad-hoc, ill-defined attempts at integrating metadata for automated
-analysis.
+`lg2` 訊息的格式應該是要讓人類來使用的。它們不應該包含臨時的、定義不良、試圖
+整合中繼資料給自動化分析的做法。

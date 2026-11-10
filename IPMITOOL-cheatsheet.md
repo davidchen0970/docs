@@ -1,113 +1,112 @@
 # IPMITOOL-cheatsheet.md
 
-This document is intended to provide a set of ipmitool commands for OpenBMC
-usage.
+本文件旨在提供一組用於 OpenBMC 的 ipmitool 指令。
 
-## Power
+## 電源（Power）
 
-### 1. View server status
+### 1. 檢視伺服器狀態
 
 ```bash
 ipmitool -C 17 -H "$BMC_IP" -I lanplus -U "$BMC_USER" -P "$BMC_PASSWD" power status
 ```
 
-### 2. Server power on
+### 2. 伺服器開機
 
 ```bash
 ipmitool -C 17 -H "$BMC_IP" -I lanplus -U "$BMC_USER" -P "$BMC_PASSWD" power on
 ```
 
-### 3. Server power off
+### 3. 伺服器關機
 
 ```bash
 ipmitool -C 17 -H "$BMC_IP" -I lanplus -U "$BMC_USER" -P "$BMC_PASSWD" power off
 ```
 
-### 4. Server power reset
+### 4. 伺服器重設（reset）
 
 ```bash
 ipmitool -C 17 -H "$BMC_IP" -I lanplus -U "$BMC_USER" -P "$BMC_PASSWD" power reset
 ```
 
-### 5. Server power cycle
+### 5. 伺服器電源循環（power cycle）
 
 ```bash
 ipmitool -C 17 -H "$BMC_IP" -I lanplus -U "$BMC_USER" -P "$BMC_PASSWD" power cycle
 ```
 
-### 6. Server power soft
+### 6. 伺服器軟性關機（power soft）
 
 ```bash
 ipmitool -C 17 -H "$BMC_IP" -I lanplus -U "$BMC_USER" -P "$BMC_PASSWD" power soft
 ```
 
-### 7. Send a diagnostic interrupt directly to the processor(not support)
+### 7. 直接對處理器送出一個診斷中斷（不支援）
 
 ```bash
 ipmitool -C 17 -H "$BMC_IP" -I lanplus -U "$BMC_USER" -P "$BMC_PASSWD" power diag
 ```
 
-## Users
+## 使用者（Users）
 
-### 1. View information for all users
+### 1. 檢視所有使用者的資訊
 
 ```bash
 ipmitool -C 17 -H "$BMC_IP" -I lanplus -U "$BMC_USER" -P "$BMC_PASSWD" user list
 ```
 
-### 2. Display a brief summary of BMC users
+### 2. 顯示 BMC 使用者的簡要摘要
 
 ```bash
 ipmitool -C 17 -H "$BMC_IP" -I lanplus -U "$BMC_USER" -P "$BMC_PASSWD" user summary
 ```
 
-### 3. Create a BMC user with a given name
+### 3. 以指定名稱建立一個 BMC 使用者
 
 ```bash
 ipmitool -C 17 -H "$BMC_IP" -I lanplus -U "$BMC_USER" -P "$BMC_PASSWD" user set name <userid> <username>
 ```
 
-### 4. Set a given user with a given password
+### 4. 為指定使用者設定密碼
 
 ```bash
 ipmitool -C 17 -H "$BMC_IP" -I lanplus -U "$BMC_USER" -P "$BMC_PASSWD" user set password <userid>[<password>]
 ```
 
-### 5. Disable designated users from accessing BMC
+### 5. 停用指定使用者存取 BMC 的權限
 
 ```bash
 ipmitool -C 17 -H "$BMC_IP" -I lanplus -U "$BMC_USER" -P "$BMC_PASSWD" user disable <userid>
 ```
 
-### 6. Enable the specified user to access BMC
+### 6. 啟用指定使用者存取 BMC 的權限
 
 ```bash
 ipmitool -C 17 -H "$BMC_IP" -I lanplus -U "$BMC_USER" -P "$BMC_PASSWD" user enable <userid>
 ```
 
-## Field-replaceable Unit (FRU)
+## 現場可更換單元（Field-replaceable Unit，FRU）
 
-### 1. View FRU information
+### 1. 檢視 FRU 資訊
 
 ```bash
 ipmitool -C 17 -H "$BMC_IP" -I lanplus -U "$BMC_USER" -P "$BMC_PASSWD" fru list
 ```
 
-## Sensor Data Record (SDR)
+## 感測器資料記錄（Sensor Data Record，SDR）
 
-### 1. View SDR information
+### 1. 檢視 SDR 資訊
 
 ```bash
 ipmitool -C 17 -H "$BMC_IP" -I lanplus -U "$BMC_USER" -P "$BMC_PASSWD" sdr
 ```
 
-### 2. Query related SDR information in BMC
+### 2. 查詢 BMC 中相關的 SDR 資訊
 
 ```bash
 ipmitool -C 17 -H "$BMC_IP" -I lanplus -U "$BMC_USER" -P "$BMC_PASSWD" sdr info
 ```
 
-### 3. View sensor date records
+### 3. 檢視感測器資料記錄
 
 ```bash
 ipmitool -C 17 -H "$BMC_IP" -I lanplus -U "$BMC_USER" -P "$BMC_PASSWD" sdr list [all|full|compact|event|mcloc|fru|generic]
@@ -122,81 +121,81 @@ fru     : FRU (Field Replaceable Unit) locator record
 generic : General SDR records
 ```
 
-## Sensors
+## 感測器（Sensors）
 
-### 1. View sensor information
+### 1. 檢視感測器資訊
 
 ```bash
 ipmitool -C 17 -H "$BMC_IP" -I lanplus -U "$BMC_USER" -P "$BMC_PASSWD" sensor list
 ```
 
-## Management Controller (MC)
+## 管理控制器（Management Controller，MC）
 
-### 1. Instruct the BMC to perform a cold reset
+### 1. 指示 BMC 執行冷開機重設（cold reset）
 
 ```bash
 ipmitool -C 17 -H "$BMC_IP" -I lanplus -U "$BMC_USER" -P "$BMC_PASSWD" mc reset cold
 ```
 
-### 2. Instruct the BMC to perform a warm reset(not supported)
+### 2. 指示 BMC 執行熱重設（warm reset，不支援）
 
 ```bash
 ipmitool -C 17 -H "$BMC_IP" -I lanplus -U "$BMC_USER" -P "$BMC_PASSWD" mc reset warm
 ```
 
-### 3. View BMC information
+### 3. 檢視 BMC 資訊
 
 ```bash
 ipmitool -C 17 -H "$BMC_IP" -I lanplus -U "$BMC_USER" -P "$BMC_PASSWD" mc info
 ```
 
-### 4. View the currently available operation options of BMC
+### 4. 檢視 BMC 目前可用的操作選項
 
 ```bash
 ipmitool -C 17 -H "$BMC_IP" -I lanplus -U "$BMC_USER" -P "$BMC_PASSWD" mc getenables
 ```
 
-## Channels
+## 通道（Channels）
 
-### 1. Display the authentication function about the selected information channel
+### 1. 顯示所選資訊通道的驗證功能
 
 ```bash
 ipmitool -C 17 -H "$BMC_IP" -I lanplus -U "$BMC_USER" -P "$BMC_PASSWD" channel authcap <channel number> <max privilege>
 ```
 
-### 2. Display the information for the selected channel
+### 2. 顯示所選通道的資訊
 
 ```bash
 ipmitool -C 17 -H "$BMC_IP" -I lanplus -U "$BMC_USER" -P "$BMC_PASSWD" channel info [<channel number>]
 ```
 
-### 3. View channel information
+### 3. 檢視通道資訊
 
 ```bash
 ipmitool -C 17 -H "$BMC_IP" -I lanplus -U "$BMC_USER" -P "$BMC_PASSWD" channel info
 ```
 
-## Chassis
+## 機殼（Chassis）
 
-### 1. Display information about the high-level status of the system rack and power subsystem
+### 1. 顯示系統機架與電源子系統的高階狀態資訊
 
 ```bash
 ipmitool -C 17 -H "$BMC_IP" -I lanplus -U "$BMC_USER" -P "$BMC_PASSWD" chassis status
 ```
 
-### 2. The command will return the power on time
+### 2. 此指令會回傳開機時間（Power-On Hours）
 
 ```bash
 ipmitool -C 17 -H "$BMC_IP" -I lanplus -U "$BMC_USER" -P "$BMC_PASSWD" chassis poh
 ```
 
-### 3. Query the reason for the last system restart.(not supported)
+### 3. 查詢上次系統重新啟動的原因（不支援）
 
 ```bash
 ipmitool -C 17 -H "$BMC_IP" -I lanplus -U "$BMC_USER" -P "$BMC_PASSWD" chassis restart_cause
 ```
 
-### 4. Set rack power strategy in case of power failure
+### 4. 設定斷電時的機架電源策略
 
 ```bash
 ipmitool -C 17 -H "$BMC_IP" -I lanplus -U "$BMC_USER" -P "$BMC_PASSWD" chassis policy <state>
@@ -208,7 +207,7 @@ previous    : return to previous state when power is restored
 always-off  : stay off after power is restored
 ```
 
-### 5. View and change power status
+### 5. 檢視並變更電源狀態
 
 ```bash
 ipmitool -C 17 -H "$BMC_IP" -I lanplus -U "$BMC_USER" -P "$BMC_PASSWD" chassis power
@@ -222,7 +221,7 @@ soft   : power soft
 cycle  : power cycle
 ```
 
-### 6. Set boot device for next system restart
+### 6. 設定下次系統重新啟動時的開機裝置
 
 ```bash
 ipmitool -C 17 -H "$BMC_IP" -I lanplus -U "$BMC_USER" -P "$BMC_PASSWD" chassis bootdev <device>
@@ -230,60 +229,60 @@ ipmitool -C 17 -H "$BMC_IP" -I lanplus -U "$BMC_USER" -P "$BMC_PASSWD" chassis b
 
 ##
 
-Currently supported devices:
+目前支援的裝置：
 
 | device | function                                                    |
 | :----: | ----------------------------------------------------------- |
-|  none  | do not change boot device                                   |
-|  pxe   | boot from pxe                                               |
-|  disk  | boot from BIOS default boot device                          |
-|  safe  | boot from BIOS default boot device,but requires a safe mode |
-|  diag  | boot from the diagnostic partition                          |
-| cdrom  | boot from the CD/DVD                                        |
-|  bios  | enter bios settings                                         |
+|  none  | 不變更開機裝置                                   |
+|  pxe   | 從 pxe 開機                                               |
+|  disk  | 從 BIOS 預設開機裝置開機                          |
+|  safe  | 從 BIOS 預設開機裝置開機，但需要安全模式 |
+|  diag  | 從診斷分割區開機                          |
+| cdrom  | 從 CD/DVD 開機                                        |
+|  bios  | 進入 bios 設定                                         |
 
-If you want to make your override persistent over reboots use the `persistent`
-option:
+若您希望讓此覆寫設定在重新開機後仍然生效，請使用 `persistent`
+選項：
 
 ```bash
 ipmitool -C 17 -H "$BMC_IP" -I lanplus -U "$BMC_USER" -P "$BMC_PASSWD" chassis bootdev <device> options=persistent
 ```
 
-If the main host machine is based on the x86 CPU you need also pay attention to
-the legacy/EFI mode selector. By default IPMI overrides boot source with the
-legacy mode enabled. To set EFI mode use `efiboot` option:
+如果主機是基於 x86 CPU，您還需要注意 legacy/EFI 模式選擇器。
+IPMI 預設會在啟用 legacy 模式的情況下覆寫開機來源。若要設定為
+EFI 模式，請使用 `efiboot` 選項：
 
 ```bash
 ipmitool -C 17 -H "$BMC_IP" -I lanplus -U "$BMC_USER" -P "$BMC_PASSWD" chassis bootdev <device> options=efiboot
 ```
 
-You can combine options with a help of `,`:
+您可以使用 `,` 來組合多個選項：
 
 ```bash
 ipmitool -C 17 -H "$BMC_IP" -I lanplus -U "$BMC_USER" -P "$BMC_PASSWD" chassis bootdev <device> options=persistent,efiboot
 ```
 
-To read current boot source override setting:
+若要讀取目前的開機來源覆寫設定：
 
 ```bash
 ipmitool -C 17 -H "$BMC_IP" -I lanplus -U "$BMC_USER" -P "$BMC_PASSWD" chassis bootparam get 5
 ```
 
-### 7. Control panel logo light
+### 7. 控制面板指示燈（logo light）
 
 ```bash
 ipmitool -C 17 -H "$BMC_IP" -I lanplus -U "$BMC_USER" -P "$BMC_PASSWD" chassis identify <interval>
 ```
 
-## Local Area Network(LAN)
+## 區域網路（Local Area Network，LAN）
 
-### 1. Output the current configuration information of a given channel
+### 1. 輸出指定通道目前的設定資訊
 
 ```bash
 ipmitool -C 17 -H "$BMC_IP" -I lanplus -U "$BMC_USER" -P "$BMC_PASSWD" lan print [<channel number>]
 ```
 
-### 2. Set the given parameters for the given channel
+### 2. 為指定通道設定指定參數
 
 ```bash
 ipmitool -C 17 -H "$BMC_IP" -I lanplus -U "$BMC_USER" -P "$BMC_PASSWD" lan set <channel> <command> <parameter>
@@ -300,55 +299,55 @@ password <pass>                  : Set no user password
 access <on|off>                  : Set the LAN channel access mode
 ```
 
-## System Event Log (SEL)
+## 系統事件記錄（System Event Log，SEL）
 
-### 1. Query the relevant information about SEL and its content in BMC
+### 1. 查詢 BMC 中 SEL 及其內容的相關資訊
 
 ```bash
 ipmitool -C 17 -H "$BMC_IP" -I lanplus -U "$BMC_USER" -P "$BMC_PASSWD" sel info
 ```
 
-### 2. Clear the information in SEL,but it cannot be undone
+### 2. 清除 SEL 中的資訊，且此操作無法復原
 
 ```bash
 ipmitool -C 17 -H "$BMC_IP" -I lanplus -U "$BMC_USER" -P "$BMC_PASSWD" sel clear
 ```
 
-### 3. Delete a single event
+### 3. 刪除單一事件
 
 ```bash
 ipmitool -C 17 -H "$BMC_IP" -I lanplus -U "$BMC_USER" -P "$BMC_PASSWD" sel delete <number>
 ```
 
-### 4. Display the current time of the SEL clock
+### 4. 顯示 SEL 時鐘的目前時間
 
 ```bash
 ipmitool -C 17 -H "$BMC_IP" -I lanplus -U "$BMC_USER" -P "$BMC_PASSWD" sel time get
 ```
 
-## Session
+## 工作階段（Session）
 
-### 1. Display session information
+### 1. 顯示工作階段資訊
 
 ```bash
 ipmitool -C 17 -H "$BMC_IP" -I lanplus -U "$BMC_USER" -P "$BMC_PASSWD" session info all
 ```
 
-## Serial Over Lan (SOL)
+## 序列埠-over-LAN（Serial Over Lan，SOL）
 
-### 1. Retrieve Serial-Over-LAN configuration information for the specified channel
+### 1. 取得指定通道的 Serial-Over-LAN 設定資訊
 
 ```bash
 ipmitool -C 17 -H "$BMC_IP" -I lanplus -U "$BMC_USER" -P "$BMC_PASSWD" sol info [<channel number>]
 ```
 
-### 2. Put ipmitool into Serial Over LAN mode
+### 2. 將 ipmitool 切換至 Serial Over LAN 模式
 
 ```bash
 ipmitool -C 17 -H "$BMC_IP" -I lanplus -U "$BMC_USER" -P "$BMC_PASSWD" sol activate
 ```
 
-### 3. Disable serial LAN in BMC mode
+### 3. 在 BMC 模式下停用序列 LAN
 
 ```bash
 ipmitool -C 17 -H "$BMC_IP" -I lanplus -U "$BMC_USER" -P "$BMC_PASSWD" sol deactivate

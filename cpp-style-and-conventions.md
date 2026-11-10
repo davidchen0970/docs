@@ -1,168 +1,110 @@
-# C++ Coding Style and Conventions
+# C++ 編碼風格與慣例
 
-## General Philosophy
+## 整體理念
 
-Being an extensive and complicated language, there are often differences of
-opinions on "good" and "bad" C++ code. Bjarne Stroustrup has said "Within C++ is
-a smaller, simpler, safer language struggling to get out." We are striving to
-write in this variant of C++ and are therefore following the "C++ Core
-Guidelines" that Bjarne and Herb Sutter introduced at CppCon 2015.
+C++ 是一門龐大而複雜的語言，因此對於什麼是「好」或「壞」的 C++ 程式碼，往往存在不同的看法。Bjarne Stroustrup 曾說過：「在 C++ 之中，藏著一門更小、更簡單、更安全的語言，正努力掙脫而出。」我們致力於以這種 C++ 變體來撰寫程式碼，因此遵循 Bjarne 與 Herb Sutter 在 CppCon 2015 上提出的「C++ Core Guidelines」。
 
-Beyond a set of rules that help codify "good" and "bad" C++, we have general
-principles that help us align the software we develop with the constraints
-within the problem domain being solved by OpenBMC. These are:
+除了那些幫助界定「好」與「壞」C++ 的規則之外，我們還有一些通用原則，幫助我們將所開發的軟體與 OpenBMC 所要解決的問題領域中的限制保持一致。這些原則是：
 
-1. Code should be clear and concise.
-2. Code should be written with modern practices.
-3. Code should be performant.
+1. 程式碼應該清晰簡潔。
+2. 程式碼應該以現代化的慣例來撰寫。
+3. 程式碼應該具備效能。
 
-### Code should be clear and concise
+### 程式碼應該清晰簡潔
 
-> Brevity is the soul of wit.
+> 簡潔是機智的靈魂。
 
-It is important that code be optimized for the reviewer and maintainer and not
-for the writer. Solutions should avoid tricks that detract from the clarity of
-reviewing and understanding it.
+重要的是，程式碼應該為了審查者與維護者而最佳化，而不是為了撰寫者。解決方案應該避免那些會損害審查與理解清晰度的詭計。
 
-Modern practices allow C++ to be an expressive, but concise, language. We tend
-to favor solutions which succinctly represent the problem in as few lines as
-possible.
+現代化的慣例讓 C++ 得以成為一門富表現力卻又簡潔的語言。我們傾向於選擇那些以盡可能少的行數來精簡表達問題的解決方案。
 
-When there is a conflict between clarity and conciseness, clarity should win
-out.
+當清晰度與簡潔性之間產生衝突時，應該以清晰度為優先。
 
-### Code should be written with modern practices
+### 程式碼應該以現代化的慣例來撰寫
 
-We strive to keep our code conforming to and utilizing of the latest in C++
-standards. Today, that means all C++ code should be compiled using C++23
-compiler settings. As the C++26 standard is finalized and compilers support it,
-we will move to it as well.
+我們致力於讓程式碼符合並運用最新的 C++ 標準。以今日而言，這代表所有的 C++ 程式碼都應該以 C++23 的編譯器設定來編譯。隨著 C++26 標準定案且編譯器開始支援它，我們也會跟著移轉過去。
 
-We also strive to keep the codebase up-to-date with the latest recommended
-practices by the language designers. This is reflected by the choice in
-following the C++ Core Guidelines.
+我們同樣致力於讓程式碼庫與語言設計者所建議的最新慣例保持同步。這反映在我們選擇遵循 C++ Core Guidelines 上。
 
-We finally desire to have computers do our thinking for us wherever possible.
-This means having Continuous Integration tests on each repository so that
-regressions are quickly identified prior to merge. It also means having as much
-of this document enforced by tools as possible by, for example, clang-format and
-clang-tidy.
+最後，我們希望在可能的情況下，盡量讓電腦替我們思考。這代表每個 repository 都應該有 Continuous Integration 測試，以便在合併之前快速找出 regression。這也代表要盡量讓本文件中更多的內容由工具來強制執行，例如 clang-format 與 clang-tidy。
 
-For those coming to the project from pre-C++11 environments we strongly
-recommend the book "Effective Modern C++" as a way to get up to speed on the
-differences between C++98/03 and C++11/14/17/20.
+對於那些從 pre-C++11 環境來到本專案的人，我們強烈推薦《Effective Modern C++》這本書，作為快速掌握 C++98/03 與 C++11/14/17/20 之間差異的方式。
 
-### Code should be performant
+### 程式碼應該具備效能
 
-OpenBMC targets embedded processors that typically have 32-64MB of flash and
-similar processing power of a typical smart-watch available in 2016. This means
-that there are times where we must limit library selection and/or coding
-techniques to compensate for this constraint. Due to the current technology,
-performance evaluation is done in order of { code size, cpu utilization, and
-memory size }.
+OpenBMC 的目標是嵌入式處理器，它們通常只有 32-64MB 的 flash，處理能力相當於 2016 年一般的智慧手錶。這代表有時候我們必須限制函式庫的選擇，及／或編碼技巧，以彌補這個限制。由於目前的技術，效能評估按照 { 程式碼大小、CPU 使用率、記憶體大小 } 的順序進行。
 
-From a macro-optimization perspective, we expect all solutions to have an
-appropriate algorithmic complexity for the problem at hand. Therefore, an
-`O(n^3)` algorithm may be rejected even though it has good clarity when an
-`O(n*lg(n))` solution exists.
+從巨觀最佳化的角度來看，我們期望所有的解決方案都針對當前問題具備適當的演算法複雜度。因此，即使某個 `O(n^3)` 的演算法清晰度良好，只要存在 `O(n*lg(n))` 的解決方案，它仍可能被拒絕。
 
-## Global Guidelines and Practices
+## 全域準則與慣例
 
-Please follow the guidelines established by the C++ Core Guidelines (CCG).
+請遵循 C++ Core Guidelines (CCG) 所建立的準則。
 
 <https://github.com/isocpp/CppCoreGuidelines/blob/master/CppCoreGuidelines.md>
 
-[[Last reviewed revision is 53bc78f]]
+[[最後審查的修訂版本為 53bc78f]]
 
-Exceptions:
+例外情況：
 
 ### Guideline Support Library (GSL)
 
-We do not currently utilize the Guideline Support Library provided by the CCG.
-Any recommendation within the CCG of GSL conventions may be ignored at this
-time.
+我們目前不使用 CCG 所提供的 Guideline Support Library。此刻可以忽略 CCG 中任何關於 GSL 慣例的建議。
 
-### Style recommendations
+### 風格建議
 
-The following are not followed:
+以下幾項不予遵循：
 
 - NL.10 Avoid CamelCase
 - NL.17 Use K&R-derived layout
 
-## Library and Feature Specifics
+## 函式庫與特性相關細節
 
-Additional recommendations within the OpenBMC project on specific language
-features or libraries.
+關於特定語言特性或函式庫，OpenBMC 專案內的額外建議。
 
-### Exceptions
+### 例外狀況
 
-We do use exceptions as a basis for error handling within OpenBMC.
+我們確實使用 exceptions 作為 OpenBMC 內錯誤處理的基礎。
 
 ### Boost
 
-Use of boost is allowed, under the following circumstances:
+在以下情況下允許使用 boost：
 
-1. Use is done as a header-only library. This allows unused functions and
-   methods to be removed by the compiler at link time, and avoids adding large
-   amounts of overhead and flash usage.
-2. Implementers should include the lowest level header required to solve the
-   problem at hand. This allows uses to be found and moved forward when new
-   standards are available, as well as reduce compile times, and decrease the
-   possibility of accidental use. (ie, #include <boost/container/flat_map.hpp>
-   not #include <boost/container.hpp>)
-3. The module used should not have an equivalent in the std namespace that meets
-   the same requirements for implementation or clarity: For example, std::chrono
-   should be preferred over boost::chrono. std::array over boost::array.
-4. Use does not conflict with any of the core tenants of this coding standard
-   (clarity, modern practices, or performance).
+1. 以僅頭檔案（header-only）函式庫的形式使用。這能讓未使用的函式與方法在連結時期被編譯器移除，避免增加大量的額外負擔與 flash 用量。
+2. 實作者應該只包含解決當前問題所需的最低階頭檔案。這讓這些用法能夠在新標準可用時被找出並向前推進，同時也能縮短編譯時間，並降低意外使用的可能性。（例如 `#include <boost/container/flat_map.hpp>`，而不是 `#include <boost/container.hpp>`）
+3. 所使用的模組在 std namespace 中不應該有符合相同實作或清晰度需求的對應物。例如，應該優先使用 std::chrono 而非 boost::chrono；std::array 而非 boost::array。
+4. 使用上不應與本編碼標準的任何核心原則（清晰度、現代化慣例或效能）相衝突。
 
 ### iostream
 
-The iostream conventions of using 'operator<<' contribute to an increased code
-size over printf-style operations, due to individual function calls for each
-appended value. We therefore do not use iostreams, or iostream-style APIs, for
-logging.
+iostream 使用 `operator<<` 的慣例會導致相對於 printf 風格操作增加程式碼大小，因為每個附加的值都需要個別的函式呼叫。因此，我們不使用 iostream 或 iostream 風格的 API 來做記錄（logging）。
 
-There are cases when using an iostream utility (such as sstream) can result in
-clearer and similar-sized code. iostream may be used in those situations.
+有些情況下，使用 iostream 工具（例如 sstream）反而能產生更清晰且大小相近的程式碼。在那些情況下可以使用 iostream。
 
-## Coding Style
+## 編碼風格
 
-Indentation, naming practices, etc.
+縮排、命名慣例等等。
 
-### General
+### 一般
 
-- Line length should be limited to 80 characters.
-- Indentation should be done with 4 space characters.
-- Files should use Unix-style newlines (\n).
+- 行長度應該限制在 80 個字元。
+- 縮排應該使用 4 個空格字元。
+- 檔案應該使用 Unix 風格的換行字元 (\n)。
 
-### Clang Formatting
+### Clang 格式化
 
-Individual OpenBMC repositories can use
-[clang-format](https://clang.llvm.org/docs/ClangFormat.html) if desired. The
-OpenBMC CI infrastructure will automatically verify the code formatting on code
-check-in if a .clang_format file is found within the root directory of the
-repository. This allows for automatic validation of code formatting upon
-check-in.
+各個 OpenBMC repository 可以視需要使用
+[clang-format](https://clang.llvm.org/docs/ClangFormat.html)。如果在 repository 的根目錄中找到 .clang_format 檔案，OpenBMC CI 基礎設施會在程式碼簽入（check-in）時自動驗證程式碼格式。這使得程式碼格式能在簽入時自動驗證。
 
-If a custom configuration is desired, such as using different clang formatting
-for C and C++ files, a format-code.sh script can be created, which can for
-example use different .clang\* files as input depending on the file type. The
-format-code.sh script will be executed as part of CI if found in the root
-directory of the repository, and will check that there are no files that were
-modified after running it (same check as running clang).
+如果需要使用自訂設定，例如對 C 與 C++ 檔案使用不同的 clang 格式，可以建立一個 format-code.sh 腳本，例如根據檔案類型使用不同的 .clang\* 檔案作為輸入。如果在 repository 的根目錄中找到 format-code.sh 腳本，它會作為 CI 的一部分執行，並檢查執行它之後是否沒有檔案被修改（與執行 clang 時的檢查相同）。
 
-OpenBMC requires a clang-format of version 6.0 or greater. An example of how to
-run clang-format against all code in your repo can be found by referencing the
-[tool](https://github.com/openbmc/openbmc-build-scripts/blob/master/scripts/format-code.sh)
-used by CI.
+OpenBMC 需要 6.0 或更高版本的 clang-format。關於如何對 repository 中的所有程式碼執行 clang-format 的範例，可以參考 CI 所使用的
+[tool](https://github.com/openbmc/openbmc-build-scripts/blob/master/scripts/format-code.sh)。
 
 [Example .clang-format](https://www.github.com/openbmc/docs/blob/master/style/cpp/.clang-format)
 
-### Bracket style
+### 括號風格
 
-- Utilize 'Allman' style brackets. Brackets are on their own line at the same
-  indentation level as the statement that creates the scope.
+- 使用「Allman」風格的括號。括號應該獨立成一行，並與建立作用域（scope）的敘述處於相同的縮排層級。
 
 ```cpp
 if (condition)
@@ -178,7 +120,7 @@ void foo()
 }
 ```
 
-- Even one line conditional and loop statements should have brackets.
+- 即使是單行的條件與迴圈敘述也應該加上括號。
 
 ```cpp
 /// Wrong.
@@ -192,10 +134,9 @@ if (condition)
 }
 ```
 
-### Indentation
+### 縮排
 
-- Content within a namespace should be at the same indentation level as the
-  namespace itself.
+- namespace 內的內容應該與 namespace 本身處於相同的縮排層級。
 
 ```cpp
 namespace foo
@@ -206,7 +147,7 @@ content
 }
 ```
 
-- Content within a class / struct should be indented.
+- class / struct 內的內容應該縮排。
 
 ```cpp
 class Foo
@@ -216,7 +157,7 @@ class Foo
 }
 ```
 
-- Content within a function / conditional / loop should be indented.
+- function / 條件 / 迴圈內的內容應該縮排。
 
 ```cpp
 void foo()
@@ -231,7 +172,7 @@ void foo()
 }
 ```
 
-- Switch / case statements should be indented.
+- Switch / case 敘述應該縮排。
 
 ```cpp
 switch (foo)
@@ -250,10 +191,7 @@ switch (foo)
 }
 ```
 
-- Labels should be indented so they appear at 1 level less than the current
-  indentation, rather than flush to the left. (This is not to say that goto and
-  labels are preferred or should be regularly used, but simply when they are
-  used, this is how they are to be used.)
+- 標籤（label）應該縮排到比目前縮排少一層的位置，而不是貼齊左邊。（這並不是說偏好或應該經常使用 goto 與標籤，而只是說當使用它們時，應該以這種方式使用。）
 
 ```cpp
 void foo()
@@ -275,11 +213,10 @@ void foo()
 }
 ```
 
-### Naming Conventions
+### 命名慣例
 
-- We generally abstain from any prefix or suffix on names.
-- Acronyms should be same-case throughout and follow the requirements as in
-  their appropriate section.
+- 我們大致上不在名稱上使用任何前綴或後綴。
+- 首字母縮略字（acronym）應該 throughout 保持一致的大小寫，並遵循其對應章節中的要求。
 
 ```cpp
 /// Correct.
@@ -289,9 +226,9 @@ SomeBMCType someBMCVariable = bmcFunction();
 SomeBmcType someBmcVariable = BMCFunction();
 ```
 
-### Header Ordering
+### 頭檔案順序
 
-Header inclusion order for a header file:
+頭檔案的 include 順序：
 
 ```text
 local headers (e.g. "daemon_sys.hpp")
@@ -299,7 +236,7 @@ c-libraries
 cpp-libraries (including openbmc libraries)
 ```
 
-Header inclusion order for a source file:
+來源檔案（source file）的 include 順序：
 
 ```text
 source.hpp (if applicable)
@@ -308,27 +245,21 @@ c-libraries
 cpp-libraries
 ```
 
-All in alphabetically sorted order.
+全部以字母順序排序。
 
-#### Files
+#### 檔案
 
-- C++ headers should end in ".hpp". C headers should end in ".h".
-- C++ files should be named with lower_snake_case.
+- C++ 頭檔案應該以「.hpp」結尾。C 頭檔案應該以「.h」結尾。
+- C++ 檔案應該以 lower_snake_case 命名。
 
-#### Types
+#### 型別
 
-- Prefer 'using' over 'typedef' for type aliases.
-- Structs, classes, enums, and typed template parameters should all be in
-  UpperCamelCase.
-- Prefer namespace scoping rather than long names with prefixes.
-- A single-word type alias within a struct / class may be lowercase to match STL
-  conventions (`using type = T`) while a multi-word type alias should be
-  UpperCamelCase (`using ArrayOfT = std::array<T, N>`).
-- Exception: A library API may use lower_snake_case to match conventions of the
-  STL or an underlying C library it is abstracting. Application APIs should all
-  be UpperCamelCase.
-- Exception: A for-convenience template type alias of a template class may end
-  in `_t` to match the conventions of the STL.
+- 對於型別別名，優先使用 'using' 而非 'typedef'。
+- Struct、class、enum 以及帶型別的範本參數都應該使用 UpperCamelCase。
+- 優先使用 namespace 作用域，而非帶有前綴的長名稱。
+- struct / class 內的單字型別別名可以使用小寫以符合 STL 慣例（`using type = T`），而多字型別別名則應該使用 UpperCamelCase（`using ArrayOfT = std::array<T, N>`）。
+- 例外情況：函式庫 API 可以使用 lower_snake_case，以符合它所抽象化的 STL 或底層 C 函式庫的慣例。Application API 都應該使用 UpperCamelCase。
+- 例外情況：為了方便而為範本類別所建立的範本型別別名，可以使用 `_t` 結尾，以符合 STL 的慣例。
 
 ```cpp
 template <typename T>
@@ -340,45 +271,41 @@ class Foo
 template <typename T> using foo_t = Foo<T>::type;
 ```
 
-#### Variables
+#### 變數
 
-- Variables should all be lowerCamelCase, including class members, with no
-  underscores.
+- 所有變數都應該使用 lowerCamelCase，包括 class 成員在內，且不使用底線。
 
-#### Functions
+#### 函式
 
-- Functions should all be lowerCamelCase.
-- Exception: A library API may use lower_snake-case to match conventions of the
-  STL or an underlying C library it is abstracting. Application APIs should all
-  be lowerCamelCase.
+- 所有函式都應該使用 lowerCamelCase。
+- 例外情況：函式庫 API 可以使用 lower_snake-case，以符合它所抽象化的 STL 或底層 C 函式庫的慣例。Application API 都應該使用 lowerCamelCase。
 
-#### Constants
+#### 常數
 
-- Constants and enum members should be named like variables in lowerCamelCase.
+- 常數與 enum 成員應該像變數一樣以 lowerCamelCase 命名。
 
-#### Namespaces
+#### Namespace
 
-- Namespaces should be lower_snake_case.
-- Top-level namespace should be named based on the containing repository.
-- Favor a namespace called 'details' or 'internal' to indicate the equivalent of
-  a "private" namespace in a header file and anonymous namespaces in a C++ file.
+- Namespace 應該使用 lower_snake_case。
+- 最頂層的 namespace 應該根據其所在的 repository 來命名。
+- 偏好使用名為 'details' 或 'internal' 的 namespace，以表示在頭檔案中相當於「private」的 namespace，以及在 C++ 檔案中的匿名 namespace。
 
-### Header Guards
+### 頭檔案保護
 
-Prefer '#pragma once' header guard over '#ifndef'-style.
+優先使用 '#pragma once' 頭檔案保護，而非 '#ifndef' 風格。
 
-### Additional Whitespace
+### 額外空白
 
-- Follow NL.18: Use C++-style declarator layout.
+- 遵循 NL.18：Use C++-style declarator layout。
 
 ```cpp
 foo(T& bar, const S* baz); /// Correct.
 foo(T &bar, const S *baz); /// Incorrect.
 ```
 
-- Follow NL.15: Use spaces sparingly.
+- 遵循 NL.15：Use spaces sparingly。
 
-- Insert whitespace after a conditional and before parens.
+- 在條件之後、括號之前插入空白。
 
 ```cpp
 if (...)
@@ -386,14 +313,14 @@ while (...)
 for (...)
 ```
 
-- Insert whitespace around binary operators for readability.
+- 為了可讀性，在二元運算子兩側插入空白。
 
 ```cpp
 foo((a-1)/b,c-2); /// Incorrect.
 foo((a - 1) / b, c - 2); /// Correct.
 ```
 
-- Do not insert whitespace around unary operators.
+- 不要在單元運算子兩側插入空白。
 
 ```cpp
 a = * b;  /// Incorrect.
@@ -402,8 +329,7 @@ a = b -> c;  /// Incorrect.
 if (! a)  /// Incorrect.
 ```
 
-- Do not insert whitespace inside parens or between a function call and
-  parameters.
+- 不要在括號內部，或在函式呼叫與參數之間插入空白。
 
 ```cpp
 foo(x, y); /// Correct.
@@ -414,7 +340,7 @@ do (...)
 } while(0); /// 'while' here is structured like a function call.
 ```
 
-- Prefer line-breaks after operators to show continuation.
+- 偏好將換行放在運算子之後，以表示接續（continuation）。
 
 ```cpp
 if (this1 == that1 &&
@@ -424,8 +350,7 @@ if (this1 == that1
     && this2 == that2) /// Incorrect.
 ```
 
-- Long lines should have continuation start at the same level as the parens or
-  all all items inside the parens should be at a 2-level indent.
+- 長行應該讓接續部分對齊到與括號相同的層級，或讓括號內的所有項目都縮排兩層。
 
 ```cpp
 reallyLongFunctionCall(foo,
@@ -445,13 +370,8 @@ reallyLongFunctionCall(foo,
         baz); // Incorrect.
 ```
 
-### Misc Guidelines
+### 其他準則
 
-- Always use `size_t` or `ssize_t` for things that are sizes, counts, etc. You
-  need a strong rationale for using a sized type (ex. `uint8_t`) when a size_t
-  will do.
+- 對於表示大小、數量等的東西，一律使用 `size_t` 或 `ssize_t`。當 size_t 就足夠時，使用帶有固定寬度的型別（例如 `uint8_t`）需要有強力的理由。
 
-- Use `uint8_t`, `int16_t`, `uint32_t`, `int64_t`, etc. for types where size is
-  important due to interactions with hardware or some externally defined API/ABI
-  (such as a system call or library interface). Do not use them, without good
-  reason, when such interaction is not involved; prefer size_t or int instead.
+- 當大小因為與硬體互動或某些外部定義的 API/ABI（例如 system call 或函式庫介面）而重要時，使用 `uint8_t`、`int16_t`、`uint32_t`、`int64_t` 等型別。當不涉及這類互動時，不要在沒有充分理由的情況下使用它們；請優先使用 size_t 或 int。

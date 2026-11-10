@@ -1,138 +1,119 @@
-# OCP LED Policy Support
+# OCP LED Policy 支援
 
-Author: Alexander Hansen
+作者：Alexander Hansen
 [alexander.hansen@9elements.com](mailto:alexander.hansen@9elements.com)
 
-Other contributors: None
+其他貢獻者：無
 
-Created: July 22, 2024
+建立日期：2024 年 7 月 22 日
 
-## Problem Description
+## 問題描述
 
-OpenBMC must support the [OCP LED Policy](#background-and-references). Currently
-there are some problematic cases in which the Policy is not supported by
-existing services like phosphor-led-manager.
+OpenBMC 必須支援 [OCP LED Policy](#background-and-references)。目前有一些有問題的情況，現有的服務（例如 phosphor-led-manager）並不支援該 Policy。
 
-### Example ([Spec](#background-and-references) 6.2. System General Status)
+### 範例（[規格](#background-and-references) 6.2. System General Status）
 
-#### Defined states
+#### 已定義的狀態
 
-| STS (blue) | FAULT (amber) | NAME                                            |
-| ---------- | ------------- | ----------------------------------------------- |
-| 1          | 0             | "All OK"                                        |
-| 0          | 1             | "Module missing / fault"                        |
-| 1          | 1             | LED Priority (cannot represent the fault state) |
+| STS（藍色） | FAULT（琥珀色） | NAME |
+| ---------- | ------------- | ---- |
+| 1          | 0             | "All OK" |
+| 0          | 1             | "Module missing / fault" |
+| 1          | 1             | LED Priority（無法表示 fault 狀態） |
 
-#### Example sequence
+#### 範例序列
 
-| STS | FAULT | action        |
-| --- | ----- | ------------- |
-| 0   | 0     | initial state |
-| 1   | 0     | assert ok     |
-| 1   | 1     | assert fault  |
-| 1   | 1     | final state   |
+| STS | FAULT | 動作 |
+| --- | ----- | ---- |
+| 0   | 0     | 初始狀態 |
+| 1   | 0     | 設定 ok |
+| 1   | 1     | 設定 fault |
+| 1   | 1     | 最終狀態 |
 
-When for example both of these groups are asserted, the change in LED state will
-be determined by the LED priority. The result is not allowed in the state
-diagram in [Spec](#background-and-references).
+例如，當這兩組同時被設定（assert）時，LED 狀態的變化將由 LED priority 決定。這樣的結果在[規格](#background-and-references)的狀態圖中是不被允許的。
 
-In this trivial example we can fix it by just assigning Priority "Off" to the
-led-blue. But that's not possible at the time of writing (commit
-[bdbfcde](https://github.com/openbmc/phosphor-led-manager/commit/bdbfcde10520fc841b44d1e777c353a698b774ff)).
+在這個簡單的範例中，我們只要把 led-blue 的 Priority 指定為 "Off" 就能修正。但在撰寫本文件時（commit [bdbfcde](https://github.com/openbmc/phosphor-led-manager/commit/bdbfcde10520fc841b44d1e777c353a698b774ff)）這還做不到。
 
-There are other examples with more LEDs where that alone will not fix the issue.
+還有其他擁有更多 LED 的範例，光是這樣做無法解決問題。
 
-### Example ([Spec](#background-and-references) 6.4 PSU Status)
+### 範例（[規格](#background-and-references) 6.4 PSU Status）
 
-Here we pretend that LED Priority "Off" is allowed and discover that it will not
-be sufficient to fix the issue.
+這裡我們假設 LED Priority "Off" 是被允許的，並發現這樣仍不足以解決問題。
 
-#### Defined states
+#### 已定義的狀態
 
-| AC OK (blue) | FAULT (amber) | LOW V (amber) | BACK UP (amber) | State                     |
-| ------------ | ------------- | ------------- | --------------- | ------------------------- |
-| 1            | 0             | 0             | 0               | "AC OK"                   |
-| 0            | 1             | 0             | 0               | "AC Fault"                |
-| 0            | 1             | 1             | 0               | "AC Under Voltage"        |
+| AC OK（藍色） | FAULT（琥珀色） | LOW V（琥珀色） | BACK UP（琥珀色） | 狀態 |
+| ------------ | ------------- | ------------- | --------------- | ---- |
+| 1            | 0             | 0             | 0               | "AC OK" |
+| 0            | 1             | 0             | 0               | "AC Fault" |
+| 0            | 1             | 1             | 0               | "AC Under Voltage" |
 | 0            | 0             | 0             | 1               | "Backup due to AC Outage" |
 
 #### LED Priority
 
-| AC OK (blue) | FAULT (amber) | LOW V (amber) | BACK UP (amber) | State                     |
-| ------------ | ------------- | ------------- | --------------- | ------------------------- |
+| AC OK（藍色） | FAULT（琥珀色） | LOW V（琥珀色） | BACK UP（琥珀色） | 狀態 |
+| ------------ | ------------- | ------------- | --------------- | ---- |
 | 0            | 0             | 0             | 1               | "Backup due to AC Outage" |
 
-#### Example Sequence
+#### 範例序列
 
-| AC OK (blue) | FAULT (amber) | LOW V (amber) | BACK UP (amber) | State                        |
-| ------------ | ------------- | ------------- | --------------- | ---------------------------- |
-| 0            | 0             | 0             | 1               | LED Priority (for reference) |
-| 0            | 0             | 0             | 0               | initial state                |
-| 1            | 0             | 0             | 0               | assert "AC OK"               |
-| 0            | 0             | 0             | 0               | assert "AC Fault"            |
-| 0            | 0             | 0             | 0               | final state                  |
+| AC OK（藍色） | FAULT（琥珀色） | LOW V（琥珀色） | BACK UP（琥珀色） | 狀態 |
+| ------------ | ------------- | ------------- | --------------- | ---- |
+| 0            | 0             | 0             | 1               | LED Priority（僅供參考） |
+| 0            | 0             | 0             | 0               | 初始狀態 |
+| 1            | 0             | 0             | 0               | 設定 "AC OK" |
+| 0            | 0             | 0             | 0               | 設定 "AC Fault" |
+| 0            | 0             | 0             | 0               | 最終狀態 |
 
-The final state is undefined according to [Spec](#background-and-references)
-6.4.
+根據[規格](#background-and-references) 6.4，最終狀態是未定義的。
 
-The different possible LED priorities do not matter here, since "Backup due to
-AC Outage" could very well be the highest priority state. And choosing any other
-LED Priority will prevent it from being applied completely when any other state
-is asserted simultaneously.
+這裡各種可能的 LED priority 都不重要，因為 "Backup due to AC Outage" 很可能就是最高優先權的狀態。而選擇任何其他 LED Priority，都會在它與其他狀態同時被設定時，使得它完全無法被套用。
 
-By now it becomes clear that what's needed is a way to define priorities in
-terms of groups and not single LEDs.
+到此已經很清楚，我們需要的是一種以群組（而非單一 LED）來定義優先權的方式。
 
-## Background and References
+## 背景與參考資料
 
 - [OCP Panel Indicator Specification rev1.0 (pdf)](http://files.opencompute.org/oc/public.php?service=files&t=65c02b1c6d59188351357cfb232cbfaa&download)
 - [OCP Panel Indicator Specification rev1.0 (presentation)](https://www.opencompute.org/files/OCP18-EngWorkshop-Indicator-Specification-Proposal.pdf)
 
-Quick summary of what's important for us here:
+以下是對我們而言重要內容的摘要：
 
-### Permitted Indicator Colors
+### 允許的指示燈顏色
 
-- Blue
-- Amber
-- Combined Blue/Amber in tight spaces
+- 藍色
+- 琥珀色
+- 在狹小空間中可使用藍/琥珀結合色
 
-### Permitted Indicator States
+### 允許的指示燈狀態
 
 - OFF
 - ON
-- BLINK (500ms on, 500ms off)
+- BLINK（亮 500ms，滅 500ms）
 
-### Permitted Indicator Count on Component
+### 元件上允許的指示燈數量
 
-- 1 blue LED
-- 1 to n amber LED to communicate multiple fault conditions OR
-- 1 blue/amber LED
+- 1 個藍色 LED
+- 1 到 n 個琥珀色 LED，用以表達多種故障情況，或
+- 1 個藍/琥珀色 LED
 
-## Requirements
+## 需求
 
-- Ability to prioritize the different LED Groups and thus possible indicator
-  states.
-- An Indicator should not be in an inconsistent state. It can display the states
-  as per the [Spec](#background-and-references)
-- Other services cannot be trusted to keep the assertion of the LED groups in a
-  consistent state. The indicator state must be consistent even when conflicting
-  LED groups are asserted.
+- 能夠為不同的 LED 群組以及由此可能產生的指示燈狀態排列優先順序。
+- 指示燈不應處於不一致的狀態。它應能顯示[規格](#background-and-references)中所定義的狀態。
+- 無法信任其他服務會讓 LED 群組的設定（assert）保持一致。即使有互相衝突的 LED 群組被設定，指示燈狀態仍必須保持一致。
 
-## Proposed Design
+## 建議設計
 
-Extend the concept of "Priority" to groups in phosphor-led-manager. The group
-priority will be an integer value. A larger number means higher priority for
-that group. This allows users to have configurations like:
+在 phosphor-led-manager 中將「Priority」的概念延伸到群組。群組優先權（group priority）將是一個整數值。數字越大代表該群組的優先權越高。這讓使用者可以有像這樣的設定：
 
 1. OK
 2. Fault 1
 3. Fault 2
 4. Locate
 
-with locating and fault states having higher priorities. The LEDs would always
-be in a consistent state. The change can be done in a backwards-compatible way.
+其中 locate 與 fault 狀態具有較高的優先權。LED 將永遠處於一致的狀態。這個變更可以以向後相容的方式完成。
 
-### Configuration example
+### 設定範例
 
 ```json
 {
@@ -178,78 +159,64 @@ be in a consistent state. The change can be done in a backwards-compatible way.
 }
 ```
 
-### Mixed Use
+### 混合使用
 
-The group priority and led priority can be mutually exclusive in configuration
-to prevent any issues arising from mixed use. So the existing configs continue
-to work with individual LED Priority and when a group priority is assigned, we
-assume the user wants to use that for configuration.
+在設定中，群組優先權與 LED 優先權可以互斥，以避免混合使用所帶來的任何問題。因此既有的設定仍可使用個別 LED Priority 繼續運作；而當指定了群組優先權時，我們就假設使用者想要使用它來設定。
 
-## Alternatives Considered
+## 曾考慮過的替代方案
 
-- Extend phosphor-led-sysfs to expose 2 LEDs (blue/amber) as a single LED.
-  - This does not work since there may be n different fault LEDs as per
-    [Spec](#background-and-references)
-  - Also this is basically lying to ourselves and making it difficult for other
-    sw to get any meaningful info about LEDs from dbus anymore.
+- 延伸 phosphor-led-sysfs，將 2 個 LED（藍/琥珀）作為單一 LED 對外暴露。
+  - 這行不通，因為根據[規格](#background-and-references)，可能會有多達 n 個不同的故障 LED。
+  - 而且這本質上是在自欺欺人，並讓其他軟體難以再從 dbus 取得任何關於 LED 的有意義資訊。
 
-- Allow Priority "Off" for LED config.
-  - This only solves the issue for very simple configurations.
-  - Individual LED priorities are hard to think about when multiple LEDs form an
-    indicator
+- 在 LED 設定中允許 Priority "Off"。
+  - 這只能解決非常簡單設定的問題。
+  - 當多個 LED 組成一個指示燈時，個別 LED 優先權很難思考。
 
-- Allow the mixed use of group and individual led priority
-  - This will require considering more edge cases arising from the mixed use.
-  - Not aware of a use-case which would benefit from mixed use.
+- 允許群組與個別 LED 優先權混合使用。
+  - 這需要考慮混合使用所產生的更多邊際情況。
+  - 不清楚有什麼使用情境會從混合使用獲益。
 
-- Allow each LED to configure the priority of groups it represents, instead of
-  just one state.
-  - e.g. "Priority": ["enclosure_identify", "fault", "power"]
-  - This config would have to be repeated on each instance of an LED
-  - Or assumed that the first instance defines it?
-  - Would need to check for equality of all these priority lists for an LED
-  - This does not solve the problem of a group being represented incompletely
-    - For example it is possible for 2 LEDs belonging to the same group to
-      prioritize these groups differently in their priority list.
+- 讓每個 LED 可以設定它所代表的群組優先權，而不只是一個狀態。
+  - 例如 "Priority": ["enclosure_identify", "fault", "power"]
+  - 這個設定必須在 LED 的每個實例上重複
+  - 或者假設由第一個實例來定義？
+  - 需要檢查某個 LED 上這些優先權清單是否全都相等
+  - 這無法解決群組被不完整表示的問題
+    - 例如，屬於同一群組的 2 個 LED 可能在其優先權清單中對這些群組有不同的優先順序。
 
-- Allow configuring an "indicator" that's comprised of multiple LEDs and then
-  just define states for that indicator.
-  - Need to translate these states to groups anyways to be compatible with the
-    existing internal data structures
-  - Handle the case of member LEDs of that indicator also being members of other
-    groups
-  - This is basically the same as group priorities but with additional overhead
-    in config parsing
+- 允許設定一個由多個 LED 組成的「indicator」，然後只為該 indicator 定義狀態。
+  - 無论如何都需要為了相容於現有的內部資料結構，而將這些狀態轉換為群組。
+  - 需處理該 indicator 的成員 LED 同時也是其他群組成員的情況。
+  - 這本質上與群組優先權相同，只是在設定解析上增加了額外負擔。
 
-- Only display the group that was last asserted, in case of conflicting groups
-  - This is undesirable since there are groups which are more important to
-    display
+- 在群組互相衝突時，只顯示最後被設定的那個群組。
+  - 這是不可取的，因為有些群組在顯示上更為重要。
 
-## Impacts
+## 影響
 
-Need to
+需要
 
-- extend docs on how to configure LED group priority
-- implement the LED group priority
-- write unit tests for LED group priority
-- perhaps change some configs to use this new feature
-  - this is optional as the change is backwards-compatible
+- 延伸文件，說明如何設定 LED 群組優先權
+- 實作 LED 群組優先權
+- 為 LED 群組優先權撰寫單元測試
+- 也許修改一些設定以使用這個新功能
+  - 這是選擇性的，因為此變更是向後相容的
 
-There should be no impact on d-bus except if we choose to expose the led group
-priority.
+除非我們選擇對外暴露 led group priority，否則對 d-bus 不應有任何影響。
 
-### Organizational
+### 組織方面
 
-- Does this repository require a new repository?
-  - No
-- Who will be the initial maintainer(s) of this repository?
-- Which repositories are expected to be modified to execute this design?
+- 這個 repository 是否需要新的 repository？
+  - 不需要
+- 誰會是這個 repository 的初始維護者？
+- 預計需要修改哪些 repository 來執行這個設計？
   - phosphor-led-manager
-  - optionally openbmc to upgrade existing configs
-- Make a list, and add listed repository maintainers to the gerrit review.
+  - 選擇性地，openbmc 以升級既有設定
+- 列出一份清單，並將所列 repository 的維護者加入 gerrit review。
 
-## Testing
+## 測試
 
-How will this be tested? How will this feature impact CI testing?
+將如何進行測試？這個功能會如何影響 CI 測試？
 
-The feature can easily be unit-tested.
+這個功能可以輕鬆地透過單元測試來驗證。

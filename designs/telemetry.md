@@ -1,54 +1,39 @@
-# OpenBMC platform telemetry
+# OpenBMC 平台遙測
 
 Author: Piotr Matuszczak <piotr.matuszczak@intel.com>
 
-Other contributors:
+其他貢獻者：
 
 - Pawel Rapkiewicz <pawel.rapkiewicz@intel.com> `pawelr`
 - Kamil Kowalski <kamil.kowalski@intel.com>
 
-Created: 2019-08-07
+建立日期：2019-08-07
 
-## Problem Description
+## 問題描述
 
-The BMC on server platform gathers lots of telemetry data, which has to be
-exposed in clean, human readable and standardized format. This document focuses
-on telemetry over the Redfish, since it is standard API for platform
-manageability.
+伺服器平台上的 BMC 會蒐集大量遙測資料，這些資料必須以乾淨、易讀且標準化的格式呈現。本文件聚焦於透過 Redfish 傳遞的遙測，因為它是平台管理的標準 API。
 
-## Background and References
+## 背景與參考
 
-- OpenBMC platform telemetry shall leverage DMTF's [Redfish Telemetry Model][1]
-  for exposing platform telemetry over the network.
-- OpenBMC platform telemetry shall leverage the [OpenBMC sensors architecture
-  implementation][2].
-- OpenBMC platform telemetry shall implement a service, called Telemetry to deal
-  with metrics report and trigger management. This service is described later in
-  this document.
-- Although we use the [hwmon][3] to gather readings from physical sensors, this
-  architecture does not depend on it, because the Telemetry service component
-  relies on the [OpenBMC D-Bus sensors][2].
+- OpenBMC 平台遙測應善用 DMTF 的 [Redfish Telemetry Model][1]，以透過網路暴露平台遙測。
+- OpenBMC 平台遙測應善用 [OpenBMC 感測器架構實作][2]。
+- OpenBMC 平台遙測應實作一個稱為 Telemetry 的服務，用來處理指標報告（metric report）與觸發器（trigger）管理。此服務於本文件後續章節說明。
+- 雖然我們使用 [hwmon][3] 從實體感測器擷取讀值，但此架構並不依賴它，因為 Telemetry 服務元件依賴的是 [OpenBMC D-Bus 感測器][2]。
 
-## Requirements
+## 需求
 
-- [OpenBMC D-Bus sensors][2] support. This is also design limitation, since the
-  Telemetry service requires telemetry sources to be implemented as D-Bus
-  sensors.
+- 支援 [OpenBMC D-Bus 感測器][2]。這也是一項設計限制，因為 Telemetry 服務要求遙測來源必須以 D-Bus 感測器的形式實作。
 
-## Proposed Design
+## 建議設計
 
-Redfish Telemetry Model shall implement Telemetry Service with the following
-collection resources:
+Redfish Telemetry Model 應實作 Telemetry Service，並包含以下的集合資源（collection resources）：
 
-- Metric Definitions - contains the metadata for metrics (unit, accuracy, etc.)
-- Metric Report Definitions - defines how metric report shall be created (which
-  metrics it shall contain, how often it shall be generated etc.)
-- Metric Reports - contains actual metric reports containing telemetry data
-  generated according to the Metric Report Definitions
-- Metric Triggers - contains thresholds and actions that apply to specific
-  metrics
+- Metric Definitions - 包含指標的中繼資料（單位、準確度等）
+- Metric Report Definitions - 定義指標報告應如何建立（應包含哪些指標、應多久產生一次等）
+- Metric Reports - 包含實際的指標報告，內含依 Metric Report Definitions 所產生的遙測資料
+- Metric Triggers - 包含套用於特定指標的閾值與動作
 
-OpenBMC telemetry architecture is shown on the diagram below.
+下圖展示了 OpenBMC 遙測架構。
 
 ```ascii
    +--------------+               +----------------+     +-----------------+
@@ -94,29 +79,19 @@ OpenBMC telemetry architecture is shown on the diagram below.
 +-----------------------------------------------------------------------------+
 ```
 
-The telemetry service component is a part of Redfish and implements the DMTF's
-[Redfish Telemetry Model][1]. Metric report definitions uses Redfish sensors
-URIs for metric report creation. Those sensors are also used to get URI->D-Bus
-sensor mapping. Redfish Telemetry Service acts as presentation layer for the
-telemetry, while Telemetry service is responsible for gathering metrics from
-D-Bus sensors and exposing them as D-Bus objects. Telemetry service supports
-different monitoring modes (periodic, on change and on demand) along with
-aggregated operations:
+telemetry service 元件是 Redfish 的一部分，並實作了 DMTF 的 [Redfish Telemetry Model][1]。Metric report definitions 使用 Redfish 感測器 URI 來建立指標報告。這些感測器也用於取得 URI 對 D-Bus 感測器的對應關係。Redfish Telemetry Service 扮演遙測的呈現層（presentation layer），而 Telemetry 服務則負責從 D-Bus 感測器蒐集指標，並將其暴露為 D-Bus 物件。Telemetry 服務支援不同的監控模式（週期性、變更時、按需），以及彙總運算：
 
-- SINGLE - current reading value
-- AVERAGE - average value over defined time period
-- MAX - max reading value during defined time period
-- MIN - min reading value during defined time period
-- SUM - sum of reading values over defined time period
+- SINGLE - 目前的讀值
+- AVERAGE - 在定義的時間區段內的平均值
+- MAX - 在定義的時間區段內的最大讀值
+- MIN - 在定義的時間區段內的最小讀值
+- SUM - 在定義的時間區段內的讀值總和
 
-The time period for calculating aggregated metric is taken from the Redfish
-Metric Report Definition resource for each sensor's metric.
+計算彙總指標所使用的時間區段，取自每個感測器指標對應的 Redfish Metric Report Definition 資源。
 
-Telemetry service supports creating and managing metric report, which may
-contain single or multiple metrics from sensors. This metric report is mapped to
-Metric Report for the Redfish Telemetry Service.
+Telemetry 服務支援建立與管理指標報告，報告可包含來自感測器的單一或多個指標。此指標報告會對應到 Redfish Telemetry Service 的 Metric Report。
 
-The diagram below shows the flows for creation and update of metric report.
+下圖展示了指標報告的建立與更新流程。
 
 ```ascii
 +----+              +------+              +---------+                 +-------+
@@ -264,168 +239,121 @@ The diagram below shows the flows for creation and update of metric report.
   |                    |                       |                          |
 ```
 
-The Redfish implementation in bmcweb is stateless, thus it is not able to store
-metric reports. All operations on metric reports shall be done in the Telemetry
-service. Sending metric report as SSE or push-style events shall be done via the
-[Redfish Event Service][6]. It is marked as optional because metric report does
-not have to be configured for pushing its data through the event.
+bmcweb 中的 Redfish 實作是無狀態（stateless）的，因此它無法儲存指標報告。所有對指標報告的操作都應在 Telemetry 服務中完成。以 SSE 或 push-style 事件傳送指標報告，應透過 [Redfish Event Service][6] 進行。此步驟標示為選擇性，因為指標報告不一定要設定為透過事件推送其資料。
 
-In case of on demand metric report update, Telemetry service performs no
-additional sensor readings because it already has the latest values, since they
-are updated on PropertiesChanged signal from the D-Bus sensors.
+在按需更新指標報告的情況下，Telemetry 服務不會執行額外的感測器讀取，因為它已經擁有最新的數值——這些數值會透過 D-Bus 感測器的 PropertiesChanged 訊號更新。
 
-### Telemetry service on [D-Bus][4]
+### Telemetry 服務於 [D-Bus][4] 上
 
-Telemetry service exposes specific interfaces on D-Bus. One of them will be used
-for reading report management. The second one will be used for triggers
-management.
+Telemetry 服務在 D-Bus 上暴露特定的介面。其中一個將用於讀取報告管理。另一個則用於觸發器管理。
 
-### Reading report management
+### 讀取報告管理
 
-The reading report management D-Bus object:
+讀取報告管理的 D-Bus 物件：
 
 ```ascii
 xyz.openbmc_project.Telemetry.ReportManager
 /xyz/openbmc_project/Telemetry/Reports
 ```
 
-The `ReportManager` implements D-Bus interface
-[`xyz.openbmc_project.Telemetry.ReportManager`][8] for report management. The
-interface is described in the phosphor-dbus-interfaces. This interface
-implements `AddReport` method, which is used to create a metric report. The
-report may contain a single or multiple sensor readings. The way how the report
-will be stored by the BMC is defined by one of this method's parameters. The
-`ReportManager` object implements property that stores the maximum number of
-reports supported simultaneously.
+`ReportManager` 實作了 D-Bus 介面 [`xyz.openbmc_project.Telemetry.ReportManager`][8] 以進行報告管理。此介面在 phosphor-dbus-interfaces 中有說明。此介面實作了 `AddReport` 方法，用於建立指標報告。報告可包含單一或多個感測器讀值。BMC 儲存報告的方式由該方法的其中一個參數定義。`ReportManager` 物件實作了一個屬性，用於儲存同時支援的最大報告數量。
 
-The `AddReport` method returns the path to the newly created report object. The
-report object implements the [`xyz.openbmc_project.Object.Delete`][10] and
-[`xyz.openbmc_project.Telemetry.Report`][9] interfaces. The [`Delete`][10]
-interface is defined to add support for removing Report object, while the
-[`Report`][9] interface implements methods and properties for Report management
-along with properties containing telemetry readings. Each report object contains
-the timestamp of its last update. The report object contains an array of
-structures containing reading with its metadata and timestamp of last update of
-this metric. Each report has also the property that stores update interval (for
-periodically updated reports).
+`AddReport` 方法會回傳新建立報告物件的路徑。報告物件實作了 [`xyz.openbmc_project.Object.Delete`][10] 與 [`xyz.openbmc_project.Telemetry.Report`][9] 介面。[`Delete`][10] 介面定義用於支援移除 Report 物件，而 [`Report`][9] 介面則實作了 Report 管理所需的方法與屬性，以及包含遙測讀值的屬性。每個報告物件都包含其最後一次更新的時間戳。報告物件包含一個結構陣列，每個結構含有帶中繼資料的讀值，以及該指標最後一次更新的時間戳。每個報告也有一個屬性，用於儲存更新間隔（供週期性更新的報告使用）。
 
-### Trigger management
+### 觸發器管理
 
-The trigger management D-Bus object:
+觸發器管理的 D-Bus 物件：
 
 ```ascii
 xyz.openbmc_project.Telemetry.TriggerManager
 /xyz/openbmc_project/Telemetry/Triggers
 ```
 
-The `TriggerManager` supports the `xyz.openbmc_project.Telemetry.TriggerManager`
-interface, which implements the `AddTrigger` method. This method shall be used
-to create new trigger for the certain metric. The method's parameters allow to
-define the type of metric for which trigger is set (discrete or numeric). Depend
-on this setting, this method accepts different set of trigger parameters.
+`TriggerManager` 支援 `xyz.openbmc_project.Telemetry.TriggerManager` 介面，該介面實作了 `AddTrigger` 方法。此方法應用於為特定指標建立新的觸發器。方法的參數可定義設定觸發器的指標類型（離散型或數值型）。依此設定，此方法會接受不同的觸發器參數集合。
 
-For discrete metric type, trigger parameters contain:
+對於離散型指標，觸發器參數包含：
 
-| Field            | Type                | Description                                                                                                                                                                                                     |
-| ---------------- | ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| TriggerCondition | enum                | Discrete trigger condition: <br> "Changed" - trigger occurs when value of metric has changed; <br> "Specified" - trigger occurs when value of metric becomes one of the values listed in the discrete triggers. |
-| DiscreteTriggers | array of structures | Array of discrete trigger structures.                                                                                                                                                                           |
+| 欄位 | 類型 | 說明 |
+| ---- | ---- | ---- |
+| TriggerCondition | enum | 離散型觸發條件： <br> "Changed" - 當指標值變更時觸發； <br> "Specified" - 當指標值變成離散觸發器中所列舉的值之一時觸發。 |
+| DiscreteTriggers | array of structures | 離散型觸發器結構的陣列。 |
 
-Member of DiscreteTriggers array:
+DiscreteTriggers 陣列的成員：
 
-| Field     | Type    | Description                                                                                                      |
-| --------- | ------- | ---------------------------------------------------------------------------------------------------------------- |
-| TriggerId | string  | Unique trigger Id                                                                                                |
-| Severity  | enum    | Severity: <br> "OK" - normal<br> "Warning" - requires attention<br> "Critical" - requires immediate attention    |
-| Value     | variant | Value of discrete metric, that constitutes a trigger event.                                                      |
-| DwellTime | uint64  | Time in milliseconds that a trigger occurrence persists before the action defined for this trigger is performed. |
+| 欄位 | 類型 | 說明 |
+| ---- | ---- | ---- |
+| TriggerId | string | 唯一的觸發器 Id |
+| Severity | enum | 嚴重程度： <br> "OK" - 正常<br> "Warning" - 需要注意<br> "Critical" - 需要立即處理 |
+| Value | variant | 離散型指標的值，該值構成一個觸發事件。 |
+| DwellTime | uint64 | 觸發事件持續存在的毫秒數，超過後才會執行此觸發器所定義的動作。 |
 
-For numeric metric type, trigger parameters contain numeric thresholds. Numeric
-thresholds structure shall contain up to 4 thresholds: upper warning, upper
-critical, lower warning and lower critical. Thus it will contain up to 4
-structures shown below:
+對於數值型指標，觸發器參數包含數值閾值。數值閾值結構最多包含 4 個閾值：upper warning、upper critical、lower warning 與 lower critical。因此它將包含最多 4 個如下所示的結構：
 
-| Field          | Type    | Description                                                                                                                                                                                                                                                                                                                                                                                                         |
-| -------------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| ThresholdType  | enum    | Numeric trigger type: <br> "UpperCritical" - reading is above normal range and requires immediate attention<br>"UpperWarning" - reading is above normal range and may require attention<br>"LowerCritical" - reading is below normal range and requires immediate attention<br>"LowerWarning" - reading is below normal range and may require attention                                                             |
-| DwellTime      | uint64  | Time in milliseconds that a trigger occurrence persists before the action defined for this trigger is performed.                                                                                                                                                                                                                                                                                                    |
-| Activation     | enum    | Indicates direction of crossing the threshold value that trigger the threshold's action:<br> "Increasing" - trigger action when reading is changing from below to above the threshold's value<br> "Decreasing" - trigger action when reading is changing from above to below the threshold's value<br> "Either" - trigger action when reading is crossing the threshold's value in either direction described above |
-| ThresholdValue | variant | Value of reading that will trigger the threshold                                                                                                                                                                                                                                                                                                                                                                    |
+| 欄位 | 類型 | 說明 |
+| ---- | ---- | ---- |
+| ThresholdType | enum | 數值型觸發器類型： <br> "UpperCritical" - 讀值高於正常範圍且需要立即處理<br>"UpperWarning" - 讀值高於正常範圍且可能需要注意<br>"LowerCritical" - 讀值低於正常範圍且需要立即處理<br>"LowerWarning" - 讀值低於正常範圍且可能需要注意 |
+| DwellTime | uint64 | 觸發事件持續存在的毫秒數，超過後才會執行此觸發器所定義的動作。 |
+| Activation | enum | 指出會觸發該閾值動作的越界方向：<br> "Increasing" - 當讀值由低於閾值變為高於閾值時觸發動作<br> "Decreasing" - 當讀值由高於閾值變為低於閾值時觸發動作<br> "Either" - 當讀值以上述任一方向跨越閾值時觸發動作 |
+| ThresholdValue | variant | 會觸發該閾值的讀值 |
 
-The `AddTrigger` method also allows to define the specific action when trigger
-is activated. Upon the trigger activation, three possible actions are allowed,
-logging event to log service, sending event via event service and triggering the
-metric report update.
+`AddTrigger` 方法也可定義觸發器啟動時的特定動作。觸發器啟動時，允許三種可能的動作：將事件記錄至記錄服務（log service）、透過事件服務傳送事件，以及觸發指標報告更新。
 
-In order to assign trigger to specific metric, the metric parameter is defined.
-Its structure contains the following data:
+為了將觸發器指派給特定指標，定義了一個指標參數。其結構包含以下資料：
 
-| Field      | Type        | Description                                                                                                                                                                                        |
-| ---------- | ----------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| SensorPath | object path | D-Bus path to sensor, for which trigger is defined.                                                                                                                                                |
-| MetricId   | string      | Contains unique metric id, that can be mapped to Redfish MetricId.                                                                                                                                 |
-| ReportPath | object path | D-Bus path to Telemetry's reading report which update shall be triggered when trigger condition occurs. This is optional and shall be filled when trigger's action is set to update metric report. |
+| 欄位 | 類型 | 說明 |
+| ---- | ---- | ---- |
+| SensorPath | object path | 定義觸發器之感測器的 D-Bus 路徑。 |
+| MetricId | string | 包含唯一的指標 id，可對應到 Redfish MetricId。 |
+| ReportPath | object path | Telemetry 讀取報告的 D-Bus 路徑，當觸發條件發生時將觸發其更新。這是選擇性的，僅當觸發器動作設定為更新指標報告時才應填入。 |
 
-The `AddTrigger` method also allows to set trigger's persistency (whether
-trigger shall be stored in the BMC's non-volatile memory).
+`AddTrigger` 方法也可設定觸發器的持續性（whether trigger shall be stored in the BMC's non-volatile memory，即觸發器是否應儲存於 BMC 的非揮發性記憶體中）。
 
-The `AddTrigger` method returns:
+`AddTrigger` 方法回傳：
 
 ```ascii
 String for created trigger - ie. '/xyz/openbmc_project/Telemetry/Triggers/{Domain}/{Name}'
 ```
 
-Such created trigger implements the `xyz.openbmc_project.Object.Delete` and the
-`xyz.openbmc_project.Telemetry.Trigger` interfaces. Each trigger object contains
-read-only information about metric type, for which it was created (discrete or
-numeric). This information determines which triggers are stored within trigger
-object.
+如此建立的觸發器實作了 `xyz.openbmc_project.Object.Delete` 與 `xyz.openbmc_project.Telemetry.Trigger` 介面。每個觸發器物件都包含唯讀資訊，說明其為哪種指標類型建立（離散型或數值型）。此資訊決定觸發器物件內儲存了哪些觸發器。
 
-If trigger is defined for discrete metric type, than it contains trigger
-information that looks like this:
+若觸發器是為離散型指標定義，則它包含看起來如下的觸發器資訊：
 
-| Type                | Description                                                                                                                                                                                                   |
-| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| enum                | Discrete trigger condition: <br> "Changed" - trigger occurs when value of metric has changed;<br>"Specified" - trigger occurs when value of metric becomes one of the values listed in the discrete triggers. |
-| array of structures | Array of discrete trigger structures.                                                                                                                                                                         |
+| 類型 | 說明 |
+| ---- | ---- |
+| enum | 離散型觸發條件： <br> "Changed" - 當指標值變更時觸發；<br>"Specified" - 當指標值變成離散觸發器中所列舉的值之一時觸發。 |
+| array of structures | 離散型觸發器結構的陣列。 |
 
-Discrete trigger structure:
+離散型觸發器結構：
 
-| Type    | Description                                                                                                         |
-| ------- | ------------------------------------------------------------------------------------------------------------------- |
-| string  | Unique trigger Id                                                                                                   |
-| enum    | Severity: <br> "OK" - normal<br>"Warning" - requires attention<br> "Critical" - requires immediate attention        |
-| variant | Value of discrete metric, that constitutes a trigger event.                                                         |
-| uint64  | Time in milliseconds that a trigger occurrence persists before the action defined in the `ActionType` is performed. |
+| 類型 | 說明 |
+| ---- | ---- |
+| string | 唯一的觸發器 Id |
+| enum | 嚴重程度： <br> "OK" - 正常<br>"Warning" - 需要注意<br> "Critical" - 需要立即處理 |
+| variant | 離散型指標的值，該值構成一個觸發事件。 |
+| uint64 | 觸發事件持續存在的毫秒數，超過後才會執行 `ActionType` 中所定義的動作。 |
 
-If trigger is defined for numeric metric type, than it contains information
-about numeric triggers that is an array of 4 structures presented below:
+若觸發器是為數值型指標定義，則它包含數值觸發器的資訊，為下述 4 個結構組成的陣列：
 
-| Type    | Description                                                                                                                           |
-| ------- | ------------------------------------------------------------------------------------------------------------------------------------- |
-| enum    | Numeric trigger type: <br> "UpperWarning"<br>"UpperWarning"<br>"LowerCritical"<br>"LowerWarning"                                      |
-| uint64  | Time in milliseconds that a trigger occurrence persists before the action defined in the `ActionType` is performed.                   |
-| enum    | Indicates direction of crossing the threshold value that trigger the threshold's action:<br> "Increasing"<br>"Decreasing"<br>"Either" |
-| variant | Value of reading that will trigger the threshold                                                                                      |
+| 類型 | 說明 |
+| ---- | ---- |
+| enum | 數值型觸發器類型： <br> "UpperWarning"<br>"UpperWarning"<br>"LowerCritical"<br>"LowerWarning" |
+| uint64 | 觸發事件持續存在的毫秒數，超過後才會執行 `ActionType` 中所定義的動作。 |
+| enum | 指出會觸發該閾值動作的越界方向：<br> "Increasing"<br>"Decreasing"<br>"Either" |
+| variant | 會觸發該閾值的讀值 |
 
-The trigger object also contains information about reading, for which trigger
-was defined. It is in a form of structure consisting of three fields.
+觸發器物件也包含關於其定義觸發器之讀值的資訊。其形式為由三個欄位組成的結構。
 
-| Field type  | Description                                                                                                                                                                              |
-| ----------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| object path | D-Bus path of sensor. This is a path to the sensor, for which reading trigger is defined.                                                                                                |
-| string      | Unique metric Id                                                                                                                                                                         |
-| object path | D-Bus path of existing reading report. This is required when trigger's action is to update metric report. This path shall point to existing reading report within the Telemetry service. |
+| 欄位類型 | 說明 |
+| -------- | ---- |
+| object path | 感測器的 D-Bus 路徑。這是為其定義讀值觸發器之感測器的路徑。 |
+| string | 唯一的指標 Id |
+| object path | 既有讀取報告的 D-Bus 路徑。當觸發器動作是更新指標報告時，這是必需的。此路徑應指向 Telemetry 服務內既有的讀取報告。 |
 
-### Trigger operations\*\*
+### 觸發器操作\*\*
 
-Triggers support three types of operation: Log, Event and Update. For each,
-there is a different way of proceeding.
+觸發器支援三種操作類型：Log、Event 與 Update。每一種都有各自的處理方式。
 
-1. For action Log, the event shall be logged to the system journal. In this case
-   the Telemetry service writes data to system journal using libjournal. The
-   Redfish log service shall then retrieve the data by reading system journal.
-   All is shown on the diagram below.
+1. 對於 Log 動作，事件應記錄至系統 journal。在這種情況下，Telemetry 服務使用 libjournal 將資料寫入系統 journal。接著 Redfish 記錄服務會透過讀取系統 journal 來取得這些資料。全部如圖所示。
 
    ```ascii
    +---------------------------+
@@ -455,22 +383,13 @@ there is a different way of proceeding.
           +------------------------------------+
    ```
 
-2. For action Event, the Telemetry service shall send event using the [Redfish
-   Event Service][6] either as push-style event or SSE.
+2. 對於 Event 動作，Telemetry 服務應使用 [Redfish Event Service][6]，以 push-style 事件或 SSE 的方式傳送事件。
 
-3. For action Update, the Telemetry service will trigger the update of reading
-   report pointed by it's D-Bus path contained in trigger object properties. The
-   update shall cause the reading report's D-Bus object to emit property change
-   signal. This will cause Redfish Metric Report to be streamed out if it was
-   configured to do so.
+3. 對於 Update 動作，Telemetry 服務會觸發更新，其目標讀取報告由觸發器物件屬性中所含的 D-Bus 路徑指出。此次更新會使讀取報告的 D-Bus 物件發出屬性變更訊號。若 Redfish Metric Report 已設定為串流輸出，這將導致它被串流輸出。
 
 ### Redfish Telemetry Service API
 
-Redfish Telemetry Service shall support 2019.1 Redfish schemas for telemetry
-resources. Metric report definitions determines which metrics are to be include
-in metric report. Metric definition is assigned to particular metric type and it
-describes how the metric should be interpreted. The following resource schemas
-shall be supported:
+Redfish Telemetry Service 應支援 2019.1 版 Redfish schemas 以處理遙測資源。Metric report definitions 決定哪些指標要納入指標報告。Metric definition 會指派給特定的指標類型，並描述該指標應如何解讀。應支援以下的資源 schemas：
 
 - TelemetryService 1.1.2
 - MetricDefinition 1.0.3
@@ -478,7 +397,7 @@ shall be supported:
 - MetricReport 1.2.0
 - Triggers 1.1.1
 
-The following diagram shows relations between these resources.
+下圖展示了這些資源之間的關係。
 
 ```ascii
  +----------------------------------------------------------------------------+
@@ -523,17 +442,11 @@ The following diagram shows relations between these resources.
      +------------------------------------------------------------------+
 ```
 
-The diagram shows the relations between Redfish resources. Metric report is
-defined to be generated periodically, on demand or on change. Each metric in the
-Metric Report contains the URI to its metric definition and Redfish sensor,
-which reading value is presented. Nevertheless, under this presentation layer,
-Telemetry is gathering D-Bus sensors readings and exposing them in reading
-reports over D-Bus for the Telemetry Service. Each D-Bus sensor is mapped to
-Redfish sensor.
+此圖展示了 Redfish 資源之間的關係。指標報告被定義為週期性、按需或變更時產生。Metric Report 中的每個指標都包含指向其 metric definition 的 URI，以及呈現其讀值的 Redfish 感測器。然而，在此呈現層之下，Telemetry 會蒐集 D-Bus 感測器的讀值，並透過 D-Bus 以讀取報告的形式暴露給 Telemetry Service。每個 D-Bus 感測器都會對應到一個 Redfish 感測器。
 
-Below examples of Redfish resources for the Telemetry Service are shown.
+以下展示了 Telemetry Service 的 Redfish 資源範例。
 
-The Telemetry Service Redfish resource example:
+Telemetry Service 的 Redfish 資源範例：
 
 ```json
 {
@@ -567,7 +480,7 @@ The Telemetry Service Redfish resource example:
 }
 ```
 
-Sample metric report definition:
+指標報告定義範例：
 
 ```json
 {
@@ -599,7 +512,7 @@ Sample metric report definition:
 }
 ```
 
-Sample metric report:
+指標報告範例：
 
 ```json
 {
@@ -626,7 +539,7 @@ Sample metric report:
 }
 ```
 
-Sample trigger, that will trigger metric report update:
+觸發器範例，它將觸發指標報告更新：
 
 ```json
 {
@@ -663,62 +576,36 @@ Sample trigger, that will trigger metric report update:
 }
 ```
 
-### Performance tests
+### 效能測試
 
-Performance test were conducted on the AST2500 system with 64 MB flash and 512
-MB RAM. Flash consumption by the Telemetry service is 197.5 kB. The runtime
-statistics are shown in the table below. The reading report is mapped into
-single Metric Report. The runtime data is collected for the Telemetry component
-only. All reports was created with
-`xyz.openbmc_project.Telemetry.Metric.OnChange` property to maximize the
-workload. In the configuration with 50 reports and 50 sensors it is about 200
-new readings per second, generating 200 reading reports per second. The table
-shows CPU usage and memory usage. The VSZ is the amount of memory mapped into
-the address space of the process. It includes pages backed by the process'
-executable file and shared libraries, its heap and stack, as well as anything
-else it has mapped.
+效能測試是在配有 64 MB flash 與 512 MB RAM 的 AST2500 系統上進行的。Telemetry 服務的 flash 佔用量為 197.5 kB。執行期統計資料列於下表。讀取報告對應到單一 Metric Report。執行期資料僅針對 Telemetry 元件蒐集。所有報告建立時都將 `xyz.openbmc_project.Telemetry.Metric.OnChange` 屬性設定為啟用，以使工作量最大化。在 50 個報告與 50 個感測器的設定下，約為每秒 200 個新讀值，每秒產生 200 份讀取報告。下表顯示 CPU 使用率與記憶體使用率。VSZ 是對應到程序位址空間的記憶體量，包含由程序的執行檔與共用程式庫所支援的頁面、其堆積（heap）與堆疊（stack），以及它所對應的任何其他內容。
 
-| Telemetry service state                       | VSZ    | %VSZ | %CPU   |
-| --------------------------------------------- | ------ | ---- | ------ |
-| Idle (0 reports, 0 sensors)                   | 5188 B | 1%   | 0%     |
-| 1 report, 1 sensor                            | 5188 B | 1%   | 1%     |
-| 2 reports, 1 sensor                           | 5188 B | 1%   | 1%     |
-| 2 reports, 2 sensors (1 sensor per report)    | 5188 B | 1%   | 1%     |
-| 1 report, 10 sensors                          | 5188 B | 1%   | 1%     |
-| 10 reports, 10 sensors (same for each report) | 5320 B | 1%   | 1-2%   |
-| 2 reports, 20 sensors (10 per report)         | 5188 B | 1%   | 1%     |
-| 30 reports, 30 sensors (10 per report)        | 5444 B | 1%   | 5-9%   |
-| 50 reports, 50 sensors (10 per report)        | 5572 B | 1%   | 11-14% |
+| Telemetry 服務狀態 | VSZ | %VSZ | %CPU |
+| ------------------ | --- | ---- | ---- |
+| 閒置（0 個報告，0 個感測器） | 5188 B | 1% | 0% |
+| 1 個報告，1 個感測器 | 5188 B | 1% | 1% |
+| 2 個報告，1 個感測器 | 5188 B | 1% | 1% |
+| 2 個報告，2 個感測器（每報告 1 個感測器） | 5188 B | 1% | 1% |
+| 1 個報告，10 個感測器 | 5188 B | 1% | 1% |
+| 10 個報告，10 個感測器（各報告皆相同） | 5320 B | 1% | 1-2% |
+| 2 個報告，20 個感測器（每報告 10 個） | 5188 B | 1% | 1% |
+| 30 個報告，30 個感測器（每報告 10 個） | 5444 B | 1% | 5-9% |
+| 50 個報告，50 個感測器（每報告 10 個） | 5572 B | 1% | 11-14% |
 
-The last two configurations use 10 sensors per reading report, which gives 3 or
-5 distinctive configurations. Each such configuration is used to create 10
-reading reports to obtain the desired amount of 30 or 50 reading reports.
+最後兩種設定每個讀取報告使用 10 個感測器，因此形成 3 種或 5 種不同的設定。每種此類設定都用來建立 10 份讀取報告，以達到所需的 30 或 50 份讀取報告數量。
 
-In this architecture reading report is created every time when Redfish Metric
-Report Definition is posted (creating new Metric Report).
+在此架構中，每當 POST 一份 Redfish Metric Report Definition（建立新的 Metric Report）時，就會建立一份讀取報告。
 
-## Alternatives Considered
+## 其他考慮過的替代方案
 
-The [framework based on collectd/librrd][5] was considered as alternate design.
-Although it seems to be versatile and scalable solution, it has some drawbacks
-from our point of view:
+[基於 collectd/librrd 的框架][5]曾作為替代設計被納入考量。雖然它看起來是一個多樣且可擴充的解決方案，但從我們的觀點來看，它有一些缺點：
 
-- Collectd's footprint in the minimal working configuration is around 2.6 MB,
-  while available space for the OpenBMC is limited to 64 MB.
-- In this design, librrd is used to store metrics on the BMC's non-volatile
-  storage, which may be an issue, when lots of metrics are captured and stored
-  to OpenBMC's limited storage space. Also flash wear-out issue may occur, when
-  metrics are captured frequently (like once per second).
-- Telemetry service is directly compatible with Redfish Telemetry Service API,
-  which means, that Telemetry's reading reports can be directly mapped to
-  Redfish Metric Reports.
-- Telemetry service unifies the way how the BMC's telemetry is exposed over the
-  Redfish and may be used with multiple front-ends, thus there is no problem to
-  add support telemetry over IPMI or any other API.
+- Collectd 在最小可用設定下的佔用量約為 2.6 MB，而 OpenBMC 的可用空間僅限於 64 MB。
+- 在此設計中，librrd 用於將指標儲存於 BMC 的非揮發性儲存裝置上，當擷取大量指標並儲存到 OpenBMC 有限的儲存空間時，這可能會成為問題。此外，當指標擷取頻繁（例如每秒一次）時，也可能發生 flash 磨耗問題。
+- Telemetry 服務與 Redfish Telemetry Service API 直接相容，這表示 Telemetry 的讀取報告可以直接對應到 Redfish Metric Reports。
+- Telemetry 服務統一了 BMC 遙測透過 Redfish 暴露的方式，且可搭配多個前端使用，因此要新增對 IPMI 或任何其他 API 的遙測支援並無困難。
 
-Since this design assumes flexibility and modularity, there is no obstacles to
-use collectd in cooperation with Telemetry. The one of possible configurations
-is shown on the diagram below.
+由於此設計假設了彈性與模組化，因此將 collectd 與 Telemetry 合作使用並沒有障礙。下圖展示了一種可能的設定。
 
 ```ascii
    +-----------------+      +-----------------+
@@ -745,66 +632,37 @@ is shown on the diagram below.
     +--------------+
 ```
 
-Here collectd is used as the source of some set of metrics. It exposes them as
-the D-Bus sensors, which can easily be consumed either by the bmcweb and
-Telemetry service without any changes in their D-Bus interfaces. In such
-configuration Telemetry service provides metric reports and triggers management.
+在這裡，collectd 用作某組指標的來源。它將這些指標暴露為 D-Bus 感測器，bmcweb 與 Telemetry 服務都可以輕鬆地消耗這些感測器，而無需對其 D-Bus 介面做任何變更。在這種設定下，Telemetry 服務提供指標報告與觸發器管理。
 
-Other possible configuration is to use collectd without the Telemetry service,
-but in such case, collectd does not provide metric reports and triggers support
-compatible with the Redfish. In such case, Redfish Telemetry Service won't be
-supported or metric reports and triggers support has to be provided by the
-collectd.
+另一種可能的設定是在不使用 Telemetry 服務的情況下使用 collectd，但在這種情況下，collectd 不提供與 Redfish 相容的指標報告與觸發器支援。此時，Redfish Telemetry Service 將不被支援，或者必須由 collectd 提供指標報告與觸發器的支援。
 
-## Impacts
+## 影響
 
-This design impacts the architecture of the bmcweb component, since it adds the
-Redfish Telemetry Service implementation as a component for the existing Redfish
-API implementation.
+此設計會影響 bmcweb 元件的架構，因為它將 Redfish Telemetry Service 的實作新增為既有 Redfish API 實作的一個元件。
 
-## Testing
+## 測試
 
-This is the very high-level description of the proposed set of tests. Testing
-shall be done on three basic levels:
+以下是所提議測試集合的高階說明。測試應在三個基本層級進行：
 
-- Unit tests
-- Functional tests
-- Performance tests
+- 單元測試
+- 功能測試
+- 效能測試
 
-### Unit tests
+### 單元測試
 
-The Telemetry's code shall be covered by the unit tests. The preferred framework
-is the [GTest/GMock][7]. The unit tests shall be ran before code change is to be
-committed to make sure, that nothing is broken in existing functionality. Also,
-when new code is introduced, a new set of unit tests shall be committed with it
-according to test-driven development principle. Unit tests shall be also
-carefully reviewed.
+Telemetry 的程式碼應由單元測試覆蓋。首選的框架是 [GTest/GMock][7]。在程式碼變更要提交之前，應執行單元測試，以確保現有功能沒有被破壞。此外，當引入新程式碼時，應依測試驅動開發（test-driven development）原則，與其一起提交一組新的單元測試。單元測試也應仔細審查。
 
-### Functional tests
+### 功能測試
 
-Functional tests will be divided into two steps.
+功能測試將分為兩個步驟。
 
-First step is for testing the Telemetry metric reports management. Test scenario
-shall contain creating metric report by POSTing proper metric report definition,
-reading metric report (using GET on proper URI) and deleting the metric report.
-The required configuration for such test is D-Bus sensors (at least some of
-them) and bmcweb with Redfish Telemetry Service implemented. The tests shall be
-performed on real hardware. For ease of metric testing, dummy D-Bus sensors may
-be provided to provide specifically prepared metrics. This configuration shall
-also enable testing aggregated operations (MIN, MAX, SUM, AVG).
+第一步用於測試 Telemetry 指標報告管理。測試情境應包含：透過 POST 適當的指標報告定義來建立指標報告、讀取指標報告（對正確的 URI 使用 GET），以及刪除指標報告。此測試所需的設定為 D-Bus 感測器（至少其中一些），以及實作了 Redfish Telemetry Service 的 bmcweb。這些測試應在真實硬體上執行。為便於指標測試，可提供虛擬（dummy）D-Bus 感測器以提供特別準備好的指標。此設定也應能測試彙總運算（MIN、MAX、SUM、AVG）。
 
-Second step is to test triggers and events generation. This will require also
-Event Service to be implemented along with Log Service. Tests shall cover all
-scenarios with sending metric report as an event, triggering metric report
-update and logging events.
+第二步是測試觸發器與事件產生。這還需要同時實作 Event Service 與 Log Service。測試應涵蓋所有情境：將指標報告作為事件傳送、觸發指標報告更新，以及記錄事件。
 
-### Performance tests
+### 效能測試
 
-Performance tests shall be done using full OpenBMC configuration with all the
-required set of features. The tests shall create a lot of metric reports (up to
-maximum number) along with all possible triggers. Measurements shall cover the
-periodic metric report jitter, delays in event logging or sending, BMC's CPU
-utilization and the performance impact on other services.
+效能測試應使用完整的 OpenBMC 設定，並包含所有必要的功能集合。測試應建立大量指標報告（直到最大數量），以及所有可能的觸發器。量測應涵蓋週期性指標報告的抖動（jitter）、事件記錄或傳送的延遲、BMC 的 CPU 使用率，以及對其他服務的效能影響。
 
 [1]:
   https://www.dmtf.org/sites/default/files/standards/documents/DSP2051_0.1.0a.zip

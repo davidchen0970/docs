@@ -1,49 +1,44 @@
-# OpenBMC host console support
+# OpenBMC 主機主控台支援
 
-This document describes how to connect to the host UART console from an OpenBMC
-management system.
+本文件說明如何從 OpenBMC 管理系統連線到主機 UART 主控台。
 
-The console infrastructure allows multiple shared connections to a single host
-UART. UART data from the host is output to all connections, and input from any
-connection is sent to the host.
+主控台基礎架構允許對單一主機 UART 建立多個共用連線。來自主機的
+UART 資料會輸出到所有連線，而來自任一連線的輸入則會送到主機。
 
-## Remote console connections
+## 遠端主控台連線
 
-To connect to an OpenBMC console session remotely, just ssh to your BMC on
-port 2200. Use the same login credentials you would for a normal ssh session:
+若要從遠端連線到 OpenBMC 主控台工作階段，只要透過 ssh 連到你 BMC
+的 2200 埠即可。使用與一般 ssh 工作階段相同的登入憑證：
 
 ```bash
 ssh -p 2200 [user]@[bmc-hostname]
 ```
 
-## Local console connections
+## 本機主控台連線
 
-If you're already logged into an OpenBMC machine, you can start a console
-session directly, using:
+如果你已經登入一台 OpenBMC 機器，可以直接啟動主控台工作階段，使用：
 
 ```bash
 obmc-console-client
 ```
 
-To exit from a console, type:
+若要離開主控台，請輸入：
 
 ```text
     return ~ .
 ```
 
-Note that if you're on an ssh connection, you'll need to 'escape' the ~
-character, by entering it twice:
+請注意，若你是在 ssh 連線上，需要「跳脫」~ 字元，也就是輸入兩次：
 
 ```text
     return ~ ~ .
 ```
 
-This is because obmc-console-client is an ssh session, and a double `~` is
-required to escape the "inner" (obmc-console-client) ssh session.
+這是因為 obmc-console-client 本身就是一個 ssh 工作階段，因此需要
+兩個 `~` 來跳脫「內層」（obmc-console-client）的 ssh 工作階段。
 
-## Logging
+## 記錄
 
-Console logs are kept in: `/var/log/obmc-console.log`
+主控台記錄保留在：`/var/log/obmc-console.log`
 
-This log is limited in size, and will wrap after hitting that limit (currently
-set at 16kB).
+此記錄的大小受限，達到上限後會循環覆蓋（目前設定為 16kB）。

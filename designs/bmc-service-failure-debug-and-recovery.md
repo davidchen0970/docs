@@ -1,511 +1,328 @@
-# BMC Service Failure Debug and Recovery
+# BMC 服務故障除錯與復原
 
-Author: Andrew Jeffery <andrew@aj.id.au> @arj
+作者：Andrew Jeffery <andrew@aj.id.au> @arj
 
-Other contributors: Andrew Geissler <geissonator@yahoo.com> @geissonator
+其他貢獻者：Andrew Geissler <geissonator@yahoo.com> @geissonator
 
-Created: 6th May 2021
+建立日期：2021 年 5 月 6 日
 
-## Problem Description
+## 問題描述
 
-The capability to debug critical failures of the BMC firmware is essential to
-meet the reliability and serviceability claims made for some platforms.
+能夠對 BMC 韌體的嚴重故障進行除錯，對於實現某些平台所宣稱的可靠性與可服務性至關重要。
 
-This design addresses a few classes of failures:
+本設計著重於以下幾類故障：
 
-- A class of failure exists where a BMC service has entered a failed state but
-  the BMC is still operational in a degraded mode.
-- A class of failure exists under which we can attempt debug data collection
-  despite being unable to communicate with the BMC via standard protocols.
+- 有一類故障是 BMC 服務已進入失敗狀態，但 BMC 仍以降級模式正常運作。
+- 另一類故障下，即使無法透過標準通訊協定與 BMC 通訊，我們仍可嘗試蒐集除錯資料。
 
-This proposal argues for and proposes a software-driven debug data capture and
-recovery of a failed BMC.
+本提案論證並提出一套由軟體驅動的除錯資料擷取機制，以及對失敗 BMC 的復原方式。
 
-## Background and References
+## 背景與參考資料
 
-By necessity, BMCs are not self-contained systems. BMCs exist to service the
-needs of both the host system by providing in-band platform services such as
-thermal and power management as well as system operators by providing
-out-of-band system management interfaces such as error reporting, platform
-telemetry and firmware management.
+基於必要性，BMC 並非自給自足的系統。BMC 的存在是為了滿足主機系統與系統操作人員的需求：對主機系統提供帶內（in-band）平台服務，例如散熱與電源管理；對操作人員提供帶外（out-of-band）系統管理介面，例如錯誤回報、平台遙測與韌體管理。
 
-As such, failures of BMC subsystems may impact external consumers.
+因此，BMC 子系統的故障可能會影響外部消費者。
 
-The BMC firmware stack is not trivial, in the sense that common implementations
-are usually a domain-specific Linux distributions with complex or highly coupled
-relationships to platform subsystems.
+BMC 韌體堆疊並不單純，常見實作通常是領域專用的 Linux 發行版，與平台子系統之間存在複雜或高度耦合的關係。
 
-Complexity and coupling drive concern around the risk of critical failures in
-the BMC firmware. The BMC firmware design should provide for resilience and
-recovery in the face of well-defined error conditions, but the need to mitigate
-ill-defined error conditions or entering unintended software states remains.
+複雜度與耦合性使人擔憂 BMC 韌體發生嚴重故障的風險。BMC 韌體設計應針對明確定義的錯誤條件提供韌性與復原能力，但對於未明確定義的錯誤條件，或進入非預期軟體狀態的情況，仍有減輕其影響的需求。
 
-The ability for a system to recover in the face of an error condition depends on
-its ability to detect the failure. Thus, error conditions can be assigned to
-various classes based on the ability to externally observe the error:
+系統在面對錯誤條件時的復原能力，取決於它偵測故障的能力。因此，可依據能否從外部觀察到錯誤，將錯誤條件歸類為以下幾類：
 
-1. Continued operation: The services detects the error and performs the actions
-   required to return to its operating state
+1. 持續運作：服務偵測到錯誤，並執行回到其運作狀態所需的動作
 
-2. Graceful exit: The service detects an error it cannot recover from, but
-   gracefully cleans up its resources before exiting with an appropriate exit
-   status
+2. 優雅退出：服務偵測到無法復原的錯誤，但在帶著適當的離開狀態碼退出之前，會先優雅地清理自身資源
 
-3. Crash: The service detects it is an unintended software state and exits
-   immediately, failing to gracefully clean up its resources before exiting
+3. 當機：服務偵測到自己處於非預期的軟體狀態並立即退出，未能優雅地清理自身資源就退出
 
-4. Unresponsive: The service fails to detect it cannot make progress and
-   continues to run but is unresponsive
+4. 無回應：服務未能偵測到自己無法繼續推進，仍持續執行但沒有回應
 
-As the state transformations to enter the ill-defined or unintended software
-state are unanticipated, the actions required to gracefully return to an
-expected state are also not well defined. The general approaches to recover a
-system or service to a known state in the face of entering an unknown state are:
+由於進入未明確定義或非預期軟體狀態的狀態轉換是無法預期的，因此要優雅地回到預期狀態所需的動作也無法明確定義。當系統或服務進入了未知狀態時，將其復原到已知狀態的一般做法有：
 
-1. Restart the affected service
-2. Restart the affected set of services
-3. Restart all services
+1. 重新啟動受影響的服務
+2. 重新啟動受影響的一組服務
+3. 重新啟動所有服務
 
-In the face of continued operation due to internal recovery a service restart is
-unnecessary, while in the case of a unresponsive service the need to restart
-cannot be detected by service state alone. Implementation of resiliency by way
-of service restarts via a service manager is only possible in the face of a
-graceful exit or application crash. Handling of services that have entered an
-unresponsive state can only begin upon receiving external input.
+若是因內部復原而持續運作，則不需要重新啟動服務；而在服務無回應的情況下，單憑服務狀態無法偵測到需要重新啟動。透過服務管理程式以重新啟動服務的方式來實作韌性，只可能在優雅退出或應用程式當機的情況下做到。對於進入了無回應狀態的服務，只能在收到外部輸入後才可能開始處理。
 
-Like error conditions, services exposed by the BMC can be divided into several
-external interface classes:
+與錯誤條件類似，BMC 所提供的服務可劃分為幾類外部介面：
 
-1. Providers of platform data
-2. Providers of platform data transports
+1. 平台資料的提供者
+2. 平台資料傳輸管道的提供者
 
-Examples of the first are applications that expose various platform sensors or
-provide data about the firmware itself. Failure of the first class of
-applications usually yields a system that can continue to operate in a reduced
-capacity.
+第一類的例子是有公開各種平台感測器，或提供韌體自身相關資料的應用程式。第一類應用程式發生故障時，通常會讓系統仍能以降低的容量繼續運作。
 
-Examples of the second are the operating system itself and applications that
-implement IPMI, HTTPS (e.g. for Redfish), MCTP and PLDM. This second class also
-covers implementation-specific data transports such as D-Bus, which requires a
-broker service. Failure of a platform data transport may result in one or all
-external interfaces becoming unresponsive and be viewed as a critical failure of
-the BMC.
+第二類的例子有作業系統本身，以及實作 IPMI、HTTPS（例如用於 Redfish）、MCTP 與 PLDM 的應用程式。第二類也涵蓋實作專用的資料傳輸管道，例如 D-Bus，它需要一個中介（broker）服務。平台資料傳輸管道的故障可能導致一個或所有外部介面變得無回應，並被視為 BMC 的嚴重故障。
 
-Like error conditions and services, the BMC's external interfaces can be divided
-into several classes:
+與錯誤條件和服務類似，BMC 的外部介面也可劃分為幾類：
 
-1. Out-of-band interfaces: Remote, operator-driven platform management
-2. In-band interfaces: Local, host-firmware-driven platform management
+1. 帶外介面：遠端、由操作人員驅動的平台管理
+2. 帶中介面：本機、由主機韌體驅動的平台管理
 
-Failures of platform data transports generally leave out-of-band interfaces
-unresponsive to the point that the BMC cannot be recovered except via external
-means, usually by issuing a (disruptive) AC power cycle. On the other hand, if
-the host can detect the BMC is unresponsive on the in-band interface(s), an
-appropriate platform design can enable the host to reset the BMC without
-disrupting its own operation.
+平台資料傳輸管道的故障通常會讓帶外介面變得無回應，以致於除了透過外部手段（通常是發出（具干擾性的）AC 電源循環）之外，無法復原 BMC。另一方面，如果主機能夠偵測到 BMC 在帶中介面上無回應，則適當的平台設計可以讓主機在不打擾自身運作的情況下重設 BMC。
 
-### Analysis of eBMC Error State Management and Mitigation Mechanisms
+### eBMC 錯誤狀態管理與減輕機制分析
 
-Assessing OpenBMC userspace with respect to the error classes outlined above,
-the system manages and mitigates error conditions as follows:
+針對上述錯誤類別來評估 OpenBMC 使用者空間，系統會以下列方式管理並減輕錯誤條件：
 
-| Condition           | Mechanism                                           |
+| 條件 | 機制 |
 | ------------------- | --------------------------------------------------- |
-| Continued operation | Application-specific error handling                 |
-| Graceful exit       | Application-specific error handling                 |
-| Crash               | Signal, unhandled exceptions, `assert()`, `abort()` |
-| Unresponsive        | None                                                |
+| 持續運作 | 應用程式專用的錯誤處理 |
+| 優雅退出 | 應用程式專用的錯誤處理 |
+| 當機 | 訊號、未處理的例外狀況、`assert()`、`abort()` |
+| 無回應 | 無 |
 
-These mechanisms inform systemd (the service manager) of an event, which it
-handles according to the restart policy encoded in the unit file for the
-service.
+這些機制會將事件告知 systemd（服務管理程式），systemd 再依服務 unit 檔中編碼的重啟策略來處理。
 
-OpenBMC has a default behavior for all systemd services. That default is to
-allow an OpenBMC systemd service to restart twice every 30 seconds. If a service
-restarts more then twice within 30 seconds then that service will be considered
-to be in a failed state by systemd and not restarted again until a BMC reboot.
+OpenBMC 對所有 systemd 服務都有一套預設行為。該預設值是允許一個 OpenBMC systemd 服務每 30 秒重啟兩次。如果某服務在 30 秒內重啟超過兩次，systemd 便會認為該服務處於失敗狀態，且直到 BMC 重新開機之前都不會再重啟它。
 
-Assessing the OpenBMC operating system with respect to the error classes, it
-manages and mitigates error conditions as follows:
+針對錯誤類別來評估 OpenBMC 作業系統，它會以下列方式管理並減輕錯誤條件：
 
-| Condition           | Mechanism                              |
+| 條件 | 機制 |
 | ------------------- | -------------------------------------- |
-| Continued operation | ramoops, ftrace, `printk()`            |
-| Graceful exit       | System reboot                          |
-| Crash               | kdump or ramoops                       |
-| Unresponsive        | `hardlockup_panic`, `softlockup_panic` |
+| 持續運作 | ramoops、ftrace、`printk()` |
+| 優雅退出 | 系統重新開機 |
+| 當機 | kdump 或 ramoops |
+| 無回應 | `hardlockup_panic`、`softlockup_panic` |
 
-Crash conditions in the Linux kernel trigger panics, which are handled by kdump
-(though may be handled by ramoops until kdump support is integrated). Kernel
-lockup conditions can be configured to trigger panics, which in-turn trigger
-either ramoops or kdump.
+Linux 核心中的當機條件會觸發恐慌（panic），由 kdump 處理（在 kdump 支援整合完成之前，可能先由 ramoops 處理）。核心鎖死（lockup）條件可設定為觸發恐慌，進而觸發 ramoops 或 kdump。
 
-### Synthesis
+### 綜合分析
 
-In the context of the information above, handling of application lock-up error
-conditions is not provided. For applications in the platform-data-provider class
-of external interfaces, the system will continue to operate with reduced
-functionality. For applications in the platform-data-transport-provider class,
-this represents a critical failure of the firmware that must have accompanying
-debug data.
+在上述資訊的脈絡下，應用程式鎖死錯誤條件的處理並未提供。對於屬於平台資料提供者類外部介面的應用程式，系統仍會以降低的功能繼續運作。對於屬於平台資料傳輸管道提供者類的應用程式，這代表韌體的嚴重故障，必須配套提供除錯資料。
 
-## Handling platform-data-transport-provider failures
+## 處理平台資料傳輸管道提供者的故障
 
-### Requirements
+### 需求
 
-#### Recovery Mechanisms
+#### 復原機制
 
-The ability for external consumers to control the recovery behaviour of BMC
-services is usually coarse, the nuanced handling is left to the BMC
-implementation. Where available the options for external consumer tend to be, in
-ascending order of severity:
+讓外部消費者能夠控制 BMC 服務復原行為的能力通常較為粗略，細膩的處理留給 BMC 實作。在可取得的情況下，提供給外部消費者的選項依嚴重程度遞增排列大致如下：
 
-| Severity | BMC Recovery Mechanism  | Used for                                                              |
+| 嚴重程度 | BMC 復原機制 | 適用於 |
 | -------- | ----------------------- | --------------------------------------------------------------------- |
-| 1        | Graceful reboot request | Normal circumstances or recovery from platform data provider failures |
-| 2        | Forceful reboot request | Recovery from unresponsive platform data transport providers          |
-| 3        | External hardware reset | Unresponsive operating system                                         |
+| 1 | 優雅重新開機請求 | 正常情況，或從平台資料提供者故障中復原 |
+| 2 | 強制重新開機請求 | 從無回應的平台資料傳輸管道提供者復原 |
+| 3 | 外部硬體重設 | 無回應的作業系統 |
 
-Of course it's not possible to issue these requests over interfaces that are
-unresponsive. A robust platform design should be capable of issuing all three
-restart requests over separate interfaces to minimise the impact of any one
-interface becoming unresponsive. Further, the more severe the reset type, the
-fewer dependencies should be in its execution path.
+當然，在已經無回應的介面上是無法發出這些請求的。穩健的平台設計應能透過各自獨立的介面發出全部三種重啟請求，以將單一介面變得無回應所造成的影響降到最低。此外，重設類型越嚴重，其執行路徑上的相依項目就應該越少。
 
-Given the out-of-band path is often limited to just the network, it's not
-feasible for the BMC to provide any of the above in the event of some kind of
-network or relevant data transport failure. The considerations here are
-therefore limited to recovery of unresponsive in-band interfaces.
+鑑於帶外路徑通常僅限於網路，當發生某種網路或相關資料傳輸管道故障時，BMC 無法提供上述任何機制。因此這裡的考量僅限於復原無回應的帶中介面。
 
-The need to escalate above mechanism 1 should come with data that captures why
-it was necessary, i.e. dumps for services that failed in the path for 1.
-However, by escalating straight to 3, the BMC will necessarily miss out on
-capturing a debug dump because there is no opportunity for software to intervene
-in the reset. Therefore, mechanism 2 should exist in the system design and its
-implementation should capture any appropriate data needed to debug the need to
-reboot and the inability to execute on approach 1.
+需要從升級到機制 1 以上時，應附上說明為何有此必要的資料，也就是針對在途徑 1 中失敗的服務產生轉儲（dump）。然而，若直接升級到 3，BMC 必然會錯失擷取除錯轉儲的機會，因為在重設過程中沒有讓軟體介入的機會。因此，機制 2 應存在於系統設計中，其實作應擷取任何適當的資料，以除錯需要重新開機的原因以及無法執行途徑 1 的原因。
 
-The need to escalate to 3 would indicate that the BMC's own mechanisms for
-detecting a kernel lockup have failed. Had they not failed, we would have
-ramoops or kdump data to analyse. As data cannot be captured with an escalation
-to method 3 the need to invoke it will require its own specialised debug
-experience. Given this and the kernel's own lockup detection and data collection
-mechanism, support for 2 can be implemented in BMC userspace.
+需要升級到 3 表示 BMC 自身偵測核心鎖死的機制已經失效。若它們沒有失效，我們就會有 ramoops 或 kdump 資料可供分析。由於升級到方法 3 時無法擷取資料，因此需要呼叫它時將需要其專屬的專用除錯體驗。鑑於此，以及核心自身的鎖死偵測與資料蒐集機制，對機制 2 的支援可以在 BMC 使用者空間中實作。
 
-Mechanism 1 is typically initiated by the usual in-band interfaces, either IPMI
-or PLDM. In order to avoid these in the implementation of mechanism 2, the host
-needs an interface to the BMC that is dedicated to the role of BMC recovery,
-with minimal dependencies on the BMC side for initiating the dump collection and
-reboot. At its core, all that is needed is the ability to trigger a BMC IRQ,
-which could be as simple as monitoring a GPIO.
+機制 1 通常由一般的帶中介面（IPMI 或 PLDM）發起。為了在機制 2 的實作中避開這些介面，主機需要一個專責於 BMC 復原角色的、通往 BMC 的介面，且在 BMC 端啟動轉儲蒐集與重新開機所需的相依項目應盡可能減少。就核心而言，所需要的只是觸發 BMC IRQ 的能力，這可以簡單到只是監控一個 GPIO。
 
-#### Behavioural Requirements for Recovery Mechanism 2
+#### 復原機制 2 的行為需求
 
-The system behaviour requirement for the mechanism is:
+該機制的系統行為需求為：
 
-1. The BMC executes collection of debug data and then reboots once it observes a
-   recovery message from the host
+1. BMC 在收到來自主機的復原訊息後，執行除錯資料的蒐集，然後重新開機
 
-It's desirable that:
+以下是理想的：
 
-1. The host has some indication that the recovery process has been activated
-2. The host has some indication that a BMC reset has taken place
+1. 主機有某種跡象可得知復原程序已被啟動
+2. 主機有某種跡象可得知 BMC 重設已經發生
 
-It's necessary that:
+以下是必要的：
 
-1. The host make use of a timeout to escalate to recovery mechanism 3 as it's
-   possible the BMC will be unresponsive to recovery mechanism 2
+1. 主機必須使用逾時機制來升級到復原機制 3，因為 BMC 有可能對復原機制 2 也無回應
 
-#### Analysis of BMC Recovery Mechanisms for Power10 Platforms
+#### Power10 平台 BMC 復原機制分析
 
-The implementation of recovery mechanism 1 is already accounted for in the
-in-band protocols between the host and the BMC and so is considered resolved for
-the purpose of the discussion.
+復原機制 1 的實作已納入主機與 BMC 之間的帶內通訊協定中，因此在本次討論的範圍內被視為已解決。
 
-To address recovery mechanism 3, the Power10 platform designs wire up a GPIO
-driven by the host to the BMC's EXTRST pin. If the host firmware detects that
-the BMC has become unresponsive to its escalating recovery requests, it can
-drive the hardware to forcefully reset the BMC.
+為了處理復原機制 3，Power10 平台設計將一個由主機驅動的 GPIO 連接到 BMC 的 EXTRST 腳位。如果主機韌體偵測到 BMC 對其逐步升級的復原請求已無回應，它可以驅動硬體強制重設 BMC。
 
-However, host-side GPIOs are in short supply, and we do not have a dedicated pin
-to implement recovery mechanism 2 in the platform designs.
+然而，主機端 GPIO 供不應求，而我們在平台設計中並沒有專屬腳位來實作復原機制 2。
 
-#### Analysis of Implementation Methods on Power10 Platforms
+#### Power10 平台實作方法分析
 
-The implementation of recovery mechanism 2 is limited to using existing
-interfaces between the host and the BMC. These largely consist of:
+復原機制 2 的實作受限於只能使用主機與 BMC 之間現有的介面。這些介面主要包含：
 
 1. FSI
 2. LPC
 3. PCIe
 
-FSI is inappropriate because the host is the peripheral in its relationship with
-the BMC. If the BMC has become unresponsive, it is possible it's in a state
-where it would not accept FSI traffic (which it needs to drive in the first
-place) and we would need an mechanism architected into FSI for the BMC to
-recognise it is in a bad state. PCIe and LPC are preferable by comparison as the
-BMC is the peripheral in this relationship, with the host driving cycles into it
-over either interface. Comparatively, PCIe is more complex than LPC, so an
-LPC-based approach is preferred.
+FSI 並不合適，因為在與 BMC 的關係中主機是外設。如果 BMC 已變得無回應，它可能處於不會接受 FSI 流量的狀態（而它本來就需要主動驅動 FSI），我們就需要在 FSI 中架構一套讓 BMC 能辨識自己處於不良狀態的機制。相比之下，PCIe 與 LPC 較為理想，因為在這段關係中 BMC 是外設，由主機透過任一介面向其驅動週期。相較之下，PCIe 比 LPC 更為複雜，因此較偏好以 LPC 為基礎的做法。
 
-The host already makes use of several LPC peripherals exposed from the BMC:
+主機已經使用了幾個由 BMC 暴露出來的 LPC 外設：
 
-1. Mapped LPC FW cycles
-2. iBT for IPMI
-3. The VUARTs for system and debug consoles
-4. A KCS device for a vendor-defined MCTP LPC binding
+1. 對應的 LPC FW 週期
+2. 用於 IPMI 的 iBT
+3. 用於系統與除錯主控台的 VUART
+4. 一個用於廠商自訂 MCTP LPC 綁定的 KCS 裝置
 
-The host could take advantage of any of the following LPC peripherals for
-implementing recovery mechanism 2:
+主機可以利用下列任何一個 LPC 外設來實作復原機制 2：
 
-1. The SuperIO-based iLPC2AHB bridge
-2. The LPC mailbox
-3. An otherwise unused KCS device
+1. 基於 SuperIO 的 iLPC2AHB 橋接器
+2. LPC 信箱（mailbox）
+3. 一個 otherwise 未使用的 KCS 裝置
 
-In ASPEED BMC SoCs prior to the AST2600 the LPC mailbox required configuration
-via the SuperIO device, which exposes the unrestricted iLPC2AHB backdoor into
-the BMC's physical address space. The iLPC2AHB capability could not be mitigated
-without disabling SuperIO support entirely, and so the ability to use the
-mailbox went with it. This security issue is resolved in the AST2600 design, so
-the mailbox could be used in the Power10 platforms, but we have lower-complexity
-alternatives for generating an IRQ on the BMC. We could use the iLPC2AHB from
-the host to drive one of the watchdogs in the BMC to trigger a reset, but this
-exposes a stability risk due to the unrestricted power of the interface, let
-alone the security implications, and like the mailbox is more complex than the
-alternatives.
+在 AST2600 之前的 ASPEED BMC SoC 中，LPC 信箱需要透過 SuperIO 裝置來設定，而該裝置會暴露通往 BMC 實體位址空間、不受限制的 iLPC2AHB 後門。除非完全停用 SuperIO 支援，否則無法緩解 iLPC2AHB 帶來的風險，而信箱的使用能力也就隨之消失。這個安全問題在 AST2600 設計中已獲解決，因此信箱可以用在 Power10 平台上，但我們有複雜度更低的替代方案來在 BMC 上產生 IRQ。我們可以用主機端的 iLPC2AHB 去驅動 BMC 中的某顆看門狗（watchdog）來觸發重設，但這會因為該介面不受限制的強大能力而帶來穩定性風險，更遑論安全上的疑慮，而且它和信箱一樣都比替代方案更為複雜。
 
-This draws us towards the use of a KCS device, which is best aligned with the
-simple need of generating an IRQ on the BMC. AST2600 has at least 4 KCS devices
-of which one is already in use for IBM's vendor-defined MCTP LPC binding leaving
-at least 3 from which to choose.
+這使我們傾向使用 KCS 裝置，它最符合在 BMC 上產生 IRQ 這種簡單需求。AST2600 至少有 4 個 KCS 裝置，其中一個已用於 IBM 廠商自訂的 MCTP LPC 綁定，因此至少還有 3 個可供選擇。
 
-### Proposed Design
+### 提案設計
 
-The proposed design is for a simple daemon started at BMC boot to invoke the
-desired crash dump handler according to the system policy upon receiving the
-external signal. The implementation should have no IPC dependencies or
-interactions with `init`, as the reason for invoking the recovery mechanism is
-unknown and any of these interfaces might be unresponsive.
+提案設計是一個在 BMC 啟動時啟動的簡易 daemon，它在收到外部訊號時，依系統政策呼叫所需的當機轉儲處理常式。實作上不應有任何 IPC 相依項目或與 `init` 的互動，因為呼叫復原機制的原因未知，而這些介面中的任何一個都可能無回應。
 
-A trivial implementation of the daemon is
+一個最簡易的 daemon 實作為
 
 ```sh
 dd if=$path bs=1 count=1
 echo c > /proc/sysrq-trigger
 ```
 
-For systems with kdump enabled, this will result in a kernel crash dump
-collection and the BMC being rebooted.
+對於啟用 kdump 的系統，這會導致擷取核心當機轉儲並讓 BMC 重新開機。
 
-A more elegant implementation might be to invoke `kexec` directly, but this
-requires the support is already available on the platform.
+更為優雅的實作可能是直接呼叫 `kexec`，但這需要平台已經具備該支援。
 
-Other activities in userspace might be feasible if it can be assumed that
-whatever failure has occurred will not prevent debug data collection, but no
-statement about this can be made in general.
+如果可以假設無論發生了什麼樣的故障都不會阻礙除錯資料的蒐集，那麼在使用者空間中進行其他動作也是可行的，但一般而言無法對此作出任何保證。
 
-#### A Idealised KCS-based Protocol for Power10 Platforms
+#### 適用於 Power10 平台的理想化 KCS 通訊協定
 
-The proposed implementation provides for both the required and desired
-behaviours outlined in the requirements section above.
+提案的實作同時滿足上述需求章節中所描述的必要性與理想性行為。
 
-The host and BMC protocol operates as follows, starting with the BMC application
-invoked during the boot process:
+主機與 BMC 的通訊協定運作方式如下，從啟動過程中呼叫的 BMC 應用程式開始：
 
-1. Set the `Ready` bit in STR
+1. 在 STR 中設定 `Ready` 位元
 
-2. Wait for an `IBF` interrupt
+2. 等待 `IBF` 中斷
 
-3. Read `IDR`. The hardware clears IBF as a result
+3. 讀取 `IDR`。硬體因此清除 IBF
 
-4. If the read value is 0x44 (`D` for "Debug") then execute the debug dump
-   collection process and reboot. Otherwise,
+4. 如果讀到的值是 0x44（代表「Debug」的 `D`），則執行除錯轉儲蒐集程序並重新開機。否則，
 
-5. Go to step 2.
+5. 回到步驟 2。
 
-On the host:
+在主機端：
 
-1. If the `Ready` bit in STR is clear, escalate to recovery mechanism 3.
-   Otherwise,
+1. 如果 STR 中的 `Ready` 位元為清除狀態，則升級到復原機制 3。否則，
 
-2. If the `IBF` bit in STR is set, escalate to recovery mechanism 3. Otherwise,
+2. 如果 STR 中的 `IBF` 位元為設定狀態，則升級到復原機制 3。否則，
 
-3. Start an escalation timer
+3. 啟動升級計時器
 
-4. Write 0x44 (`D` for "Debug") to the Input Data Register (IDR). The hardware
-   sets IBF as a result
+4. 將 0x44（代表「Debug」的 `D`）寫入輸入資料暫存器（IDR）。硬體因此設定 IBF
 
-5. If `IBF` clears before expiry, restart the escalation timer
+5. 如果 `IBF` 在逾時前清除，則重新啟動升級計時器
 
-6. If an STR read generates an LPC SYNC No Response abort, or `Ready` clears
-   before expiry, restart the escalation timer
+6. 如果讀取 STR 產生 LPC SYNC 無回應（No Response）中止，或 `Ready` 在逾時前清除，則重新啟動升級計時器
 
-7. If `Ready` becomes set before expiry, disarm the escalation timer. Recovery
-   is complete. Otherwise,
+7. 如果 `Ready` 在逾時前變成設定狀態，則解除升級計時器。復原完成。否則，
 
-8. Escalate to recovery mechanism 3 if the escalation timer expires at any point
+8. 如果升級計時器在任何時點逾時，則升級到復原機制 3
 
-A SerIRQ is unnecessary for correct operation of the protocol. The BMC-side
-implementation is not required to emit one and the host implementation must
-behave correctly without one. Recovery is only necessary if other paths have
-failed, so STR can be read by the host when it decides recovery is required, and
-by read by time-based polling thereafter.
+正確運作此通訊協定並不需要 SerIRQ。BMC 端實作不必須發出 SerIRQ，而主機端實作必須在沒有它的情况下仍能正確運作。只有在其他路徑都失敗時才需要復原，因此主機在決定需要復原時可以讀取 STR，之後再以時間輪詢的方式讀取。
 
-The host must be prepared to handle LPC SYNC errors when accessing the KCS
-device IO addresses, particularly "No Response" aborts. It is not guaranteed
-that the KCS device will remain available during BMC resets.
+主機在存取 KCS 裝置的 IO 位址時，必須準備好處理 LPC SYNC 錯誤，特別是「No Response」中止。無法保證 KCS 裝置在 BMC 重設期間仍舊可用。
 
-As STR is polled by the host it's not necessary for the BMC to write to ODR. The
-protocol only requires the host to write to IDR and periodically poll STR for
-changes to IBF and Ready state. This removes bi-directional dependencies.
+由於主機輪詢 STR，BMC 不必寫入 ODR。此通訊協定只要求主機寫入 IDR，並定期輪詢 STR 以取得 IBF 與 Ready 狀態的變化。這消除了雙向的相依關係。
 
-The uni-directional writes and the lack of SerIRQ reduce the features required
-for correct operation of the protocol and thus the surface area for failure of
-the recovery protocol.
+單向寫入加上不需要 SerIRQ，減少了通訊協定正確運作所需的功能，進而縮小了復原通訊協定可能發生故障的範圍。
 
-The layout of the KCS Status Register (STR) is as follows:
+KCS 狀態暫存器（STR）的佈局如下：
 
-| Bit | Owner    | Definition               |
+| 位元 | 擁有者 | 定義 |
 | --- | -------- | ------------------------ |
-| 7   | Software |                          |
-| 6   | Software |                          |
-| 5   | Software |                          |
-| 4   | Software | Ready                    |
-| 3   | Hardware | Command / Data           |
-| 2   | Software |                          |
-| 1   | Hardware | Input Buffer Full (IBF)  |
-| 0   | Hardware | Output Buffer Full (OBF) |
+| 7 | 軟體 |  |
+| 6 | 軟體 |  |
+| 5 | 軟體 |  |
+| 4 | 軟體 | Ready |
+| 3 | 硬體 | 命令 / 資料（Command / Data） |
+| 2 | 軟體 |  |
+| 1 | 硬體 | 輸入緩衝區滿（Input Buffer Full, IBF） |
+| 0 | 硬體 | 輸出緩衝區滿（Output Buffer Full, OBF） |
 
-#### A Real-World Implementation of the KCS Protocol for Power10 Platforms
+#### 適用於 Power10 平台的 KCS 通訊協定實務實作
 
-Implementing the protocol described above in userspace is challenging due to
-available kernel interfaces[1], and implementing the behaviour in the kernel
-falls afoul of the defacto "mechanism, not policy" rule of kernel support.
+由於可用的核心介面[1]限制，在使用者空間中實作上述通訊協定頗具挑戰性，而在核心中實作該行為則牴觸了核心支援的事實標準「機制而非政策（mechanism, not policy）」原則。
 
-Realistically, on the host side the only requirements are the use of a timer and
-writing the appropriate value to the Input Data Register (IDR). All the proposed
-status bits can be ignored. With this in mind, the BMC's implementation can be
-reduced to reading an appropriate value from IDR. Reducing requirements on the
-BMC's behaviour in this way allows the use of the `serio_raw` driver (which has
-the restriction that userspace can't access the status value).
+切實際地說，主機端唯一的需求是使用計時器，並將適當的值寫入輸入資料暫存器（IDR）。所有提案的狀態位元都可以忽略。考量到這一點，BMC 的實作可以簡化為從 IDR 讀取適當的值。以這種方式降低對 BMC 行為的需求，就能使用 `serio_raw` 驅動程式（它有一項限制：使用者空間無法存取狀態值）。
 
 [1]:
   https://lore.kernel.org/lkml/37e75b07-a5c6-422f-84b3-54f2bea0b917@www.fastmail.com/
 
-#### Prototype Implementation Supporting Power10 Platforms
+#### 支援 Power10 平台的原型實作
 
-A concrete implementation of the proposal's userspace daemon is available on
-Github:
+本提案使用者空間 daemon 的具體實作可在 Github 上取得：
 
 <https://github.com/amboar/debug-trigger/>
 
-Deployment requires additional kernel support in the form of patches at [2].
+部署時需要以 [2] 的補丁形式提供額外的核心支援。
 
 [2]:
   https://github.com/amboar/linux/compare/2dbb5aeba6e55e2a97e150f8371ffc1cc4d18180...for/openbmc/kcs-raw
 
-### Alternatives Considered
+### 考慮過的替代方案
 
-See the discussion in Background.
+請參閱背景章節中的討論。
 
-### Impacts
+### 影響
 
-The proposal has some security implications. The mechanism provides an
-unauthenticated means for the host firmware to crash and/or reboot the BMC,
-which can itself become a concern for stability and availability. Use of this
-feature requires that the host firmware is trusted, that is, that the host and
-BMC firmware must be in the same trust domain. If a platform concept requires
-that the BMC and host firmware remain in disjoint trust domains then this
-feature must not be provided by the BMC.
+本提案有一些安全上的意涵。該機制提供了一種未經驗證的方式，讓主機韌體可以讓 BMC 當機及/或重新開機，這本身就會成為穩定性與可用性上的顧慮。使用此功能要求主機韌體是受信任的，也就是主機與 BMC 韌體必須處於同一個信任域（trust domain）。如果某個平台概念要求 BMC 與主機韌體保持在不相交的信任域中，則 BMC 不得提供此功能。
 
-As the feature might provide surprising system behaviour, there is an impact on
-documentation for systems deploying this design: The mechanism must be
-documented in such a way that rebooting the BMC in these circumstances isn't
-surprising.
+由於此功能可能會產生令人意外的系統行為，因此對部署此設計的文件會造成影響：必須以一種方式記錄該機制，讓在這些情況下重新開機 BMC 不會令人意外。
 
-Developers are impacted in the sense that they may have access to better debug
-data than might otherwise be possible. There are no obvious developer-specific
-drawbacks.
+開發人員會受到影響，因為他們可能取得比原本可能取得的更好的除錯資料。沒有明顯針對開發人員的缺點。
 
-Due to simplicity being a design-point of the proposal, there are no significant
-API, performance or upgradability impacts.
+由於簡潔是本提案的設計重點之一，因此沒有重大的 API、效能或可升級性方面的影響。
 
-### Testing
+### 測試
 
-Generally, testing this feature requires complex interactions with host firmware
-and platform-specific mechanisms for triggering the reboot behaviour.
+一般來說，測試此功能需要與主機韌體進行複雜的互動，以及觸發重新開機行為的平台專用機制。
 
-For Power10 platforms this feature may be safely tested under QEMU by scripting
-the monitor to inject values on the appropriate KCS device. Implementing this
-for automated testing may need explicit support in CI.
+對於 Power10 平台，此功能可以在 QEMU 下安全地測試，方法是透過腳本控制 monitor，將值注入到適當的 KCS 裝置。若要為自動化測試實作這一點，可能需要 CI 中的明確支援。
 
-## Handling platform-data-provider failures
+## 處理平台資料提供者的故障
 
-### Requirements
+### 需求
 
-As noted above, these types of failures usually yield a system that can continue
-to operate in a reduced capacity. The desired behavior in this scenario can vary
-from system to system so the requirements in this area need to be flexible
-enough to allow system owners to configure their desired behavior.
+如上所述，這類故障通常會讓系統仍能以降低的容量繼續運作。在這種情況下期望的行為會因系統而異，因此這一領域的需求必須足夠靈活，讓系統擁有者能夠設定他們期望的行為。
 
-The requirements for OpenBMC when a platform-data-provider service enters a
-failure state are that the BMC:
+當平台資料提供者服務進入失敗狀態時，對 OpenBMC 的需求是 BMC 應：
 
-- Logs an error indicating a service has failed
-- Collects a BMC dump
-- Changes BMC state (CurrentBMCState) to indicate a degraded mode of the BMC
-- Allow system owners to customize other behaviors (i.e. BMC reboot)
+- 記錄一則錯誤，指出有服務失敗
+- 蒐集一份 BMC 轉儲
+- 變更 BMC 狀態（CurrentBMCState）以指出 BMC 處於降級模式
+- 允許系統擁有者自訂其他行為（例如 BMC 重新開機）
 
-### Proposed Design
+### 提案設計
 
-This will build upon the existing [target-fail-monitoring][3] design. The
-monitor service will be enhanced to also take json file(s) which list critical
-services to monitor.
+這將以既有的 [target-fail-monitoring][3] 設計為基礎。監控服務將被增強，使其也能讀取列出需監控的關鍵服務的 json 檔。
 
-Define a "obmc-bmc-service-quiesce.target". System owners can install any other
-services they wish in this new target.
+定義一個 "obmc-bmc-service-quiesce.target"。系統擁有者可以在這個新的 target 中安裝他們想要的任何其他服務。
 
-phosphor-bmc-state-manager will monitor this target and enter a `Quiesced` state
-when it is started. This state will be reported externally via the Redfish API
-under redfish/v1/Managers/bmc status property.
+phosphor-bmc-state-manager 將監控這個 target，並在其啟動時進入 `Quiesced` 狀態。此狀態會透過 Redfish API 在 redfish/v1/Managers/bmc 的 status 屬性下對外報告。
 
-This would look like the following:
+這看起來會像以下這樣：
 
-- In a services-to-monitor configuration file, add all critical services
-- The state-manager service-monitor will subscribe to signals for service
-  failures and do the following when one fails from within the configuration
-  file:
-  - Log error with service failure information
-  - Request a BMC dump
-  - Start obmc-bmc-service-quiesce.target
-- BMC state manager detects obmc-bmc-service-quiesce.target has started and puts
-  the BMC state into Quiesced
-- bmcweb looks at BMC state to return appropriate state to external clients
+- 在待監控服務設定檔中，加入所有關鍵服務
+- state-manager 的服務監控器會訂閱服務失敗的訊號，並在設定檔中的某個服務失敗時執行以下動作：
+  - 記錄帶有服務失敗資訊的錯誤
+  - 請求一份 BMC 轉儲
+  - 啟動 obmc-bmc-service-quiesce.target
+- BMC 狀態管理程式偵測到 obmc-bmc-service-quiesce.target 已啟動，並將 BMC 狀態置為 Quiesced
+- bmcweb 檢視 BMC 狀態，以對外部的客戶端回傳適當的狀態
 
 [3]:
   https://github.com/openbmc/docs/blob/master/designs/target-fail-monitoring.md
 
-### Alternatives Considered
+### 考慮過的替代方案
 
-One simpler option would be to just have the OnFailure result in a BMC reboot
-but historically this has caused more problems then it solves:
+一個較簡單的選項是讓 OnFailure 直接導致 BMC 重新開機，但歷史上這造成的問題比解決的還多：
 
-- Rarely does a BMC reboot fix a service that was not fixed by simply restarting
-  it.
-- A BMC that continuously reboots itself due to a service failure is very
-  difficult to debug.
-- Some BMC's only allow a certain amount of reboots so eventually the BMC ends
-  up stuck in the boot loader which is inaccessible unless special debug cables
-  are available so for all intents and purposes your system is now unusable.
+- 很少有情況下，BMC 重新開機能修復一個僅靠重啟就能修復的服務。
+- 一個因服務失敗而不斷自我重新開機的 BMC 非常難以除錯。
+- 有些 BMC 只允許一定次數的重開機，因此最終 BMC 會卡在開機載入程式（boot loader）中，除非有特殊的除錯線材否則無法存取，所以在本質上你的系統現在已無法使用。
 
-### Impacts
+### 影響
 
-Currently nothing happens when a service enters the fail state. The changes
-proposed in this document will ensure an error is logged a dump is collected,
-and the external BMC state reflects the failure when this occurs.
+目前當一個服務進入失敗狀態時不會發生任何事。本文件提案的變更將確保在這種情況發生時會記錄錯誤、蒐集轉儲，並讓外部的 BMC 狀態反映出該失敗。
 
-### Testing
+### 測試
 
-A variety of service should be put into the fail state and the tester should
-ensure the appropriate error is logged, dump is collected, and BMC state is
-changed to reflect this.
+應將各種服務置於失敗狀態，測試人員應確保記錄了適當的錯誤、蒐集了轉儲，且 BMC 狀態已變更以反映這一點。

@@ -1,13 +1,12 @@
-# Redfish cheat sheet
+# Redfish 快速參考
 
-This document is intended to provide a set of example [Redfish][1] client
-commands for OpenBMC usage. This document uses cURL. This document assumes
-several ids, such as ManagerId, "bmc", and ComputerSystemId, "system". Assuming
-an id is not correct and any software written to use the Redfish API should not.
-From the Redfish Specification, DSP0266, "Clients shall not make assumptions
-about the URIs for the members of a resource collection."
+本文旨在提供一組用於 OpenBMC 的 [Redfish][1] 用戶端指令範例。本文使用
+cURL。本文假設了若干 id，例如 ManagerId 為 "bmc"、ComputerSystemId 為
+"system"。這種假設並不正確，任何使用 Redfish API 的軟體都不應該做出此類
+假設。根據 Redfish 規範 DSP0266：「用戶端不應假設資源集合中各成員的
+URI。」
 
-## Query Redfish Service Root
+## 查詢 Redfish Service Root
 
 ```bash
 export bmc=xx.xx.xx.xx
@@ -16,23 +15,23 @@ curl -k https://${bmc}/redfish/v1
 
 ---
 
-## Establish Redfish connection session
+## 建立 Redfish 連線工作階段（session）
 
-### Method 1
+### 方法 1
 
 ```bash
 export bmc=xx.xx.xx.xx
 curl --insecure -H "Content-Type: application/json" -X POST -D headers.txt https://${bmc}/redfish/v1/SessionService/Sessions -d    '{"UserName":"root", "Password":"0penBmc"}'
 ```
 
-A file, headers.txt, will be created. Find the `"X-Auth-Token"` in that file.
-Save it away in an env variable like so:
+會建立一個名為 headers.txt 的檔案。在該檔案中找到 `"X-Auth-Token"`。
+將其儲存到環境變數中，如下所示：
 
 ```bash
 export bmc_token=<token>
 ```
 
-### Method 2
+### 方法 2
 
 ```bash
 export bmc=xx.xx.xx.xx
@@ -40,11 +39,11 @@ export token=`curl -k -H "Content-Type: application/json" -X POST https://${bmc}
 curl -k -H "X-Auth-Token: $token" https://${bmc}/redfish/v1/...
 ```
 
-Note: Method 2 is used in this document.
+注意：本文使用的方法 2。
 
 ---
 
-## View Redfish Objects
+## 檢視 Redfish 物件
 
 ```bash
 curl -k -H "X-Auth-Token: $token" -X GET https://${bmc}/redfish/v1/Chassis
@@ -54,7 +53,7 @@ curl -k -H "X-Auth-Token: $token" -X GET https://${bmc}/redfish/v1/Systems
 
 ---
 
-## View sessions
+## 檢視工作階段（sessions）
 
 ```bash
 curl -k -H "X-Auth-Token: $token" https://${bmc}/redfish/v1/SessionService/Sessions
@@ -62,27 +61,27 @@ curl -k -H "X-Auth-Token: $token" https://${bmc}/redfish/v1/SessionService/Sessi
 
 ---
 
-## Host power
+## 主機電源
 
-Host soft power off:
+主機軟性關機（soft power off）：
 
 ```bash
 curl -k -H "X-Auth-Token: $token" -H "Content-Type: application/json" -X POST https://${bmc}/redfish/v1/Systems/system/Actions/ComputerSystem.Reset -d '{"ResetType": "GracefulShutdown"}'
 ```
 
-Host hard power off:
+主機硬性關機（hard power off）：
 
 ```bash
 curl -k -H "X-Auth-Token: $token" -H "Content-Type: application/json" -X POST https://${bmc}/redfish/v1/Systems/system/Actions/ComputerSystem.Reset -d '{"ResetType": "ForceOff"}'
 ```
 
-Host power on:
+主機開機（power on）：
 
 ```bash
 curl -k -H "X-Auth-Token: $token" -H "Content-Type: application/json" -X POST https://${bmc}/redfish/v1/Systems/system/Actions/ComputerSystem.Reset -d '{"ResetType": "On"}'
 ```
 
-Reboot Host:
+重新開機主機（Reboot Host）：
 
 ```bash
 curl -k -H "X-Auth-Token: $token" -H "Content-Type: application/json" -X POST https://${bmc}/redfish/v1/Systems/system/Actions/ComputerSystem.Reset -d '{"ResetType": "GracefulRestart"}'
@@ -90,7 +89,7 @@ curl -k -H "X-Auth-Token: $token" -H "Content-Type: application/json" -X POST ht
 
 ---
 
-## BMC reboot
+## BMC 重新開機
 
 ```bash
 curl -k -H "X-Auth-Token: $token" -H "Content-Type: application/json" -X POST https://${bmc}/redfish/v1/Managers/bmc/Actions/Manager.Reset -d '{"ResetType": "GracefulRestart"}'
@@ -98,9 +97,9 @@ curl -k -H "X-Auth-Token: $token" -H "Content-Type: application/json" -X POST ht
 
 ---
 
-## BMC factory reset
+## BMC 回復出廠設定（factory reset）
 
-Proceed with caution:
+請謹慎操作：
 
 ```bash
 curl -k -H "X-Auth-Token: $token" -H "Content-Type: application/json" -X POST https://${bmc}/redfish/v1/Managers/bmc/Actions/Manager.ResetToDefaults -d '{"ResetType": "ResetAll"}'
@@ -108,15 +107,15 @@ curl -k -H "X-Auth-Token: $token" -H "Content-Type: application/json" -X POST ht
 
 ---
 
-## Log entry
+## 記錄項目（Log entry）
 
-Display logging entries:
+顯示記錄項目：
 
 ```bash
 curl -k -H "X-Auth-Token: $token" -X GET https://${bmc}/redfish/v1/Systems/system/LogServices/EventLog/Entries
 ```
 
-Delete logging entries:
+刪除記錄項目：
 
 ```bash
 curl -k -H "X-Auth-Token: $token" -H "Content-Type: application/json" -X POST https://${bmc}/redfish/v1/Systems/system/LogServices/EventLog/Actions/LogService.Reset
@@ -124,9 +123,9 @@ curl -k -H "X-Auth-Token: $token" -H "Content-Type: application/json" -X POST ht
 
 ---
 
-## Firmware update
+## 韌體更新
 
-Firmware update: Note the `<image file path>` must be a tarball.
+韌體更新：注意 `<image file path>` 必須是一個 tarball。
 
 ```bash
 uri=$(curl -k -H "X-Auth-Token: $token" https://${bmc}/redfish/v1/UpdateService | jq -r ' .HttpPushUri')
@@ -134,8 +133,8 @@ uri=$(curl -k -H "X-Auth-Token: $token" https://${bmc}/redfish/v1/UpdateService 
 curl -k -H "X-Auth-Token: $token" -H "Content-Type: application/octet-stream" -X POST -T <image file path> https://${bmc}${uri}
 ```
 
-Firmware update using multi-part form data: Note the `<apply time>` can be
-`OnReset` or `Immediate`.
+使用多部分表單資料（multi-part form data）進行韌體更新：注意
+`<apply time>` 可以是 `OnReset` 或 `Immediate`。
 
 ```bash
 uri=$(curl -k -H "X-Auth-Token: $token" https://${bmc}/redfish/v1/UpdateService | jq -r ' .MultipartHttpPushUri')
@@ -143,15 +142,15 @@ uri=$(curl -k -H "X-Auth-Token: $token" https://${bmc}/redfish/v1/UpdateService 
 curl -k -H "X-Auth-Token: $token" -H "Content-Type:multipart/form-data" -X POST -F UpdateParameters="{\"Targets\":[\"/redfish/v1/Managers/bmc\"],\"@Redfish.OperationApplyTime\":<apply time>};type=application/json" -F "UpdateFile=@<image file path>;type=application/octet-stream" https://${bmc}${uri}
 ```
 
-TFTP Firmware update using TransferProtocol: Note: The `<image file path>`
-contains the address of the TFTP service:
+使用 TransferProtocol 進行 TFTP 韌體更新：注意：`<image file path>`
+包含 TFTP 服務的地址：
 `xx.xx.xx.xx/obmc-phosphor-xxxxx-xxxxxxxxx.static.mtd.tar`
 
 ```bash
 curl -k -H "X-Auth-Token: $token" -H "Content-Type: application/json" -X POST https://${bmc}/redfish/v1/UpdateService/Actions/UpdateService.SimpleUpdate -d '{"TransferProtocol":"TFTP","ImageURI":"<image file path>"}'
 ```
 
-TFTP Firmware update with protocol in ImageURI:
+在 ImageURI 中帶有協定的 TFTP 韌體更新：
 
 ```bash
 curl -k -H "X-Auth-Token: $token" -H "Content-Type: application/json" -X POST https://${bmc}/redfish/v1/UpdateService/Actions/UpdateService.SimpleUpdate -d '{"ImageURI":"tftp://<image file path>"}'
@@ -159,9 +158,9 @@ curl -k -H "X-Auth-Token: $token" -H "Content-Type: application/json" -X POST ht
 
 ---
 
-## Update "root" password
+## 更新 "root" 密碼
 
-Change password to "0penBmc1":
+將密碼變更為 "0penBmc1"：
 
 ```bash
 curl -k -H "X-Auth-Token: $token" -H "Content-Type: application/json" -X PATCH -d '{"Password": "0penBmc1"}' https://${bmc}/redfish/v1/AccountService/Accounts/root
@@ -169,21 +168,21 @@ curl -k -H "X-Auth-Token: $token" -H "Content-Type: application/json" -X PATCH -
 
 ---
 
-## BIOS firmware boot control
+## BIOS 韌體開機控制
 
-Enter into BIOS setup on boot
+開機時進入 BIOS 設定（setup）
 
 ```bash
 curl -k -H "X-Auth-Token: $token" -H "Content-Type: application/json" -X PATCH https://${bmc}/redfish/v1/Systems/system -d '{"Boot":{"BootSourceOverrideEnabled": "Continuous","BootSourceOverrideTarget": "BiosSetup"}}'
 ```
 
-Fully boot
+完整開機（Fully boot）
 
 ```bash
 curl -k -H "X-Auth-Token: $token" -H "Content-Type: application/json" -X PATCH https://${bmc}/redfish/v1/Systems/system -d '{"Boot":{"BootSourceOverrideEnabled": "Disabled","BootSourceOverrideTarget": "None"}}'
 ```
 
-Change Legacy/EFI selector (valid only if host is based on the x86 CPU)
+變更 Legacy/EFI 選擇器（僅在主機以 x86 CPU 為基礎時有效）
 
 ```bash
 curl -k -H "X-Auth-Token: $token" -H "Content-Type: application/json" -X PATCH https://${bmc}/redfish/v1/Systems/system -d '{"Boot":{"BootSourceOverrideEnabled": "Once","BootSourceOverrideTarget": "None","BootSourceOverrideMode": "UEFI"}}'
@@ -191,15 +190,15 @@ curl -k -H "X-Auth-Token: $token" -H "Content-Type: application/json" -X PATCH h
 
 ---
 
-## Enable NTP
+## 啟用 NTP
 
-Add a NTP Server
+新增一個 NTP 伺服器
 
 ```bash
 curl -k -H "X-Auth-Token: $token" -H "Content-Type: application/json" -X PATCH https://${bmc}/redfish/v1/Managers/bmc/NetworkProtocol -d '{"NTP":{"NTPServers":["time.nist.gov"]}}'
 ```
 
-Now enable NTP
+接著啟用 NTP
 
 ```bash
 curl -k -H "X-Auth-Token: $token" -H "Content-Type: application/json" -X PATCH https://${bmc}/redfish/v1/Managers/bmc/NetworkProtocol -d '{"NTP":{"ProtocolEnabled": true}}'
@@ -207,60 +206,60 @@ curl -k -H "X-Auth-Token: $token" -H "Content-Type: application/json" -X PATCH h
 
 ---
 
-## Disable IPMI
+## 停用 IPMI
 
 ```bash
 curl -k -H "X-Auth-Token: $token" -H "Content-Type: application/json" -X PATCH https://${bmc}/redfish/v1/Managers/bmc/NetworkProtocol -d '{"IPMI":{"ProtocolEnabled": false}}'
 ```
 
-## Manage subscriptions
+## 管理訂閱（subscriptions）
 
-List configured subscriptions:
+列出已設定的訂閱：
 
 ```bash
 curl -k -H "X-Auth-Token: $token" -H "Content-Type: application/json" https://${bmc}/redfish/v1/EventService/Subscriptions/
 ```
 
-Setup subscription
+設定訂閱
 
 ```bash
 curl -k -H "X-Auth-Token: $token" -H "Content-Type: application/json" -X POST https://${bmc}/redfish/v1/EventService/Subscriptions -d '{"Context": "My context", "DeliveryRetryPolicy": "RetryForever", "Destination": "http://yy.yy.yy.yy:8888/events", "EventFormatType": "Event", "Protocol": "Redfish", "SubscriptionType": "RedfishEvent"}"
 ```
 
-Store the ID of the first subscription in an environment variable:
+將第一個訂閱的 ID 儲存到環境變數中：
 
 ```bash
 export subscription_id=$(curl -k -H "X-Auth-Token: $token" -H "Content-Type: application/json" https://${bmc}/redfish/v1/EventService/Subscriptions/ |jq '.Members[0]."@odata.id"' | cut -d '/' -f 6| cut -d '"' -f 1)
 ```
 
-Display information for the subscription associated with the stored ID:
+顯示與所儲存 ID 相關聯之訂閱的資訊：
 
 ```bash
 curl -k -H "X-Auth-Token: $token" -H "Content-Type: application/json" https://${bmc}/redfish/v1/EventService/Subscriptions/${subscription_id}
 ```
 
-Update the subscription corresponding to the stored ID:
+更新與所儲存 ID 相對應的訂閱：
 
 ```bash
 curl -k -H "X-Auth-Token: $token" -H "Content-Type: application/json" https://${bmc}/redfish/v1/EventService/Subscriptions/${subscription_id} -X PATCH -d '{"VerifyCertificate": false}'
 ```
 
-Remove the subscription identified by the stored ID:
+移除由所儲存 ID 識別的訂閱：
 
 ```bash
 curl -k -H "X-Auth-Token: $token" -H "Content-Type: application/json" https://${bmc}/redfish/v1/EventService/Subscriptions/${subscription_id} -X DELETE
 ```
 
-### Test subscriptions
+### 測試訂閱
 
-Send a test event using embedded into Redfish Event Service facility:
+使用內建於 Redfish Event Service 的功能來寄送測試事件：
 
 ```bash
 curl -k -H "X-Auth-Token: $token" -H "Content-Type: application/json" https://${bmc}/redfish/v1/EventService/Actions/EventService.SubmitTestEvent -X POST -d '{"EventTimestamp":"2023-02-13T14:49:20Z","Severity":"Warning","Message":"This is a test event message 2","MessageId":"iLOResourceEvents.1.3.DrvArrLogDrvErasing","MessageArgs":["1","slot 3"],"OriginOfCondition":"/redfish/v1/Systems/1/Storage"}'
 ```
 
-Send a test DBus event, it should be picked up by the bmcweb and send event to
-the subscriber (the command should be executed on the BMC):
+寄送一個測試用的 DBus 事件，它應該會被 bmcweb 取得並將事件寄給訂閱者
+（此指令應在 BMC 上執行）：
 
 ```bash
 busctl call xyz.openbmc_project.Logging \

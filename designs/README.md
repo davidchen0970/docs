@@ -1,6 +1,6 @@
-# Overview
+# 總覽
 
-This is a directory of design documents.
+這是一個設計文件的目錄。
 
-Newly authored design documents are encouraged to follow the
-[design document template](design-template.md).
+新撰寫的設計文件建議遵循
+[設計文件範本](design-template.md)。

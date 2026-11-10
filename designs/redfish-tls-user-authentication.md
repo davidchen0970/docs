@@ -1,54 +1,41 @@
-# Redfish TLS User Authentication
+# Redfish TLS 使用者認證
 
-Author: Kamil Kowalski <kamil.kowalski@intel.com>
+作者：Kamil Kowalski <kamil.kowalski@intel.com>
 
-Other contributors: None
+其他貢獻者：無
 
-Created: June 7, 2019
+建立日期：2019 年 6 月 7 日
 
-## Problem Description
+## 問題描述
 
-Redfish API presented by [BMCWeb](https://github.com/openbmc/bmcweb) allows user
-to authenticate using quite a few methods, eg. BasicAuth, Sessions, etc. In
-addition to those user can gain access to nodes by providing certificate upon
-negotiating HTTPS connection for identifications. The design and principles
-behind this solution are described below.
+由 [BMCWeb](https://github.com/openbmc/bmcweb) 提供的 Redfish API 允許使用者透過多種方法進行認證，例如 BasicAuth、Sessions 等。除了這些方式之外，使用者還可以在協商 HTTPS 連線時提供憑證以供識別，從而取得節點的存取權。此解決方案的設計與背後的原理說明如下。
 
-## Background and References
+## 背景與參考資料
 
-Redfish currently lacks support for modern authentication methods. Certificate
-based auth would allow for more secure and controllable access control. Using
-SSL certificates provides validity periods, ability to revoke access from CA
-level, and many other security features.
+Redfish 目前缺乏對現代認證方式的支援。基於憑證的認證能夠帶來更安全、更可控制的使用者存取控制。使用 SSL 憑證可以提供有效期限、從 CA 層級撤銷存取權的能力，以及許多其他安全性功能。
 
-Reference documents:
+參考文件：
 
 - [Certificate Schema Definition](https://redfish.dmtf.org/schemas/v1/Certificate_v1.xml)
 - [CertificateLocations Schema Definition](https://redfish.dmtf.org/schemas/v1/CertificateLocations_v1.xml)
 - [CertificateService Schema Definition](https://redfish.dmtf.org/schemas/v1/CertificateService_v1.xml)
-- [DSP-IS0008 DMTF's Redfish Certificate Management Document](https://www.dmtf.org/dsp/DSP-IS0008)
-- [RFC 5246 - TLS 1.2 Specification](https://tools.ietf.org/html/rfc5246)
-- [RFC 8446 - TLS 1.3 Specification](https://tools.ietf.org/html/rfc8446)
+- [DSP-IS0008 DMTF 的 Redfish 憑證管理文件](https://www.dmtf.org/dsp/DSP-IS0008)
+- [RFC 5246 - TLS 1.2 規格](https://tools.ietf.org/html/rfc5246)
+- [RFC 8446 - TLS 1.3 規格](https://tools.ietf.org/html/rfc8446)
 
-### Dictionary
+### 詞彙表
 
-**Redfish API** - Redfish API as defined by DMTF **Redfish** - Redfish API
-implementation in BMCWeb
+**Redfish API** - 由 DMTF 定義的 Redfish API **Redfish** - Redfish API 在 BMCWeb 中的實作
 
-## Requirements
+## 需求
 
-Adding this would benefit WebUI's and Redfish API's security greatly, and would
-push it towards modern security standards compliance.
+加入此功能將大幅提升 WebUI 與 Redfish API 的安全性，並使其朝符合現代安全標準的方向邁進。
 
-## Proposed Design
+## 建議設計
 
-### Process overview
+### 流程總覽
 
-Whenever `CA`'s certificate changes `User` shall provide `Redfish` with it.
-After that is completed, user should request a **CSR** (**C**ertificate
-**S**igning **R**equest) from `Redfish` to get a request allowing to generate
-proper `user`'s certificate from `CA`. After this certificate is acquired,
-`User` can use this certificate when initializing HTTPS sessions.
+每當 `CA` 的憑證變更時，`User` 就必須將其提供給 `Redfish`。完成後，使用者應向 `Redfish` 請求一份 **CSR**（**C**ertificate **S**igning **R**equest，憑證簽署請求），以取得一份可據以從 `CA` 產生正確 `user` 憑證的請求。取得此憑證後，`User` 便可以在初始化 HTTPS 工作階段時使用此憑證。
 
 ```text
 ┌──┐                           ┌────┐                                 ┌───────┐
@@ -96,15 +83,13 @@ proper `user`'s certificate from `CA`. After this certificate is acquired,
 
 ### BMCWeb / Redfish API
 
-#### Uploading CA Certificate
+#### 上傳 CA 憑證
 
-CA's certificates for user authentication are kept at
-`/redfish/v1/AccountService/TLSAuth/Certificates`. There can be more than one,
-so user must use certificate that is signed by **any CA** that have their valid
-certificate stored there. New certificates can be uploaded by *POST*ing new
-certificate object on CertificateCollection.
+用於使用者認證的 CA 憑證存放於
+`/redfish/v1/AccountService/TLSAuth/Certificates`。此處可以存放多個憑證，
+因此使用者必須使用由**任何一個**在此處存有有效憑證的 CA 所簽署的憑證。新的憑證可以透過在 CertificateCollection 上以 *POST* 方式送出新的憑證物件來上傳。
 
-Example POST payload:
+POST 內容範例：
 
 ```json
 {
@@ -113,13 +98,11 @@ Example POST payload:
 }
 ```
 
-Should CA certificate get invalid (compromised, out-of-date, etc.) it is
-recommended to use `#CertificateService.ReplaceCertificate` action at
-`/redfish/v1/CertificateService`, to avoid wasting space and performance
-unnecessarily for processing invalid certificates.
+若 CA 憑證變為無效（遭洩露、過期等），建議使用位於
+`/redfish/v1/CertificateService` 的 `#CertificateService.ReplaceCertificate` 動作，以避免為處理無效憑證而不必要地耗費空間與效能。
 
-Example `#CertificateService.ReplaceCertificate` action payload executed on
-`/redfish/v1/CertificateService/Actions/CertificateService.ReplaceCertificate`:
+在
+`/redfish/v1/CertificateService/Actions/CertificateService.ReplaceCertificate` 上執行的 `#CertificateService.ReplaceCertificate` 動作內容範例：
 
 ```json
 {
@@ -129,11 +112,11 @@ Example `#CertificateService.ReplaceCertificate` action payload executed on
 }
 ```
 
-#### Generating CSR
+#### 產生 CSR
 
-User can generate CSR in any way that is convenient to him.
+使用者可以使用任何對其而言方便的方式來產生 CSR。
 
-#### Authentication Process
+#### 認證流程
 
 ```text
                                     +-+
@@ -187,95 +170,61 @@ User can generate CSR in any way that is convenient to him.
               |      |                              |      |
               |      +------------------------------+      |
               V                                            V
-+-------------+--------------+               +-------------+--------------+
-|                            |               |                            |
-|       Create session       |               | Return authorization error |
-|                            |               |                            |
-+-------------+--------------+               +-------------+--------------+
+ +-------------+--------------+               +-------------+--------------+
+ |                            |               |                            |
+ |       Create session       |               | Return authorization error |
+ |                            |               |                            |
+ +-------------+--------------+               +-------------+--------------+
               |                                            |
               |                     +-+                    |
               +--------------------->*<--------------------+
                                     +-+
 ```
 
-Certificate based authentication has the highest priority, because of the design
-of `Boost.Beast/Boost.ASIO/OpenSSL` as the certificate verification is being
-done at the very beginning of HTTPS request processing. `OpenSSL` library is
-responsible for determining whether certificate is valid or not. For certificate
-to be marked as valid, it (and every certificate in chain) has to meet these
-conditions:
+基於憑證的認證擁有最高的優先順序，這是因為
+`Boost.Beast/Boost.ASIO/OpenSSL` 的設計，憑證驗證是在 HTTPS 請求處理的一開始就進行。`OpenSSL` 函式庫負責判定憑證是否有效。要讓憑證被標記為有效，該憑證（以及憑證鏈中的每一張憑證）都必須滿足下列條件：
 
-- does KeyUsage contain required data ("digitalSignature" and "keyAgreement")
-- does ExtendedKeyUsage contain required data (contains "clientAuth")
-- public key meets minimal bit length requirement
-- certificate has to be in it's validity period
-- notBefore and notAfter fields have to contain valid time
-- has to be properly signed by certificate authority
-- certificate cannot be revoked
-- certificate is well-formed according to X.509
-- certificate cannot be self-signed
-- issuer name has to match CA's subject name
+- KeyUsage 是否包含所需的資料（"digitalSignature" 與 "keyAgreement"）
+- ExtendedKeyUsage 是否包含所需的資料（包含 "clientAuth"）
+- 公鑰是否符合最小位元長度需求
+- 憑證必須處於其有效期限內
+- notBefore 與 notAfter 欄位必須包含有效的時間
+- 必須已由憑證授權單位正確簽署
+- 憑證不得已被撤銷
+- 憑證必須依照 X.509 正確格式編製
+- 憑證不得為自我簽署
+- 發行者名稱必須與 CA 的主體名稱相符
 
-After these checks a callback is invoked providing result of `user<->CA`
-matching status. There, in case of success Redfish extracts username from
-`CommonName` and verifies if user does exist in the system.
+完成這些檢查後，會呼叫一個回呼函式，提供 `user<->CA`
+的比對結果。若比對成功，Redfish 會從 `CommonName` 擷取出使用者名稱，並驗證該使用者是否存在於系統中。
 
-As can be seen on the flow diagram, Redfish will use **the first valid**
-credentials according to processing sequence. It is recommended for user to use
-only one set of credentials/authentication data in a single request to be sure
-what will be used, otherwise there is no certainty which credential are used
-during operation.
+如流程圖所示，Redfish 會按照處理順序使用**第一個有效**的憑證。建議使用者在單一請求中只使用一組憑證/認證資料，以確保知道將使用哪一組，否則將無法確定操作過程中使用的是哪一組憑證。
 
-User can configure which methods are available in `/redfish/v1/AccountService`
-OEM schema. The sequence of credential verification stays the same regardless of
-configuration. Whitelist verification is always-on, because of Redfish
-specification and other accessibility requirements.
+使用者可以在 `/redfish/v1/AccountService` 的 OEM schema 中設定可使用哪些方式。無論如何設定，憑證驗證的順序都保持不變。白名單驗證永遠開啟，這是因為 Redfish 規格及其他可存取性的需求。
 
-User certificate does not have to be signed by the exact CAs whose certificates
-are stored, but instead it can be done in a chain (Redfish guarantees support
-for chain depth up to 5, but greater ones may work as well). It is recommended
-to use at least 2048bit RSA or 256/384bit elliptic curve keys. Certificate has
-to be in its validity period in the moment of session initialization.
+使用者憑證不一定要由那些憑證已存放的確切 CA 所簽署，而是可以透過憑證鏈來完成（Redfish 保證支援最深 5 層的憑證鏈，但更深的鏈也可能運作）。建議至少使用 2048 位元的 RSA 或 256/384 位元的橢圓曲線金鑰。憑證在初始化工作階段的當下必須處於其有效期限內。
 
-#### Authorization
+#### 授權
 
-User identified by any of methods described above, goes through process of
-examining whether user actually exists, and what privileges, groups, etc. should
-be provided. Current base is BasicAuth as it should be used for creating
-sessions which can be used in following connections, and it is executed by
-BMCWeb through PAM library usage. Other auth methods have access only to user's
-login credentials without password, so verification of user existence cannot be
-directly done through classic PAM flow, and should be done in other way. This
-also applies for certificate based auth, so all non BasicAuth methods should
-verify whether user exists and is not locked out of the system on any login
-attempt.
+以任何上述方式識別出的使用者，會經過一個檢查流程，確認該使用者確實存在，以及應該提供哪些權限、群組等。目前的基礎是 BasicAuth，因為它應用於建立可在後續連線中使用的工作階段，並由 BMCWeb 透過使用 PAM 函式庫來執行。其他認證方式只能取得使用者的登入憑證而不含密碼，因此無法透過傳統 PAM 流程直接完成使用者是否存在於系統的驗證，必須以其他方式進行。基於憑證的認證也適用這一點，因此所有非 BasicAuth 的方式都應在每次登入嘗試時驗證使用者是否存在且未被系統鎖定。
 
-## Alternatives Considered
+## 其他考慮過的替代方案
 
-None.
+無。
 
-## Impacts
+## 影響
 
-Current auth methods will not be impacted. This proposition is based on locally
-stored CA certificates, so it does not guarantee automated measures against
-situations where certificates have been revoked, and user/admin has not yet
-updated certificates on BMC.
+現有的認證方式不會受到影響。此提案是以本地儲存的 CA 憑證為基礎，因此無法針對憑證已被撤銷、而使用者/管理員尚未在 BMC 上更新憑證的情況提供自動化的防護措施。
 
-## Testing
+## 測試
 
-Testing should be conducted on currently supported auth methods beside TLS, to
-confirm that their behavior did not change, and did not suffer any regression.
+應針對目前支援的 TLS 以外認證方式進行測試，以確認它們的行為沒有改變、也沒有出現任何效能或功能衰退。
 
-As for TLS auth itself:
+至於 TLS 認證本身：
 
-1. Flow described in [Process overview](#process-overview) should be tested, to
-   confirm that after going through it, everything works as expected.
-2. Validity period tests - to confirm that certificates that are not-yet-valid
-   and expired ones are not accepted, by both - changing validity periods in
-   certificates themselves, as well as modifying time on BMC itself
-3. Removing CA certificate and confirming that user will not be granted access
-   after that when using certificate that worked before removal.
-4. Chain certificates verification - checking that chained certificates are
-   accepted as required.
-5. Negative tests for breaking user's certificate - invalid username, invalid
-   validity period, invalid CA, binary broken certificate, etc.
+1. 應測試在 [流程總覽](#process-overview) 中所描述的流程，
+   以確認完成該流程後一切都能如預期般運作。
+2. 有效期限測試——確認尚未生效與已過期的憑證不會被接受，方法包括直接修改憑證本身的有效期限，以及修改 BMC 本身的時間。
+3. 移除 CA 憑證，並確認使用者在此之後使用移除前原本可用的憑證時將不會被授權存取。
+4. 憑證鏈驗證——確認憑證鏈中的憑證能如需求被接受。
+5. 針對使用者憑證進行破壞性的反向測試——無效的使用者名稱、無效的有效期限、無效的 CA、損毀的二進位憑證等。

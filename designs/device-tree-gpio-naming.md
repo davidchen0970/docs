@@ -1,80 +1,61 @@
-# Device Tree GPIO Naming in OpenBMC
+# OpenBMC 中 Device Tree 的 GPIO 命名
 
-Author: Andrew Geissler (geissonator)
+作者：Andrew Geissler (geissonator)
 
-Other contributors: < None >
+其他貢獻者：< 無 >
 
-Created: April 3, 2020
+建立日期：2020 年 4 月 3 日
 
-## Problem Description
+## 問題說明
 
-The Linux kernel has deprecated the use of sysfs to interact with the GPIO
-subsystem. The replacement is a "descriptor-based" character device interface.
+Linux 核心已棄用（deprecated）使用 sysfs 來與 GPIO 子系統互動。取代它的是「基於描述元（descriptor-based）」的字元裝置介面。
 
-[libgpiod][1] is a suite of tools and library implemented in C and C++ which
-provides an abstraction to this new character device gpio interface.
+[libgpiod][1] 是一套用 C 與 C++ 實作的工具程式與函式庫集合，為這個新的字元裝置 GPIO 介面提供了一層抽象。
 
-libgpiod provides a feature where you can access gpios by a name given to them
-in the kernel device tree files. The problem is there are no naming conventions
-for these GPIO names and if you want userspace code to be able to be consistent
-across different machines, these names would need to be consistent.
+libgpiod 提供了一項功能，讓你可以透過在核心 device tree 檔案中為 GPIO 所取的名稱來存取它們。問題在於這些 GPIO 名稱並沒有命名慣例，如果你希望使用者空間（userspace）的程式碼能夠在不同機器之間保持一致，這些名稱就必須是一致的。
 
-## Background and References
+## 背景與參考資料
 
-The kernel [documentation][2] has a good summary of the GPIO subsystem. The
-specific field used to name the GPIOs in the DTS is `gpio-line-names`. This
-[patch][3] shows an example of naming the GPIOs for a system.
+核心的[文件][2]對 GPIO 子系統有良好的摘要說明。在 DTS 中用來為 GPIO 命名的特定欄位是 `gpio-line-names`。這個[補丁（patch）][3]展示了一個為系統命名 GPIO 的範例。
 
-GPIOs are used for arbitrary things. It's pretty hard to have a coherent naming
-scheme in the face of a universe of potential use-cases.
+GPIO 被用於各種任意的用途。面對無窮無盡的潛在使用情境，要有一套連貫一致的命名方案其實是相當困難的。
 
-Scoping the problem down to just the vastness of OpenBMC narrows the
-possibilities quite a bit and allows the possibility of a naming scheme to
-emerge.
+把問題範圍縮小到 OpenBMC 的廣闊領域，就能大幅縮小可能性，並讓一套命名方案得以浮現。
 
-## Requirements
+## 需求
 
-- Ensure common function GPIOs within OpenBMC use the same naming convention
+- 確保 OpenBMC 中功能常見的 GPIO 採用相同的命名慣例
 
-## Proposed Design
+## 提議的設計
 
-Below are the standard categories. The "Pattern" in each section describes the
-naming convention and then the sub bullets list the common GPIO names to be used
-(when available on an OpenBMC system). This naming convention must be followed
-for all common GPIOs.
+以下是標準的分類。每一節中的「Pattern（樣式）」描述命名慣例，接著的子項目清單列出會使用的常見 GPIO 名稱（在 OpenBMC 系統上可用時）。所有常見的 GPIO 都必須遵循這個命名慣例。
 
-This list below includes all common GPIOs within OpenBMC. Any OpenBMC system
-which provides one of the below GPIOs must name it as listed in this document.
-This document must be updated as new common GPIOs are added.
+下面的清單包含了 OpenBMC 中所有常見的 GPIO。任何提供下列其中一個 GPIO 的 OpenBMC 系統，都必須以本文件所列的方式為其命名。當新增常見的 GPIO 時，必須更新本文件。
 
-### Buttons
+### 按鈕（Buttons）
 
 Pattern: `*-button`
 
-Buttons should always be considered 'input' to the BMC. There may be cases where
-BMC-less machines use a button to trigger system behavior and in a BMC-managed
-system this signal is emulated by the BMC (as output). These should not be
-considered a button in this document but enumerated as another signal type.
+按鈕都應該被視為對 BMC 的「輸入（input）」。可能會有一些沒有 BMC 的機器使用按鈕來觸發系統行為，而在由 BMC 管理的系統中，這個訊號是由 BMC 模擬產生（作為輸出）。這些在本文件中不應被視為按鈕，而應列為另一種訊號類型。
 
 #### power-button
 
 ### Host Ready
 
-Below are input GPIO names specific to Host ready. The name of Host ready GPIO
-depends on the index of Host and the active state is high or low.
+以下是 Host ready 專用的輸入 GPIO 名稱。Host ready GPIO 的名稱取決於 Host 的索引，而有效狀態（active state）為高準位或低準位。
 
 Pattern:
 
-- `host*-ready`: Host ready, active high
-- `host*-ready-n`: Host ready, active low
+- `host*-ready`：Host ready，高準位有效（active high）
+- `host*-ready-n`：Host ready，低準位有效（active low）
 
-Defined:
+已定義：
 
 - host0-ready
 - host1-ready-n
 - ...
 
-### LEDs
+### LED
 
 Pattern: `led-*`
 
@@ -96,133 +77,99 @@ Pattern: `led-*`
 
 #### led-rear-id
 
-### Power and Regulators
+### 電源與穩壓器（Power and Regulators）
 
-Pattern: `power-*`, `regulator-*`
+Pattern: `power-*`、`regulator-*`
 
 #### power-chassis-control
 
-Set to initiate power-on or power-off of the chassis.
+設定此值以啟動機箱（chassis）的開機或關機。
 
 #### power-chassis-good
 
-Indicates the power good state of the chassis.
+表示機箱的電源正常（power good）狀態。
 
 #### power-config-full-load
 
-Output GPIO set by the power managing application that indicates to the hardware
-the threshold of power supplies that are expected to be present and working for
-this type of system for the case where a system has a model that supports two
-different number of power supplies (example 2 or 4). Default is the lowest
-number of power supplies expected of the two models. In the case when the number
-of power supplies that are present are less than the ones indicated by this
-GPIO, the hardware can then take actions such as reducing the system's
-performance so that it can maintain its powered on state.
+由電源管理應用程式設定的輸出 GPIO，用來向硬體指出：對於支援兩種不同電源供應器數量（例如 2 個或 4 個）之機型的系統，此類型系統預期會存在且正常運作的電源供應器數量門檻。預設值為這兩種機型中預期的較低電源供應器數量。當現有的電源供應器數量少於此 GPIO 所指示的數量時，硬體即可採取因應動作，例如降低系統效能，以維持其開機狀態。
 
 #### power-ffs-sync-history
 
-Output GPIO set by the power managing applications. The IBM Common Form Factor
-power supplies use this line as an input. When set low and left low the power
-supply fans run at full speed (Fans Full Speed). When toggled low, then high, it
-resets the power supply input history (average and maximum power values over a
-time range).
+由電源管理應用程式設定的輸出 GPIO。IBM Common Form Factor 電源供應器將此線路作為輸入使用。當設定為低準位並維持低準位時，電源供應器的風扇會以全速運轉（Fans Full Speed）。當由高準位切換為低準位再回到高準位（toggled low, then high）時，會重設電源供應器的輸入歷史紀錄（一段時間範圍內的平均與最大功率值）。
 
 #### regulator-standby-faulted
 
-This GPIO value represents the status of standby power regulator fault detection
-logic. This GPIO is an input only. The status will reflect a regulator
-non-faulted condition after AC power cycle when no standby power regulator fault
-condition is present. The status will reflect a standby regulator power faulted
-condition when an unexpected drop in standby power is detected.
+此 GPIO 值代表待機（standby）電源穩壓器故障偵測邏輯的狀態。此 GPIO 僅作為輸入。當交流電源重新上電（AC power cycle）後且不存在待機電源穩壓器故障狀況時，狀態將反映穩壓器無故障（non-faulted）的情況。當偵測到待機電源意外下降時，狀態將反映待機穩壓器電源故障（faulted）的情況。
 
 #### rtc-battery-voltage-read-enable
 
-Output pin that enables the ADC to read the board RTC battery voltage.
+輸出接腳，讓 ADC 得以讀取主機板上 RTC 電池的電壓。
 
-### Presence
+### 存在偵測（Presence）
 
 Pattern: `presence-*`
 
-#### presence-ps0, presence-ps1, ..., presence-ps\<N>
+#### presence-ps0、presence-ps1、...、presence-ps\<N>
 
-### Reset Cause
+### 重設原因（Reset Cause）
 
-These are GPIOs that provide more detail on the reason for a BMC reset. BMC
-hardware generally provides some information on a BMC reboot, like a EXTRST
-(i.e. a BMC reset was reset by some external source). At times though, firmware
-needs more details on the cause of a reset. Hardware can be configured to latch
-an event into a GPIO for firmware to then utilize for different software logic.
+這些 GPIO 提供關於 BMC 重設原因的更多細節。BMC 硬體通常會在 BMC 重新啟動時提供一些資訊，例如 EXTRST（也就是 BMC 的重設是由某個外部來源所觸發）。但有時候韌體需要關於重設原因的更多細節。硬體可以被設定為將某個事件鎖存（latch）到一個 GPIO 中，供韌體後續用於不同的軟體邏輯。
 
 Pattern: `reset-cause-*`
 
 #### reset-cause-pinhole
 
-The pinhole reset cause will be utilized by BMC firmware to know when it has
-been reset due to a user initiated pinhole reset. This is commonly done in error
-scenarios where the BMC is hanging or otherwise unresponsive. Note that this
-GPIO is not utilized to cause the actual reset, it is a GPIO that can be read
-after the BMC reset to know the reason for the reboot was a pinhole reset.
+BMC 韌體會使用 pinhole 重設原因，來得知自己何時是因為使用者主動觸發的 pinhole 重設而被重設。這通常發生在錯誤情境下，例如 BMC 當住（hanging）或以其他方式無回應。請注意，此 GPIO 並非用於實際觸發重設，它是一個可以在 BMC 重設之後被讀取的 GPIO，用來得知重新啟動的原因是一次 pinhole 重設。
 
-### Secure Boot
+### 安全開機（Secure Boot）
 
 #### bmc-secure-boot
 
-Input pin that indicates that the BMC is configured to boot with security
-protections enforced.
+輸入接腳，表示 BMC 已被設定為在強制執行安全防護的情況下開機。
 
-Pulled up by default (secure). Placing the jumper will pull the pin down (bypass
-security).
+預設為上拉（pull up，安全）。置入跳線（jumper）會將此接腳下拉（繞過安全機制）。
 
-### Special
+### 特殊（Special）
 
-These are special case and/or grandfathered in pin names.
+這些是特殊案例及/或沿用（grandfathered in）的接腳名稱。
 
 #### air-water
 
-Indicates whether system is air or water cooled
+表示系統是以氣冷還是水冷方式散熱
 
 #### factory-reset-toggle
 
-The software records the state of this GPIO and checks upon reboot if the state
-has changed since the last reboot. If it has, it indicates that a factory reset
-should be performed.
+軟體記錄此 GPIO 的狀態，並在重新啟動時檢查該狀態自上次重啟以來是否有所改變。如果有改變，即表示應該執行原廠重設（factory reset）。
 
-### POWER Specific GPIOs
+### POWER 專屬 GPIO
 
-Below are GPIO names specific to the POWER processor based servers.
+以下是 POWER 處理器架構伺服器專用的 GPIO 名稱。
 
-#### Special
+#### 特殊（Special）
 
-These are special case and/or grandfathered in pin names.
+這些是特殊案例及/或沿用（grandfathered in）的接腳名稱。
 
 ##### cfam-reset
 
-Utilized to issue a processor logic reset to a IBM POWER processor.
+用於對 IBM POWER 處理器發出處理器邏輯重設（processor logic reset）。
 
 ##### checkstop
 
-Utilized to indicate a IBM POWER processor has entered an unrecoverable error
-state.
+用於表示 IBM POWER 處理器已進入無法回復的錯誤狀態。
 
-## Alternatives Considered
+## 曾考慮的替代方案
 
-- Continue to hard code a config file per system type that has the gpio bank and
-  pin number. This removes a dependency on the device tree to have consistent
-  names but adds overhead in supporting each new system.
+- 針對每種系統類型持續硬編碼（hard code）一個設定檔，其中包含 gpio bank 與接腳編號。這樣可以移除對 device tree 必須具備一致名稱的依賴，但會增加支援每個新系統的負擔。
 
-- Have the device tree GPIO names match the hardware schematics and then have
-  another userspace config file that maps between the schematic names and
-  logical pin names. This makes the GPIO to schematic mapping easy but adds an
-  additional layer of work with the userspace config.
+- 讓 device tree 的 GPIO 名稱與硬體電路圖相符，另外再透過一個使用者空間的設定檔，在電路圖名稱與邏輯接腳名稱之間進行對應。這樣可以讓 GPIO 對電路圖的對應變得簡單，但因使用者空間設定檔而多增加了一層額外的工作。
 
-## Impacts
+## 影響
 
-Need to ensure OpenBMC device trees conform to the above naming conventions.
+需要確保 OpenBMC 的 device tree 符合上述命名慣例。
 
-## Testing
+## 測試
 
-Userspace utilization of the GPIO names will provide some testing coverage
-during CI.
+使用者空間對 GPIO 名稱的使用，將在 CI 期間提供一些測試涵蓋率。
 
 [1]: https://git.kernel.org/pub/scm/libs/libgpiod/libgpiod.git/about/
 [2]: https://www.kernel.org/doc/html/latest/driver-api/gpio/index.html

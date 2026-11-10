@@ -1,25 +1,18 @@
-# In-Band Update of BMC Firmware (and others) using OEM IPMI Blob Transport
+# 使用 OEM IPMI Blob 傳輸方式進行 BMC 韌體（及其他）的帶內更新
 
-Author: Patrick Venture <venture!>
+作者：Patrick Venture <venture!>
 
-Created: 2018-10-18
+建立日期：2018-10-18
 
-## Problem Description
+## 問題描述
 
-The BMC needs a mechanism for receiving a new firmware image from the host
-through a variety of mechanisms. This can best be served with one protocol into
-which multiple approaches can be routed.
+BMC 需要一種機制，能透過多種方式從主機接收新的韌體映像檔。最好的做法是使用單一協定，並讓多種做法都能路由到這個協定之中。
 
-## Background and References
+## 背景與參考
 
-BMC hardware provides at a minimum some interface for sending and receiving IPMI
-messages. This hardware may also provide regions that can be memory mapped for
-higher speed communication between the BMC and the host. Certain infrastructures
-do not provide network access to the BMC, therefore it is required to provide an
-update mechanism that can be done in-band between the host and the BMC.
+BMC 硬體至少會提供某種用於傳送與接收 IPMI 訊息的介面。此硬體也可能提供可記憶體映射（memory mapped）的區域，以便 BMC 與主機之間進行更高速的通訊。某些基礎架構並未提供 BMC 的網路存取，因此必須提供一種能在主機與 BMC 之間以帶內（in-band）方式執行的更新機制。
 
-In-band here refers to a communications channel that is directly connected
-between the host and BMC.
+這裡所說的帶內，指的是直接連接於主機與 BMC 之間的通訊通道。
 
 1. Serial
 1. IPMI over LPC
@@ -27,243 +20,180 @@ between the host and BMC.
 1. LPC Memory-Mapped Region
 1. P2A bridge
 
-## Primer
+## 入門
 
-Please read the IPMI BLOB protocol design as
-[primer](https://github.com/openbmc/phosphor-ipmi-blobs/blob/master/README.md).
+請閱讀 IPMI BLOB 協定設計作為[入門](https://github.com/openbmc/phosphor-ipmi-blobs/blob/master/README.md)。
 
-## Requirements
+## 需求
 
-The following statements are reflective of the initial requirements.
+以下陳述反映最初的需求。
 
-- Any update mechanism must provide support for UBI tarballs and legacy (static
-  layout) flash images. Leveraging the BLOB protocol allows a system to provide
-  support for any image type simply by implementing a mechanism for handling it.
+- 任何更新機制都必須同時支援 UBI tarball 與傳統（靜態佈局）的 flash 映像檔。善用 BLOB 協定，只要實作處理某種映像檔類型的機制，系統就能支援該類型。
 
-- Any update mechanism must allow for triggering an image verification step
-  before the image is used.
+- 任何更新機制都必須能在映像檔被使用之前，觸發一個映像檔驗證步驟。
 
-- Any update mechanism must allow implementing the data staging via different
-  in-band mechanisms.
+- 任何更新機制都必須能以不同的帶內機制來實作資料暫存（staging）。
 
-- Any update mechanism must provide a handshake or equivalent protocol for
-  coordinating the data transfer. For instance, whether the BMC should enable
-  the P2A bridge and what region to use or whether to turn on the LPC memory map
-  bridge.
+- 任何更新機制都必須提供一個 handshake 或等效的協定，用以協調資料傳輸。例如，BMC 是否應該啟用 P2A bridge 以及要使用哪個區域，或者是否要開啟 LPC 記憶體映射 bridge。
 
-- Any update mechanism must attempt to maintain security, insomuch as not
-  leaving a memory region open by default. For example, before starting the
-  verification step, access to the staged firmware image must not be still
-  accessible from the host.
+- 任何更新機制都必須盡力維持安全性，例如預設不要開放某個記憶體區域。舉例來說，在開始驗證步驟之前，必須確保主機仍然無法存取已暫存的韌體映像檔。
 
-## Proposed Design
+## 擬議設計
 
-OpenBMC supports a BLOB protocol that provides primitives. These primitives
-allow a variety of different "handlers" to exist that implement those primitives
-for specific "blobs." A blob in this context is a file path that is strictly
-unique.
+OpenBMC 支援一個提供基礎原語（primitives）的 BLOB 協定。這些原語讓多種不同的「handler」得以存在，針對特定的「blob」實作這些原語。在此情境下，blob 是一個嚴格唯一（strictly unique）的檔案路徑。
 
-Sending the firmware image over the BLOB protocol will be done via routing the
-[phosphor-ipmi-flash design](https://github.com/openbmc/phosphor-ipmi-flash/blob/master/README.md)
-through a BLOB handler. This is meant to supplant `phosphor-ipmi-flash`'s
-current approach to centralize on one flexible handler.
+透過 BLOB 協定傳送韌體映像檔，將是把 [phosphor-ipmi-flash 設計](https://github.com/openbmc/phosphor-ipmi-flash/blob/master/README.md)路由到一個 BLOB handler 來完成。這旨在取代 `phosphor-ipmi-flash` 目前的作法，以集中到單一具彈性的 handler。
 
-### Sequencing Control
+### 序列控制
 
-To enforce sequencing control, the design requires that only one blob be open at
-a time. If the verification blob is open, the other blobs cannot be opened, and
-likewise if a client has a data blob open, the verification blob cannot be
-opened.
+為了強制執行序列控制，本設計要求同一時間只能開啟一個 blob。如果驗證 blob 已開啟，則其他 blob 就無法開啟；相對地，如果某個 client 已開啟一個資料 blob，則驗證 blob 就無法開啟。
 
-### Defining Blobs
+### 定義 Blob
 
-The BLOB protocol allows a handler to specify a list of blob ids. This list will
-be leveraged to specify whether the platform supports either the legacy (static
-layout) or the UBI mechanism, or both. The flags provided to the open command
-identify the mechanism selected by the client-side. The stat command will return
-the list of supported mechanisms for the blob.
+BLOB 協定允許 handler 指定一份 blob id 清單。將利用這份清單來指明平台是否支援傳統（靜態佈局）機制、UBI 機制，或兩者皆支援。提供給 open 命令的 flags 用以辨識由 client 端所選取的機制。stat 命令會回傳該 blob 所支援的機制清單。
 
-The blob ids for the mechanisms will be as follows:
+各機制對應的 blob id 如下：
 
-| Flash Blob Id    | Type            |
+| Flash Blob Id    | 類型            |
 | ---------------- | --------------- |
 | `/flash/image`   | Static Layout   |
 | `/flash/tarball` | UBI             |
 | `/flash/bios`    | Host BIOS image |
 
-The flash handler will determine what commands it should expect to receive and
-responses it will return given the blob opened, based on the flags provided to
-open.
+flash handler 會根據提供給 open 的 flags，針對所開啟的 blob 決定它應該預期收到哪些命令、以及會回傳哪些回應。
 
-The flash handler will only allow one of the above blobs to be opened for a
-sequence of commands, such that you cannot open `/flash/image` and then open
-`/flash/bios` without completing (or later aborting) the first update process
-started.
+flash handler 在一組命令序列中只允許開啟上述其中一個 blob，因此你無法在未完成（或稍後中止）第一個已啟動的更新程序之前，先開啟 `/flash/image` 接著又開啟 `/flash/bios`。
 
-The following blob ids are defined for storing the hash for the image:
+以下 blob id 定義為用來儲存映像檔的雜湊值：
 
-| Hash Blob     | Id Mechanism                    |
+| Hash Blob     | Id 機制                    |
 | ------------- | ------------------------------- |
-| `/flash/hash` | Whichever flash blob was opened |
+| `/flash/hash` |  whichever flash blob 已開啟 |
 
-The flash handler will only allow one open file at a time, such that if the host
-attempts to send a firmware image down over IPMI BlockTransfer, it won't allow
-the host to start a PCI send until the BlockTransfer file is closed.
+flash handler 一次只允許一個開啟的檔案，因此如果主機嘗試透過 IPMI BlockTransfer 傳送韌體映像檔，它不會允許主機在 BlockTransfer 檔案關閉之前啟動 PCI 傳送。
 
-There is only one hash "file" mechanism. The exact hash used will only be
-important to your verification service. The value provided will be written to a
-known place.
+只有一種雜湊「檔案」機制。所使用的確切雜湊值僅對你的驗證服務有意義。所提供的值將被寫入一個已知的位置。
 
-When a transfer is active, it'll create a blob_id of `/flash/active/image` and
-`/flash/active/hash`.
+當傳輸進行中時，它會建立一個 blob_id `/flash/active/image` 與 `/flash/active/hash`。
 
-#### Verification Blob
+#### 驗證 Blob
 
-The following blob id is defined once the image or hash upload has started. Its
-purpose is to trigger and monitor the firmware verification process. Therefore,
-the BmcBlobOpen command will fail until both the hash and image file are closed.
-Further on the ideal command sequence below.
+一旦映像檔或雜湊值的上傳開始後，便會定義以下 blob id。其用途在於觸發並監控韌體驗證程序。因此，在雜湊與映像檔檔案都關閉之前，BmcBlobOpen 命令都會失敗。關於理想的命令序列請見後文。
 
-| Trigger Blob    | Note                     |
+| Trigger Blob    | 說明                     |
 | --------------- | ------------------------ |
 | `/flash/verify` | Verify Trigger Mechanism |
 
-When the verification file is closed, if verification was completed
-successfully, it'll add an update blob id, defined below.
+當驗證檔案關閉時，如果驗證已成功完成，它會新增一個更新 blob id，定義如下。
 
-The verification process used is not defined by this design.
+本設計並不定義所使用的驗證程序。
 
-#### Update Blob
+#### 更新 Blob
 
-The update blob id is available once `/flash/verify` is closed with a valid
-image or tarball. The update blob needs to be opened and commit() called on that
-blob id to trigger the update mechanism.
+當 `/flash/verify` 以有效的映像檔或 tarball 關閉後，更新 blob id 便可用。需要開啟更新 blob 並對該 blob id 呼叫 commit() 以觸發更新機制。
 
-The update process can be checked periodically by calling stat() on the update
-blob id.
+可以定期對更新 blob id 呼叫 stat() 來檢查更新程序。
 
-| Update Blob     | Note                     |
+| Update Blob     | 說明                     |
 | --------------- | ------------------------ |
 | `/flash/update` | Trigger Update Mechanism |
 
-The update process used is not defined by this design.
+本設計並不定義所使用的更新程序。
 
-#### Cleanup Blob
+#### 清理 Blob
 
-The cleanup blob id is always present. The goal of this blob is to handle
-deletion of update artifacts on failure, or success. It can be implemented to do
-any manner of cleanup required, but for systems under memory pressure, it is a
-convenient cleanup mechanism.
+清理 blob id 永遠存在。此 blob 的目標是在失敗或成功時處理更新產物（update artifacts）的刪除。它可以實作成做任何需要的清理，但對於記憶體壓力較大的系統而言，它是一個方便的清理機制。
 
-The cleanup blob has no state or knowledge and is meant to provide a simple
-system cleanup mechanism. This could also be accomplished by warm rebooting the
-BMC. The cleanup blob will delete a list of files. The cleanup blob has no state
-recognition for the update process, and therefore can interfere with an update
-process. The host tool will only use it on failure cases. Any other tool
-developed should respect this and not employ it unless the goal is to cleanup
-artifacts.
+清理 blob 沒有狀態也沒有知識，旨在提供一個簡單的系統清理機制。這也可以透過對 BMC 執行暖重啟（warm reboot）來達成。清理 blob 會刪除一份檔案清單。清理 blob 對更新程序沒有狀態辨識能力，因此可能會干擾正在進行的更新程序。主機端工具只會在失敗的情況下使用它。任何其他開發的工具都應該尊重這點，除非目標是清理產物，否則不應使用它。
 
-To trigger the cleanup, simply open the blob, commit, and close. It has no
-knowledge of the update process. This simplification is done through the design
-of a convenience mechanism instead of a required mechanism.
+要觸發清理，只要開啟 blob、commit 並 close 即可。它對更新程序沒有任何認知。這樣的簡化是透過將它設計成一個便利機制、而非必要機制來達成。
 
-| Cleanup Blob     | Note                      |
+| Cleanup Blob     | 說明                      |
 | ---------------- | ------------------------- |
 | `/flash/cleanup` | Trigger Cleanup Mechanism |
 
-### Caching Images
+### 快取映像檔
 
-Similarly to the OEM IPMI Flash protocol, the flash image will be staged in a
-compile-time configured location.
+與 OEM IPMI Flash 協定類似，flash 映像檔將被暫存在一個編譯期設定的位置。
 
-Other mechanisms can readily be added by adding more blob ids or flags to the
-handler.
+可以透過在 handler 中新增更多 blob id 或 flags，輕易地加入其他機制。
 
-### Commands
+### 命令
 
-The update mechanism will expect a specific sequence of commands depending on
-the transport mechanism selected. Some mechanisms require a handshake.
+更新機制會根據所選取的傳輸機制，預期一個特定的命令序列。有些機制需要 handshake。
 
-#### BlockTransfer Sequence
+#### BlockTransfer 序列
 
-1. Open (for Image or tarball)
+1. Open（用於 Image 或 tarball）
 1. Write
 1. Close
-1. Open (`/flash/hash`)
+1. Open（`/flash/hash`）
 1. Write
 1. Close
-1. Open (`/flash/verify`)
+1. Open（`/flash/verify`）
 1. Commit
-1. SessionStat (to read back verification status)
+1. SessionStat（用以讀回驗證狀態）
 1. Close
-1. Open (`/flash/update`)
+1. Open（`/flash/update`）
 1. Commit
-1. SessionStat (to read back update status)
+1. SessionStat（用以讀回更新狀態）
 1. Close
 
-#### P2A Sequence
+#### P2A 序列
 
-1. Open (for Image or tarball)
-1. SessionStat (P2A Region for P2A mapping)
+1. Open（用於 Image 或 tarball）
+1. SessionStat（用於 P2A 映射的 P2A Region）
 1. Write
 1. Close
-1. Open (`/flash/hash`)
-1. SessionStat (P2A Region)
+1. Open（`/flash/hash`）
+1. SessionStat（P2A Region）
 1. Write
 1. Close
-1. Open (`/flash/verify`)
+1. Open（`/flash/verify`）
 1. Commit
-1. SessionStat (to read back verification status)
+1. SessionStat（用以讀回驗證狀態）
 1. Close
-1. Open (`/flash/update`)
+1. Open（`/flash/update`）
 1. Commit
-1. SessionStat (to read back update status)
+1. SessionStat（用以讀回更新狀態）
 1. Close
 
-#### LPC Sequence
+#### LPC 序列
 
-1. Open (for image or tarball)
-1. WriteMeta (specify region information from host for LPC)
-1. SessionStat (verify the contents from the above)
+1. Open（用於 image 或 tarball）
+1. WriteMeta（指定來自主機、供 LPC 使用的區域資訊）
+1. SessionStat（驗證上述內容）
 1. Write
 1. Close
-1. Open (`/flash/hash`)
-1. WriteMeta (LPC Region)
-1. SessionStat (verify LPC config)
+1. Open（`/flash/hash`）
+1. WriteMeta（LPC Region）
+1. SessionStat（驗證 LPC 設定）
 1. Write
 1. Close
-1. Open (`/flash/verify`)
+1. Open（`/flash/verify`）
 1. Commit
-1. SessionStat (to read back verification status)
+1. SessionStat（用以讀回驗證狀態）
 1. Close
-1. Open (`/flash/update`)
+1. Open（`/flash/update`）
 1. Commit
-1. SessionStat (to read back update status)
+1. SessionStat（用以讀回更新狀態）
 1. Close
 
-### Stale Images
+### 過期映像檔
 
-If an image update process is started but goes stale there are multiple
-mechanisms in place to ensure cleanup. If a session is left open after the blob
-timeout period it'll be closed. Because expiration is not the same action as
-closing, the cache will be flushed and any staged pieces deleted.
+如果一個映像檔更新程序已啟動但變得過期（stale），有多種機制可確保清理。如果一個 session 在 blob 逾時期間之後仍未關閉，它將被關閉。由於過期與關閉並非同一種動作，快取將被清除，且任何已暫存的片段都會被刪除。
 
-The image itself, in legacy (static layout) mode will be placed and named in
-such a way that it will disappear if the BMC reboots. In the UBI case, the file
-will be stored in `/tmp` and deleted accordingly.
+在傳統（靜態佈局）模式下，映像檔本身將被放置並命名成某種方式，使得 BMC 重啟後它就會消失。在 UBI 的情況下，檔案會被存放在 `/tmp` 並適當地刪除。
 
-At any point during the upload process, one can abort by closing the open blobs
-and deleting them by name.
+在上傳程序的任何時點，都可以透過關閉已開啟的 blob 並依名稱刪除它們來中止。
 
-### Blob Primitives
+### Blob 原語
 
-The update mechanism will implement the Blob primitives as follows.
+更新機制將如下實作 Blob 原語。
 
 #### BmcBlobOpen
 
-The blob open primitive allows supplying blob specific flags. These flags are
-used for specifying the transport mechanism. To obtain the list of supported
-mechanisms on a platform, see the `Stat` command below.
+blob open 原語允許提供 blob 專屬的 flags。這些 flags 用以指定傳輸機制。若要取得平台上支援的機制清單，請見下方的 `Stat` 命令。
 
 ```cpp
 enum OpenFlags
@@ -281,38 +211,27 @@ enum FirmwareUpdateFlags
 };
 ```
 
-An open request must specify that it is opening for writing and one transport
-mechanism, otherwise it is rejected. If the request is also set for reading,
-this is not rejected but currently provides no additional value.
+一個 open 請求必須指明它是以寫入方式開啟並指定一個傳輸機制，否則會被拒絕。如果請求同時設為讀取，這不會被拒絕，但目前不提供額外價值。
 
-Once opened a new file will appear in the blob_id list (for both the image and
-hash) indicating they are in progress. The name will be `flash/active/image` and
-`flash/active/hash` which has no meaning beyond representing the current update
-in progress. Closing the file does not delete the staged images. Only delete
-will.
+一旦開啟後，blob_id 清單中會出現一個新檔案（對映像檔與雜湊皆是），表示它們正在進行中。名稱將是 `flash/active/image` 與 `flash/active/hash`，除了代表目前進行中的更新之外別無意義。關閉檔案並不會刪除已暫存的映像檔，只有 delete 才會。
 
-**_Note_** The active image blob_ids cannot be opened. This can be reconsidered
-later.
+**_注意_** 進行中的映像檔 blob_id 無法被開啟。這在之後可以重新考慮。
 
 #### BmcBlobRead
 
-This will initially not perform any function and will return success with 0
-bytes.
+這最初不會執行任何功能，並會回傳成功且 0 位元組。
 
 #### BmcBlobWrite
 
-The write command's contents will depend on the transport mechanism. This
-command must not return until it has copied the data out of the mapped region
-into either a staging buffer or written down to a staging file. How the command
-reads from the mapped region is beyond the scope of this design.
+write 命令的內容將取決於傳輸機制。此命令在將資料從映射區域複製到暫存緩衝區、或寫入到暫存檔案之前，不得返回。命令如何從映射區域讀取資料，超出本設計的範圍。
 
-##### If BT
+##### 若為 BT
 
-The data section of the payload is only data.
+負載（payload）的資料區塊純粹是資料。
 
-##### If P2A
+##### 若為 P2A
 
-The data section of the payload is the following structure:
+負載的資料區塊是以下結構：
 
 ```cpp
 struct ExtChunkHdr
@@ -321,9 +240,9 @@ struct ExtChunkHdr
 };
 ```
 
-##### If LPC
+##### 若為 LPC
 
-The data section of the payload is the following structure:
+負載的資料區塊是以下結構：
 
 ```cpp
 struct ExtChunkHdr
@@ -334,53 +253,36 @@ struct ExtChunkHdr
 
 #### BmcBlobCommit
 
-If this command is called on the session of the firmware image itself, nothing
-will happen at present. It will return a no-op success.
+如果此命令是在韌體映像檔本身的 session 上呼叫，目前不會有任何動作，它會回傳一個 no-op 成功。
 
-If this command is called on the session for the hash image, nothing will happen
-at present. It will return a no-op success.
+如果此命令是在雜湊映像檔的 session 上呼叫，目前不會有任何動作，它會回傳一個 no-op 成功。
 
-If this command is called on the session for the verify blob id, it'll trigger a
-systemd service `verify_image.service` to attempt to verify the image. Before
-doing this, if the transport mechanism is not IPMI BT, it'll shut down the
-mechanism used for transport preventing the host from updating anything.
+如果此命令是在 verify blob id 的 session 上呼叫，它會觸發一個 systemd 服務 `verify_image.service` 來嘗試驗證映像檔。在執行這一步之前，如果傳輸機制不是 IPMI BT，它會關閉用於傳輸的機制，以防止主機更新任何內容。
 
-When this is started, only the BmcBlobSessionStat command will respond. Details
-on that response are below under BmcBlobSessionStat.
+當這一步啟動後，只有 BmcBlobSessionStat 命令會回應。關於該回應的細節請見下方 BmcBlobSessionStat。
 
 #### BmcBlobClose
 
-Close must be called on the firmware image and the hash file before opening the
-verify blob.
+在開啟 verify blob 之前，必須對韌體映像檔與雜湊檔案呼叫 Close。
 
-If the `verify_image.service` returned success, closing the verify file will
-have a specific behavior depending on the update. If it's UBI, it'll perform the
-install. If it's legacy (static layout), it'll do nothing. The verify_image
-service in the legacy case is responsible for placing the file in the correct
-staging position. A BMC warm reset command will initiate the firmware update
-process.
+如果 `verify_image.service` 回傳成功，關閉 verify 檔案會根據更新類型而有特定的行為。如果是 UBI，它會執行安裝；如果是傳統（靜態佈局），它不會做任何事。在傳統情況下，verify_image 服務負責將檔案放到正確的暫存位置。一個 BMC 暖重啟命令將啟動韌體更新程序。
 
-If the image verification fails, it will automatically delete any files
-associated with the update.
+如果映像檔驗證失敗，它會自動刪除與該更新相關的任何檔案。
 
-**_Note:_** During development testing, a developer will want to upload files
-that are not signed. Therefore, an additional bit will be added to the flags to
-change this behavior.
+**_注意：_** 在開發測試期間，開發者會想要上傳未簽章的檔案。因此，會在 flags 中新增一個額外的位元來改變這個行為。
 
 #### BmcBlobDelete
 
-Aborts any update that's in progress:
+中止任何進行中的更新：
 
-1. Stops the verify_image.service if started.
-1. Deletes any staged files.
+1. 如果已啟動，則停止 verify_image.service。
+1. 刪除任何已暫存的檔案。
 
-In the event the update is already in progress, such as the tarball mechanism is
-used and in the middle of updating the files, it cannot be aborted.
+如果更新已經進行中，例如使用了 tarball 機制且正在更新檔案的中途，則無法中止。
 
 #### BmcBlobStat
 
-Blob stat on a blob_id (not SessionStat) will return the capabilities of the
-blob_id handler.
+對某個 blob_id 做 blob stat（而非 SessionStat）會回傳該 blob_id handler 的能力。
 
 ```cpp
 struct BmcBlobStatRx {
@@ -394,7 +296,7 @@ struct BmcBlobStatRx {
 
 #### BmcBlobSessionStat
 
-If called pre-commit, it'll return the following information:
+如果在 commit 之前呼叫，它會回傳以下資訊：
 
 ```cpp
 struct BmcBlobStatRx {
@@ -405,9 +307,7 @@ struct BmcBlobStatRx {
 };
 ```
 
-If it's called and the data transport mechanism is P2A, it'll return a 32-bit
-address for use to configure the P2A region as part of the metadata portion of
-the `BmcBlobStatRx`.
+如果呼叫時資料傳輸機制是 P2A，它會回傳一個 32 位址，作為 `BmcBlobStatRx` 中 metadata 區塊的一部分，用以設定 P2A 區域。
 
 ```cpp
 struct BmcBlobStatRx {
@@ -421,7 +321,7 @@ struct BmcBlobStatRx {
 };
 ```
 
-If called post-commit on the verify file session, it'll return:
+如果在 verify 檔案 session 上於 commit 之後呼叫，它會回傳：
 
 ```cpp
 struct BmcBlobStatRx {
@@ -441,14 +341,13 @@ enum VerifyCheckResponses
 };
 ```
 
-If called post-commit on the update file session, it'll return:
+如果在 update 檔案 session 上於 commit 之後呼叫，它會回傳：
 
 ```cpp
 struct BmcBlobStatRx {
     uint16_t crc16;
     uint16_t blob_state; /* OPEN_W | (one of the interfaces) */
     uint32_t size; /* Size in bytes so far written */
-    uint8_t  metadata_len; /* 1. */
     uint8_t  update_response; /* one by from the below enum */
 };
 
@@ -461,17 +360,13 @@ enum UpdateStatus
 };
 ```
 
-The `UpdateStatus` and `VerifyCheckResponses` are currently identical, but this
-may change over time.
+`UpdateStatus` 與 `VerifyCheckResponses` 目前內容相同，但隨著時間可能會改變。
 
 #### BmcBlobWriteMeta
 
-The write metadata command is meant to allow the host to provide specific
-configuration data to the BMC for the in-band update. Currently that is only
-aimed at LPC which needs to be told the memory address so it can configure the
-window.
+write metadata 命令旨在讓主機能夠為帶內更新提供特定的設定資料給 BMC。目前這僅針對 LPC，它需要被告知記憶體位址，才能設定視窗（window）。
 
-The write meta command's blob will be this structure:
+write meta 命令的 blob 將會是這個結構：
 
 ```cpp
 struct LpcRegion
@@ -481,42 +376,28 @@ struct LpcRegion
 };
 ```
 
-## Alternatives Considered
+## 已考慮的替代方案
 
-There is currently another implementation in-use by Google that leverages the
-same mechanisms, however, it's not as flexible because every command is a custom
-piece. Mapping it into blobs primitives allows for easier future modification
-while maintaining backwards compatibility (without simply adding a separate OEM
-library to handle a new process, etc).
+Google 目前使用另一種實作，它善用相同的機制，然而它沒那麼有彈性，因為每個命令都是一個自訂的部分。將其映射到 blobs 原語，可以在維持向後相容性的同時，讓未來的修改更容易（而不只是新增一個獨立的 OEM 函式庫來處理新程序等）。
 
-## Impacts
+## 影響
 
-This impacts security because it can leverage the memory mapped windows. There
-is not an expected performance impact, as the blob handler existing only
-generates a couple extra entries during the blob enumerate command's response.
+這會影響安全性，因為它可以善用記憶體映射視窗。預計不會有效能影響，因為 blob handler 的存在僅在 blob enumerate 命令的回應中多產生幾個條目。
 
-## Testing
+## 測試
 
-Where possible (nearly everywhere), mockable interfaces will be used such that
-the entire process has individual unit-tests that verify flags are checked, as
-well as states and sequences.
+在可能的情況下（幾乎所有地方），都會使用可 mock 的介面，使得整個程序都有獨立的單元測試，來驗證 flags 是否被檢查，以及狀態與序列是否正確。
 
-### Scenarios
+### 情境
 
-#### Sending an image with a bad hash
+#### 傳送一個具有壞雜湊值的映像檔
 
-A required functional test is one whereby an image is sent down to the BMC,
-however the signature is invalid for that image. The expected result is that the
-verification step will return failure and the files will be deleted from the BMC
-without user intervention.
+一個必要功能測試是：將一個映像檔傳送到 BMC，但該映像檔的簽章無效。預期結果是驗證步驟會回傳失敗，且檔案會在無需使用者介入的情況下從 BMC 刪除。
 
-#### Sending an image with a good hash
+#### 傳送一個具有良好雜湊值的映像檔
 
-A required functional test is one whereby an image is sent down to the BMC with
-a valid signature. The expected result is that the verification step will return
-success.
+一個必要功能測試是：將一個具有有效簽章的映像檔傳送到 BMC。預期結果是驗證步驟會回傳成功。
 
-## Configuration
+## 設定
 
-See the configuration section of
-[Secure Flash Update Mechanism](https://github.com/openbmc/phosphor-ipmi-flash/blob/master/README.md)
+請參閱 [Secure Flash Update Mechanism](https://github.com/openbmc/phosphor-ipmi-flash/blob/master/README.md) 的設定章節。

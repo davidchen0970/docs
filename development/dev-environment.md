@@ -1,84 +1,51 @@
-# OpenBMC Development Environment
+# OpenBMC 開發環境
 
-**Document Purpose:** How to set up an OpenBMC development environment
+**文件目的：** 如何設定一個 OpenBMC 開發環境
 
-**Audience:** Programmer familiar with Linux and BMCs
+**目標讀者：** 熟悉 Linux 與 BMC 的程式設計師
 
-**Prerequisites:** Current Linux, Mac, or Windows system
+**前置需求：** 現行版本的 Linux、Mac 或 Windows 系統
 
-## Overview
+## 總覽
 
-OpenBMC uses the [Yocto](https://www.yoctoproject.org/) Project as its
-underlying building and distribution generation framework. The main OpenBMC
-[README](https://github.com/openbmc/openbmc/blob/master/README.md) provides
-information on getting up and going with Yocto and OpenBMC. This tutorial will
-walk you through utilizing bitbake to build OpenBMC firmware and boot it in
-[QEMU](https://www.qemu.org/).
+OpenBMC 採用 [Yocto](https://www.yoctoproject.org/) 專案作為其底層的建置與發行版產生框架。OpenBMC 主 [README](https://github.com/openbmc/openbmc/blob/master/README.md) 提供了關於如何開始使用 Yocto 與 OpenBMC 的資訊。本教學將帶領你了解如何使用 bitbake 建置 OpenBMC 韌體，並在 [QEMU](https://www.qemu.org/) 中啟動它。
 
-Bitbake is the build engine used by Yocto and OpenBMC to build its custom Linux
-distribution for a system. QEMU is a software emulator that can be used to run
-OpenBMC images.
+Bitbake 是 Yocto 與 OpenBMC 用來為系統建置其自訂 Linux 發行版的建置引擎。QEMU 是一款軟體模擬器，可用來執行 OpenBMC 映像檔。
 
-This doc walks through the recommended steps for setting up an OpenBMC
-development environment, building OpenBMC, and running that image in QEMU.
+本文件逐步說明設定 OpenBMC 開發環境、建置 OpenBMC，以及在 QEMU 中執行該映像檔的建議步驟。
 
-For testing purposes, this guide uses the Romulus system as the default because
-this is the system tested for each CI job, which means it's the most stable.
+出於測試考量，本指南以 Romulus 系統作為預設，因為這是每個 CI 作業都會測試的系統，也就代表它是最穩定的。
 
-## Install Linux Environment
+## 安裝 Linux 環境
 
-If you are running Linux, and are ok with installing some additional packages,
-then you can skip to step 3.
+如果你使用的是 Linux，並且可以接受安裝一些額外的套件，那麼你可以直接跳到步驟 3。
 
-The recommended OpenBMC development environment is the latest Ubuntu LTS
-release. Other versions of Linux may work but you are using that at your own
-risk. If you have Windows or Mac OS then VirtualBox is the recommended
-virtualization tool to run the development environment.
+建議的 OpenBMC 開發環境是最新的 Ubuntu LTS 發行版。其他版本的 Linux 也可能可用，但使用它們必須自負風險。如果你使用 Windows 或 Mac OS，則建議使用 VirtualBox 作為執行開發環境的虛擬化工具。
 
-1. Install a Virtual Machine
+1. 安裝一個虛擬機器
 
-   Install either [VirtualBox](https://www.virtualbox.org/wiki/Downloads) or
-   [VMware](https://www.vmware.com/products/workstation-player/workstation-player-evaluation.html)
-   onto your computer (Mac, Windows, Linux)
+   在你的電腦（Mac、Windows、Linux）上安裝 [VirtualBox](https://www.virtualbox.org/wiki/Downloads) 或 [VMware](https://www.vmware.com/products/workstation-player/workstation-player-evaluation.html)
 
-   Both have free versions available for what you need. **Note:** If you want to
-   use this VM to BitBake a full OpenBMC image, you'll want to allocate as many
-   resources as possible. Ideal minimum resources are 8 threads, 16GB memory,
-   200GB hard drive.
+   兩者都有可滿足你需求的免費版本。**注意：** 如果你想用這個 VM 透過 BitBake 建置完整的 OpenBMC 映像檔，你會希望盡量分配最多的資源。理想的最低資源為 8 執行緒、16GB 記憶體、200GB 硬碟。
 
-   OpenBMC continuous integration utilizes docker to build its images. This is
-   another possibility but not covered within this document. See
-   [build-setup.sh](https://github.com/openbmc/openbmc-build-scripts/blob/master/build-setup.sh)
-   for a reference on the script CI uses to build an appropriate docker
-   container and launch bitbake within it. This also works within a podman
-   environment.
+   OpenBMC 的持續整合使用 docker 來建置其映像檔。這是另一種可行的做法，但不在本文件的涵蓋範圍內。請參考 [build-setup.sh](https://github.com/openbmc/openbmc-build-scripts/blob/master/build-setup.sh)，其中說明了 CI 用來建置合適 docker 容器並在其中啟動 bitbake 的腳本。這在 podman 環境中同樣適用。
 
-2. Install the latest Ubuntu LTS release
+2. 安裝最新的 Ubuntu LTS 發行版
 
-   The majority of OpenBMC development community uses Ubuntu. The qemu below is
-   built on the latest Ubuntu LTS release but whatever is most recent _should_
-   work. The same goes for other Linux distributions like Fedora but again,
-   these are not tested nearly as much by the core OpenBMC team as Ubuntu.
+   OpenBMC 開發社群的多數成員使用 Ubuntu。下述的 qemu 是在最新的 Ubuntu LTS 發行版上建置的，但任何最新版本_應該_都能運作。Fedora 等其他 Linux 發行版也類似，但同樣地，相對於 Ubuntu，OpenBMC 核心團隊對這些發行版的測試遠遠少了許多。
 
-   **VirtualBox Tips** - You'll want copy/paste working between your VM and
-   Host. To do that, once you have your VM up and running:
-   - Devices -> Insert Guest Additions CD Image (install)
+   **VirtualBox 提示** - 你會希望 VM 與主機之間的複製／貼上能夠運作。為此，一旦你的 VM 完成啟動並執行後：
+   - Devices -> Insert Guest Additions CD Image（安裝）
    - Devices -> Shared Clipboard -> Bidirectional
-   - reboot (the VM)
+   - 重新啟動（該 VM）
 
-3. Install required packages
+3. 安裝必要套件
 
-   Refer to
-   [Prerequisite](https://github.com/openbmc/openbmc/blob/master/README.md#1-prerequisite)
-   link.
+   請參考 [Prerequisite](https://github.com/openbmc/openbmc/blob/master/README.md#1-prerequisite) 連結。
 
-   **Note** - In Ubuntu, a "sudo apt-get update" will probably be needed before
-   installing the packages.
+   **注意** - 在 Ubuntu 中，安裝套件之前大概需要先執行 "sudo apt-get update"。
 
-   **Note** - Ubuntu 24.04 restricts unprivileged user namespaces by default via
-   AppArmor, which causes BitBake workers to fail with a
-   `PermissionError: [Errno 1] Operation not permitted` when writing to
-   `/proc/self/uid_map`. Run the following to fix this before building:
+   **注意** - Ubuntu 24.04 預設會透過 AppArmor 限制非特權使用者命名空間，這會導致 BitBake workers 在寫入 `/proc/self/uid_map` 時因 `PermissionError: [Errno 1] Operation not permitted` 而失敗。請在建置前執行以下指令來修正這個問題：
 
    ```bash
    echo 'kernel.apparmor_restrict_unprivileged_userns = 0' | \
@@ -86,37 +53,28 @@ virtualization tool to run the development environment.
    sudo sysctl -p /etc/sysctl.d/99-bitbake.conf
    ```
 
-## Building OpenBMC
+## 建置 OpenBMC
 
-Note this section will take you through the process of building a Romulus
-OpenBMC image. Future tutorials will build on this by having you customize the
-image. If you would like to skip the building and just try out OpenBMC and QEMU
-then you can download the latest Romulus image from the
-[OpenBMC Jenkins](https://jenkins.openbmc.org/job/latest-master/label=docker-builder,target=romulus/lastSuccessfulBuild/artifact/openbmc/build/tmp/deploy/images/romulus/obmc-phosphor-image-romulus.static.mtd)
-and skip to the
-[Download and Start QEMU Session](#download-and-start-qemu-session) section.
+請注意本節將帶領你完成建置 Romulus OpenBMC 映像檔的流程。未來的教學將在此基礎上進一步讓你自訂映像檔。如果你想跳過建置、只想試用 OpenBMC 與 QEMU，那麼你可以從 [OpenBMC Jenkins](https://jenkins.openbmc.org/job/latest-master/label=docker-builder,target=romulus/lastSuccessfulBuild/artifact/openbmc/build/tmp/deploy/images/romulus/obmc-phosphor-image-romulus.static.mtd) 下載最新的 Romulus 映像檔，並直接跳到[下載並啟動 QEMU 工作階段](#download-and-start-qemu-session)一節。
 
-1. Clone OpenBMC
+1. 複製 OpenBMC
 
    ```bash
    git clone https://github.com/openbmc/openbmc.git
    ```
 
-2. Build the Romulus OpenBMC Image (note this will take 30 - 120 minutes
-   depending on your hardware)
+2. 建置 Romulus OpenBMC 映像檔（注意，依你的硬體不同，這將耗時 30 至 120 分鐘）
 
    ```bash
    . setup romulus
    bitbake obmc-phosphor-image
    ```
 
-The Romulus image is now located in
-`build/tmp/deploy/images/romulus/obmc-phosphor-image-romulus.static.mtd`
-relative to your current directory.
+Romulus 映像檔現在位於相對於你目前目錄的 `build/tmp/deploy/images/romulus/obmc-phosphor-image-romulus.static.mtd`。
 
-## Download and Start QEMU Session
+## 下載並啟動 QEMU 工作階段
 
-1. Download latest openbmc/qemu fork of QEMU application
+1. 下載 openbmc/qemu 最新分支的 QEMU 應用程式
 
    ```bash
    wget https://jenkins.openbmc.org/job/latest-qemu-x86/lastSuccessfulBuild/artifact/qemu/build/qemu-system-arm
@@ -124,18 +82,15 @@ relative to your current directory.
    chmod u+x qemu-system-arm
    ```
 
-2. Copy the image generated by the build to your current directory
+2. 將建置產生的映像檔複製到你的目前目錄
 
    ```bash
    cp ./tmp/deploy/images/romulus/obmc-phosphor-image-romulus.static.mtd ./
    ```
 
-3. Start QEMU with the Romulus image
+3. 使用 Romulus 映像檔啟動 QEMU
 
-   **Note** - For REST, SSH and IPMI to work into your QEMU session, you must
-   connect up some host ports to the REST, SSH and IPMI ports in your QEMU
-   session. In this example, it just uses 2222, 2443, 2623. You can use whatever
-   you prefer.
+   **注意** - 要讓 REST、SSH 與 IPMI 能夠連入你的 QEMU 工作階段，你必須將某些主機連接埠對應到 QEMU 工作階段中的 REST、SSH 與 IPMI 連接埠。在本例中僅使用 2222、2443、2623。你可以使用任何你偏好的連接埠。
 
    ```bash
    ./qemu-system-arm -m 256 -M romulus-bmc -nographic \
@@ -144,8 +99,7 @@ relative to your current directory.
       -net user,hostfwd=:127.0.0.1:2222-:22,hostfwd=:127.0.0.1:2443-:443,hostfwd=udp:127.0.0.1:2623-:623,hostname=qemu
    ```
 
-   If you are running within a virtual environment where you can use the real
-   ports, then you would start QEMU with the following.
+   如果你是在一個可以使用真實連接埠的虛擬環境中執行，那麼你會以下列方式啟動 QEMU。
 
    ```bash
 
@@ -157,15 +111,13 @@ relative to your current directory.
 
    ```
 
-4. Wait for your QEMU-based BMC to boot
+4. 等待你基於 QEMU 的 BMC 完成啟動
 
-   Login using default root/0penBmc login (Note the 0 is a zero).
+   使用預設的 root/0penBmc 帳號登入（注意其中的 0 是數字零）。
 
-5. Check the system state
+5. 檢查系統狀態
 
-   You'll see a lot of services starting in the console, you can start running
-   the obmcutil tool to check the state of the OpenBMC state services. When you
-   see the following then you have successfully booted to "Ready" state.
+   你會在主控台看到大量服務正在啟動，你可以開始執行 obmcutil 工具來檢查 OpenBMC 狀態服務的狀況。當你看到下列內容時，就代表你已成功啟動至 "Ready" 狀態。
 
    ```bash
    root@openbmc:~# obmcutil state
@@ -174,80 +126,70 @@ relative to your current directory.
    CurrentHostState    : xyz.openbmc_project.State.Host.HostState.Off
    ```
 
-   **Note** To exit (and kill) your QEMU session run: `ctrl+a x`
+   **注意** 要退出（並終止）你的 QEMU 工作階段，請執行：`ctrl+a x`
 
-6. Test out the ssh network interface
+6. 測試 ssh 網路介面
 
-   Run these from the system you started QEMU on
+   在你啟動 QEMU 的那個系統上執行這些指令
 
    ```bash
    ssh root@localhost -p 2222
    ```
 
-   Login is the same as what was used above for the default QEMU login.
+   登入方式與上述預設 QEMU 登入所用的相同。
 
-You've now built an OpenBMC distribution and booted it in QEMU!
+你現在已經建置好一個 OpenBMC 發行版並在 QEMU 中啟動了它！
 
-## Alternative yocto QEMU
+## 替代方案：yocto QEMU
 
-yocto has tools for building and running qemu. These tools avoid some of the
-configuration issues that come from downloading a prebuilt image, and modifying
-binaries. Using yocto qemu also uses the
-[TAP interface](https://www.kernel.org/doc/Documentation/networking/tuntap.txt)
-which some find be more stable. This is particularly useful when debugging at
-the application level.
+yocto 提供了用於建置與執行 qemu 的工具。這些工具可以避免因下載預先建置好的映像檔及修改二元檔而產生的一些設定問題。使用 yocto qemu 也會採用 [TAP 介面](https://www.kernel.org/doc/Documentation/networking/tuntap.txt)，有些人認為它更為穩定。這在應用層級進行除錯時特別有用。
 
-This is a more advanced section and may be useful to come back to once the
-basics are working for you. The next tutorial will focus on devtool and how to
-utilize it to customize your OpenBMC image.
+這是較為進階的一節，或許在你讓基本功能運作之後再回頭看會更有幫助。下一篇教學將聚焦於 devtool，以及如何運用它來自訂你的 OpenBMC 映像檔。
 
-- set up a bmc build environment
+- 設定一個 bmc 建置環境
 
 ```bash
 source setup romulus myBuild/build
 ```
 
-- add the qemu x86 open embedded machine for testing
+- 加入用於測試的 qemu x86 open embedded machine
 
 ```bash
 MACHINE ??= "qemux86"
 ```
 
-- Make the changes to the build (ie devtool modify bmcweb, devtool add gdb)
+- 對建置進行修改（例如 devtool modify bmcweb、devtool add gdb）
 
 ```bash
 devtool modify bmcweb myNewLocalbmcweb/
 ```
 
-- build open bmc for the qemu x86 machine
+- 為 qemu x86 machine 建置 open bmc
 
 ```bash
 MACHINE=qemux86 bitbake obmc-phosphor-image
 ```
 
-- run qemu they way yocto provides
+- 以 yocto 提供的方式執行 qemu
 
 ```bash
 runqemu myBuild/build/tmp/deploy/images/qemux86/ nographic \
     qemuparams="-m 2048"
 ```
 
-- after that the all the a TAP network interface is added, and protocol like
-  ssh, scp, http work well.
+- 之後會新增一個 TAP 網路介面，且 ssh、scp、http 等協議都能順利運作。
 
-## Sharing Downloads and Build Cache
+## 共用下載與建置快取
 
-BitBake caches both fetched sources (DL_DIR) and reusable build outputs
-(SSTATE_DIR). Point multiple builds at shared directories to avoid
-re-downloading and re-building, saving time and disk.
+BitBake 會同時快取抓取的來源碼（DL_DIR）與可重複使用的建置輸出（SSTATE_DIR）。讓多個建置指向共用的目錄，可以避免重新下載與重新建置，節省時間與磁碟空間。
 
-1. Create shared cache directories once:
+1. 一次建立共用的快取目錄：
 
    ```bash
    mkdir -p "${XDG_CACHE_HOME}/bitbake/downloads" "${XDG_CACHE_HOME}/bitbake/sstate"
    ```
 
-2. Add to build/conf/local.conf:
+2. 加入至 build/conf/local.conf：
 
    ```bash
    DL_DIR = "${XDG_CACHE_HOME}/bitbake/downloads"
@@ -255,5 +197,4 @@ re-downloading and re-building, saving time and disk.
    BB_HASHSERVE_DB_DIR = "${SSTATE_DIR}"
    ```
 
-This makes every build reuse what was already downloaded and built, so you use
-less disk and finish faster.
+這樣就能讓每個建置重複使用先前已下載與已建置的內容，因此你能使用較少的磁碟空間並更快完成。

@@ -1,70 +1,66 @@
-# Redfish Event Logging in bmcweb
+# bmcweb 中的 Redfish 事件記錄
 
-This guide is intended to help developers add new messages to the bmcweb Redfish
-event log.
+本指南旨在協助開發人員為 bmcweb 的 Redfish 事件記錄新增訊息。
 
-Redfish Message Objects can be represented in different ways. In bmcweb, we have
-chosen to use Message Registries with Message Objects that are referenced using
-a MessageId and MessageArgs fields.
+Redfish Message Objects 可以有多種不同的呈現方式。在 bmcweb 中，我們選擇使用
+Message Registries，並以 MessageId 與 MessageArgs 欄位來引用其中的 Message
+Objects。
 
-Additional details can be found in the
-[Redfish Specification](http://redfish.dmtf.org/schemas/DSP0266_1.6.1.html).
+更多詳細資訊請參考
+[Redfish Specification](http://redfish.dmtf.org/schemas/DSP0266_1.6.1.html)。
 
 ## Message Registries
 
-The first step when adding a new message to the Redfish event log is to find or
-add an appropriate message in a Message Registry.
+要為 Redfish 事件記錄新增訊息，第一步是在某個 Message Registry 中尋找或新增一則
+合適的訊息。
 
-The bmcweb Message Registries are located under
-"\redfish-core\include\registries" in source code, and they can be examined
-through Redfish under "/redfish/v1/Registries".
+bmcweb 的 Message Registries 位於原始碼中的
+"\redfish-core\include\registries"，也可以透過 Redfish 的
+"/redfish/v1/Registries" 來檢視。
 
-If an appropriate message exists, note the
+若已存在合適的訊息，請記錄下：
 
-1. Title of the Message Object (required as the MessageKey in the MessageId).
-2. Args (notated as "%x") in the "Message" field (required for the MessageArgs).
+1. Message Object 的標題（必須作為 MessageId 中的 MessageKey）。
+2. 「Message」欄位中標註為 "%x" 的 Args（MessageArgs 需要用到）。
 
-If an appropriate message does not exist, new messages can be added as follows:
+若不存在合適的訊息，可以依照下列方式新增訊息：
 
-1. Choose a Message Registry for the new message
-2. Choose a MessageKey to use as the title for the new Message entry
-3. Insert a new Message entry (preferably with the title in alphabetical order)
-4. Add a `description` and `resolution`
-5. Set the `severity` to "Critical", "Warning", or "OK"
-6. Define the `message` with any necessary args
-7. Set the `numberOfArgs` and `paramTypes` to match the message args
+1. 為新訊息選擇一個 Message Registry
+2. 選擇一個 MessageKey 作為新 Message 條目的標題
+3. 插入一個新的 Message 條目（標題最好依字母順序排列）
+4. 加入 `description` 與 `resolution`
+5. 將 `severity` 設為 "Critical"、"Warning" 或 "OK"
+6. 定義 `message` 並加入所需的 args
+7. 設定 `numberOfArgs` 與 `paramTypes` 以符合訊息的 args
 
-## Logging Messages
+## 記錄訊息
 
-Logging messages is done by providing a Redfish MessageId and any corresponding
-MessageArgs to bmcweb.
+記錄訊息的方式是提供一組 Redfish MessageId 以及對應的 MessageArgs 給 bmcweb。
 
-A Redfish MessageId is represented in this format:
+Redfish MessageId 的格式如下：
 
 `RegistryName.MajorVersion.MinorVersion.MessageKey`
 
-bmcweb will search the specified Message Registry for the MessageKey, construct
-the final message using the MessageArgs, and display that in the event log.
+bmcweb 會在指定的 Message Registry 中搜尋該 MessageKey，使用 MessageArgs 組出
+最終的訊息，並顯示在事件記錄中。
 
-### journal-based Redfish Logging
+### 基於 journal 的 Redfish 記錄
 
-The journal is the current mechanism used to log Redfish Messages. bmcweb looks
-for two fields in the journal metadata:
+journal 是目前用來記錄 Redfish Messages 的機制。bmcweb 會在 journal 的中繼資料
+中尋找兩個欄位：
 
-- `REDFISH_MESSAGE_ID`: A string holding the MessageId
-- `REDFISH_MESSAGE_ARGS`: A string holding a comma-separated list of args
+- `REDFISH_MESSAGE_ID`：一個存放 MessageId 的字串
+- `REDFISH_MESSAGE_ARGS`：一個存放以逗號分隔的 args 清單的字串
 
-These fields can be added to a journal entry using either the
-`phosphor::logging::entry()` command or directly using the `sd_journal_send()`
-command.
+這些欄位可以使用 `phosphor::logging::entry()` 指令加入 journal 條目中，也可以
+直接使用 `sd_journal_send()` 指令加入。
 
-### Examples
+### 範例
 
-#### Logging a ResourceCreated event
+#### 記錄 ResourceCreated 事件
 
-The
 [Resource Event Message Registry](https://redfish.dmtf.org/registries/ResourceEvent.1.0.0.json)
-holds the ResourceCreated message:
+中含有 ResourceCreated 訊息：
 
 ```json
 {
@@ -79,8 +75,8 @@ holds the ResourceCreated message:
 },
 ```
 
-Since there are no parameters, no MessageArgs are required, so this message can
-be logged to the journal as follows:
+由於沒有任何參數，因此不需要 MessageArgs，這則訊息可以依照下列方式記錄到
+journal 中：
 
 ```cpp
 phosphor::logging::log<log::level>(
@@ -89,7 +85,7 @@ phosphor::logging::log<log::level>(
         "ResourceEvent.1.0.ResourceCreated"));
 ```
 
-or
+或
 
 ```cpp
 sd_journal_send("MESSAGE=%s", "journal text", "PRIORITY=%i", <LOG_LEVEL>,
@@ -97,11 +93,10 @@ sd_journal_send("MESSAGE=%s", "journal text", "PRIORITY=%i", <LOG_LEVEL>,
                 "ResourceEvent.1.0.ResourceCreated", NULL);
 ```
 
-#### Logging a ResourceErrorThresholdExceeded event
+#### 記錄 ResourceErrorThresholdExceeded 事件
 
-The
 [Resource Event Message Registry](https://redfish.dmtf.org/registries/ResourceEvent.1.0.0.json)
-holds the ResourceErrorThresholdExceeded message:
+中含有 ResourceErrorThresholdExceeded 訊息：
 
 ```json
 {
@@ -122,15 +117,13 @@ holds the ResourceErrorThresholdExceeded message:
 },
 ```
 
-This message has two parameters, `%1` and `%2`, as indicated in the
-`"NumberOfArgs"` field. The meaning and types of these parameters are derived
-from the `"Message"` and `"ParamTypes"` fields in the Message Registry.
+這則訊息有兩個參數，`%1` 與 `%2`，由 `"NumberOfArgs"` 欄位可以看出。這些參數
+的意義與型別來自 Message Registry 中的 `"Message"` 與 `"ParamTypes"` 欄位。
 
-In this example, `%1` is a string holding the property name and `%2` is a number
-holding the threshold value.
+在這個範例中，`%1` 是一個存放屬性名稱的字串，`%2` 則是一個存放閾值的數字。
 
-The parameters are filled from a comma-separated list of the MessageArgs, so
-this message can be logged to the journal as follows:
+參數會以逗號分隔的 MessageArgs 清單來填入，因此這則訊息可以依照下列方式記錄
+到 journal 中：
 
 ```cpp
 phosphor::logging::log<log::level>(
@@ -141,7 +134,7 @@ phosphor::logging::log<log::level>(
         "Property Name", propertyValue));
 ```
 
-or
+或
 
 ```cpp
 sd_journal_send("MESSAGE=%s", "journal text", "PRIORITY=%i", <LOG_LEVEL>,

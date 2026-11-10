@@ -1,84 +1,74 @@
-# Platform init
+# 平台初始化
 
-Author: Ed Tanous (edtanous)
+作者：Ed Tanous (edtanous)
 
-Created: 7-21-25
+建立日期：2025-07-21
 
-## Problem Description
+## 問題說明
 
-There are a number of platforms that require handling of state that requires
-interacting with hardware in a consolidated way. Some examples of this are:
+有許多平台需要處理某些狀態，而這些處理必須以整合的方式與硬體互動。
+一些例子如下：
 
-1. Resetting an i2c driver that initially is without power.
-2. Bringing up a power rail under the control of the BMC.
-3. Initing a power rail dependent on the state of a plug detect pin.
+1. 重置一個初始狀態下沒有供電的 i2c 驅動器。
+2. 在 BMC 的控制下啟動一條電源軌。
+3. 依據 plug detect pin 的狀態來初始化一條電源軌。
 
-## Background and References
+## 背景與參考
 
-And any number of other cases. Some concrete examples of this kind of init of
-these things exists here. [1]
+以及其他各種類似的狀況。此類初始化的具體範例可以在這裡找到。[1]
 
-Very routinely, significant bash scripts are used to do some of this init. Those
-bash scripts suffer some minor performance penalty on startup, and are generally
-checked into meta layers, reducing the reuse between platforms.
+實務上經常使用大量的 bash 腳本來執行部分此類初始化工作。這些
+bash 腳本在啟動時會有些微的效能損耗，而且通常會被簽入 meta layer 中，
+降低了各平台之間的重複使用。
 
-## Requirements
+## 需求
 
-1. OpenBMC must be able to init a system with devices on power rails that it
-   controls.
-2. During control of the aforementioned power rails, OpenBMC must be able to
-   monitor GPIO signals.
-3. OpenBMC must be able to reset i2c lines that might not be available.
-4. (secondary) Must be able to init multiple platforms from a single binary
-   (dc-scm)
+1. OpenBMC 必須能夠初始化一個系統，其上的裝置位於由 OpenBMC 控制的
+   電源軌上。
+2. 在控制前述電源軌的過程中，OpenBMC 必須能夠監測 GPIO 訊號。
+3. OpenBMC 必須能夠重置那些可能無法使用的 i2c 線路。
+4. （次要需求）必須能夠從單一 binary（dc-scm）初始化多個平台。
 
-## Proposed Design
+## 提案設計
 
-Initially, a new repository would be created to house the platform-init for
-gb200nvl platform, and get static analysis autobumps, and recipes reused between
-platforms.
+起初，會建立一個新的 repository 來存放 gb200nvl 平台的 platform-init，
+並取得靜態分析 autobumps，以及在各平台之間重複使用的 recipes。
 
-Platforms will be separated by folder to ensure that platform owners can review
-and create their platform configurations as required, and identical to the
-meta-layer process that exists today.
+各平台會以資料夾來區隔，以確保平台擁有者能夠依需求審查並建立其平台
+設定方式，與現存的 meta-layer 流程相同。
 
-Top level structure will be
+頂層結構將為
 
 platform_init.cpp platform1/init.cpp platform2/init.cpp
 
-Initially a cli argument will be used to compile the appropriate paths for a
-given platform. At some point in the future, some level of detection _may_ be
-added that allows detecting platforms at runtime. Design for that is to be
-determined based on future requirements.
+起初會使用一個 cli 參數來為特定平台編譯適當的路徑。未來某個時間點，
+_可能_會加入某種程度的偵測機制，以便在執行期偵測平台。該部分的設計
+將依未來的需求再行決定。
 
-Guard rails will need to evolve over time, but initially this repository will
-not interact with DBus or the OpenBMC model. As defined (at this time) it is
-purely for initial bringup of hardware.
+Guard rails 需要隨著時間演進，但起初這個 repository 不會與 DBus 或
+OpenBMC model 互動。依照（目前）的定義，它純粹只用於硬體的初始啟動。
 
-## Alternatives Considered
+## 曾考慮的替代方案
 
-Status quo, continue building init scripts in bash. This leads to a lack of code
-reuse, and while some layers have done an excellent job keeping the code clean,
-it's still very difficult to refactor/consolidate.
+維持現狀，繼續以 bash 建置初始化腳本。這會導致缺乏程式碼重複使用，
+雖然某些 layer 在維持程式碼整潔方面做得很好，但要進行重構或整合仍然
+非常困難。
 
-## Impacts
+## 影響
 
-1. Will require a new repository, recipe, and CI build.
-2. A new service will be launched for platforms opting into platform-init.
+1. 將需要一個新的 repository、recipe 與 CI build。
+2. 將會為選擇採用 platform-init 的平台啟動一個新的服務。
 
-### Organizational
+### 組織方面
 
-- Does this proposal require a new repository? Yes Request for the repository is
-  available[2]
-- Who will be the initial maintainer(s) of this repository? Ed Tanous and
-  Patrick Williams
-- Which repositories are expected to be modified to execute this design?
-  openbmc/openbmc New repository
+- 這個提案是否需要新的 repository？需要。repository 的申請已經提出 [2]
+- 誰會是這個 repository 的初始維護者？Ed Tanous 與 Patrick Williams
+- 預期需要修改哪些 repository 來執行這個設計？
+  openbmc/openbmc 新的 repository
 
-## Testing
+## 測試
 
-Testing section omitted. Platform boot will be tested using individual
-platforms, with no change.
+測試章節省略。平台開機將使用各個別平台來測試，不需做任何變更。
 
 [1]:
   https://github.com/openbmc/openbmc/blob/master/meta-nvidia/meta-gb200nvl-obmc/recipes-nvidia/platform-init/files/platform_init.cpp

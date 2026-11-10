@@ -1,41 +1,43 @@
-# OpenBMC Features
+# OpenBMC 功能
 
-Follow links to learn more about OpenBMC features:
+透過下列連結進一步了解 OpenBMC 的功能：
 
-- [BMCWeb][] HTTP/Web server
-- [WebUI Vue][] web application
-- REST Management: [BMCWeb Redfish][], [Phosphor REST APIs][] includes [Host
-  management REST APIs][]
-- [D-Bus interfaces][] describes internal interfaces
+- [BMCWeb][] HTTP/網頁伺服器
+- [WebUI Vue][] 網頁應用程式
+- REST 管理：[BMCWeb Redfish][]、[Phosphor REST APIs][]，其中包含 [主機管理 REST
+  APIs][host management rest apis]
+- [D-Bus 介面][d-bus interfaces] 說明內部介面
 - [D-Bus Object Mapper][]
-- [Remote KVM][]
-- [IPMI in band][] and [IPMI out of band][]
-- Full IPMI 2.0 Compliance with DCMI
-- SSH based SOL: [How to use][sol how to use]
-- Power and Cooling Management: [Phosphor Fan Control][]
-- [Logging][phosphor logging] and [Callouts][logging callouts]
-- Zeroconf discoverable through `systemd-networkd`
-- [Sensors][]
-- Inventory: [Entity manager][], [Phosphor inventory manager][] and its [MSL
-  application][]
-- [LEDs][]: see also [LED Groups][]
-- Host Watchdog: [Phosphor Watchdog Implementation][]
-- [Power State management] and [Chassis Power control][]
-- [Network management][]
-- [Factory reset][]
-- [User management][phosphor user management]
-- Time (time of day clock) management
-- [Certificate management][]: [Phosphor Certificate Manager][]
-- [Simulation][] via QEMU
-- [Firmware update support][]
-- [Automated Testing][]
+- [遠端 KVM][remote kvm]
+- [IPMI in band][] 與 [IPMI out of band][]
+- 完整符合 IPMI 2.0 規範並支援 DCMI
+- 基於 SSH 的 SOL：[如何使用][sol how to use]
+- 電源與散熱管理：[Phosphor Fan Control][]
+- [記錄][phosphor logging] 與 [Callouts][logging callouts]
+- 透過 `systemd-networkd` 提供 Zeroconf 探索
+- [感測器][sensors]
+- 庫存管理：[Entity manager][]、[Phosphor inventory manager][] 及其 [MSL
+  應用程式][msl application]
+- [LED][leds]：另請參閱 [LED 群組][led groups]
+- 主機看門狗（Watchdog）：[Phosphor Watchdog 實作][phosphor watchdog
+  implementation]
+- [電源狀態管理][power state management] 與 [機箱電源控制][chassis power
+  control]
+- [網路管理][network management]
+- [出廠重設][factory reset]
+- [使用者管理][phosphor user management]
+- 時間（日期時間時鐘）管理
+- [憑證管理][certificate management]：[Phosphor Certificate Manager][]
+- [模擬][simulation]（透過 QEMU）
+- [韌體更新支援][firmware update support]
+- [自動化測試][automated testing]
 - LDAP
-- Remote syslog
+- 遠端 syslog
 
-## OpenPOWER Features
+## OpenPOWER 功能
 
-- [POWER OCC Support][power occ implementation] (On Chip Controller)
-- [Hardware Diagnostics][] for POWER Systems fatal hardware errors.
+- [POWER OCC 支援][power occ implementation]（On Chip Controller，晶片內控制器）
+- [硬體診斷][hardware diagnostics]：用於 POWER 系統的致命硬體錯誤。
 
 [automated testing]:
   https://github.com/openbmc/openbmc-test-automation/blob/master/README.md

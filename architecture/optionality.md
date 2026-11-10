@@ -1,75 +1,60 @@
-# Optionality
+# 选择性（Optionality）
 
-OpenBMC does its best to be widely applicable to all BMC deployments in the
-world, including many varieties of hardware. To do this requires care in the way
-new features are developed, to ensure stability of systems over time. With that
-as a goal, any given feature should fit into one of the following categories.
+OpenBMC 盡力做到能廣泛適用於全世界的各種 BMC 部署環境，涵蓋多種不同的硬體。
+要達成這一點，在開發新功能時必須謹慎處理，以確保系統長期的穩定性。以此為目標，
+任何一項功能都應該歸入以下某個類別。
 
-## Core
+## 核心（Core）
 
-Required for the deployment of _any_ OpenBMC build. Examples of this include the
-Linux kernel, systemd, sdbusplus, and phosphor object mapper. These features are
-expected to remain widely applicable to all systems.
+部署 _任何_ 一個 OpenBMC 版本時都必要。例子包括 Linux kernel、systemd、
+sdbusplus 以及 phosphor object mapper。這些功能預期會持續廣泛適用於所有系統。
 
-## Subsystem
+## 子系統（Subsystem）
 
-These are subsystems that, while widely applicable, a user might choose to
-remove entire portions of the codebase that might not be needed in that
-deployment, or not used. This might be done to save binary size in the flash
-image, or might be done to reduce the security attack surface. These kinds of
-features should be architected to ensure that, when removed, they do not cause
-functional impacts to other subsystems. Examples of these include the webui,
-Redfish, IPMI, and others.
+這些是子系統，雖然應用廣泛，但使用者可能選擇將程式碼庫中該部署環境不需要、
+或未使用的整個部分移除。這麼做可能是為了縮減 flash 映像檔的二元檔大小，也可能是
+為了減少安全攻擊面。這類功能在架構設計上必須確保：當被移除時，不會對其他子系統
+造成功能上的影響。例子包括 webui、Redfish、IPMI 等。
 
-## Feature Configuration Types
+## 功能設定類型（Feature Configuration Types）
 
-Features within an individual subsystem must be built such that they fall into
-one of these categories. For non-trivial feature additions, the commit message
-of the feature, as well as the design doc should explicitly state one of the
-following classes of feature.
+個別子系統內的功能，其建置方式必須使其歸入以下某個類別。對於非瑣碎的功能新增，
+該功能的 commit message 以及設計文件（design doc）都應該明確聲明它屬於以下哪一種
+功能分類。
 
-### Non configurable features
+### 不可設定的功能（Non configurable features）
 
-Theses are features that are broadly applicable to all deployments of a
-subsystem either by general usage, or by requirements in a specification, and
-therefore don't need to be able to be configured. Examples of these would
-include, Http keep alive, Security features like timeouts and payload size
-limits, and required commands. These types of features generally show no
-user-facing impact to function, although might do things like improve
-performance.
+這些功能就子系統而言對所有部署環境都廣泛適用，無論是出於一般用途，還是出於規格
+（specification）中的要求，因此不需要能夠被設定。例子包括：Http keep alive、
+像是逾時（timeouts）與載入大小上限（payload size limits）這類的安全功能，
+以及規定的指令（required commands）。這類功能通常對使用者可見的功能沒有影響，
+不過可能會帶來諸如改善效能之類的作用。
 
-Requires: Standards conformance, applicability to all flash-size systems, as
-well as all processor classes.
+必要條件：符合標準、適用於所有 flash 大小的系統，以及所有處理器等級。
 
-### User opt-in features
+### 使用者選擇啟用功能（User opt-in features）
 
-User opt-in features are features for which an external user must explicitly
-change their behavior to "opt in" to using a feature. Features like this, while
-they may be configurable at compile time, are not required to be configurable at
-compile time. Examples of this include Redfish query parameters, or IPMI OEM
-commands.
+使用者選擇啟用功能是指那些必須由外部使用者明確改變自身行為，才能「選擇啟用」
+（opt in）使用的功能。這類功能雖然可能在編譯時期可設定，但並不強制要求在編譯時期
+可設定。例子包括 Redfish 查詢參數，或 IPMI OEM 指令。
 
-Requires: Explicit, non-default user opt-in to execute the various features.
+必要條件：需有明確、非預設的使用者選擇啟用，才能執行各項功能。
 
-### Developer opt-in features
+### 開發者選擇啟用功能（Developer opt-in features）
 
-Many times a system or specific team might want a feature that is intended
-_only_ for a subset of the OpenBMC audience, and might add OEM parameters to
-non-standard interfaces, new command sets, or new APIs that might be applicable.
-Features of this nature MUST be configurable at either compile time or runtime,
-and generally will default to disabled. Features of this nature, when disabled,
-must take care to make no changes to the behavior of systems for which the
-feature is disabled. Company or feature specific functions, as well as the
-associated metadata must not be visible on a system for which the feature is
-disabled. Note, there are cases where _removing_ a feature might cause user
-impact, and therefore requires an option.
+很多時候，某個系統或特定團隊可能想要一項 _只_ 針對 OpenBMC 部分受眾的功能，
+例如為非標準介面加入 OEM 參數、新增指令集，或新增可能適用的新 API。
+這類功能「必須」（MUST）在編譯時期或執行時期可設定，且通常預設為停用。這類功能
+在停用時，必須留意不要對該功能已停用的系統造成任何行為上的改變。公司或特定功能
+專屬的函式，以及相關的中繼資料（metadata），不得在該功能已停用的系統上可見。
+請注意，有些情況下 _移除_ 某項功能可能會對使用者造成影響，因此需要保留一個選項。
 
-CI will generally enable all developer opt-in features to ensure the most
-coverage of build configurations.
+CI 通常會啟用所有開發者選擇啟用功能，以確保對建置設定組態（build configurations）
+有最高的覆蓋率。
 
-Specific mechanisms to enable or disable these features are commonly:
+啟用或停用這些功能的常見機制有：
 
-1. Meson options
-2. Entity-manager configuration
-3. Yocto recipe changes
-4. Phosphor ObjectMapper searches
+1. Meson 選項
+2. Entity-manager 設定
+3. Yocto recipe 變更
+4. Phosphor ObjectMapper 搜尋

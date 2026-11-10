@@ -1,52 +1,42 @@
-# OpenBMC documentation
+# OpenBMC 文件
 
-The [OpenBMC project](https://www.openbmc.org/) is a Linux Foundation project
-whose goal is to produce a customizable, open-source firmware stack for
-Baseboard Management Controllers (BMCs). This repository contains documentation
-for OpenBMC as a whole. There may be component-specific documentation in the
-repository for each component.
+[OpenBMC 專案](https://www.openbmc.org/) 是 Linux Foundation 旗下的一個專案，
+目標是產出一套可客製化的開源韌體堆疊，供主機板管理控制器（BMC）使用。本
+repository 收錄了 OpenBMC 整體的文件。各元件的相關文件可能會存放在該元件
+自己的 repository 中。
 
-The [features](features.md) document lists the project's major features with
-links to more information.
+[features](features.md) 文件列出了專案的主要功能，並附有通往更多資訊的連結。
 
-## Contact
+## 聯絡方式
 
-- Mail: `openbmc@lists.ozlabs.org` <https://lists.ozlabs.org/listinfo/openbmc>
-- List Archive: <https://lore.kernel.org/openbmc/>
-- Discord: <https://discord.gg/69Km47zH98>
+- 郵件：`openbmc@lists.ozlabs.org` <https://lists.ozlabs.org/listinfo/openbmc>
+- 郵件清單封存：<https://lore.kernel.org/openbmc/>
+- Discord：<https://discord.gg/69Km47zH98>
 
-## OpenBMC Development
+## OpenBMC 開發
 
-These documents contain details on developing OpenBMC code itself
+這些文件說明了開發 OpenBMC 程式碼本身的相關細節
 
-- [cheatsheet.md](cheatsheet.md): Quick reference for some common development
-  tasks
+- [cheatsheet.md](cheatsheet.md)：一些常見開發任務的快速參考
 
-- [CONTRIBUTING.md](CONTRIBUTING.md): Guidelines for contributing to OpenBMC
+- [CONTRIBUTING.md](CONTRIBUTING.md)：對 OpenBMC 貢獻的準則
 
-- [development tutorials](development/README.md): Tutorials for getting up to
-  speed on OpenBMC development
+- [開發教學](development/README.md)：幫助你快速上手 OpenBMC 開發的教學
 
-- [kernel-development.md](kernel-development.md): Reference for common kernel
-  development tasks
+- [kernel-development.md](kernel-development.md)：常見核心（kernel）開發任務的參考
 
-## OpenBMC Usage
+## OpenBMC 使用
 
-These documents describe how to use OpenBMC, including using the programmatic
-interfaces to an OpenBMC system.
+這些文件說明了如何使用 OpenBMC，包括使用 OpenBMC 系統程式化介面的方式。
 
-- [code-update](architecture/code-update): Updating OpenBMC and host platform
-  firmware
+- [code-update](architecture/code-update)：更新 OpenBMC 與主機平台韌體
 
-- [console.md](console.md): Using the host console
+- [console.md](console.md)：使用主機主控台
 
-- [host-management.md](host-management.md): Performing host management tasks
-  with OpenBMC
+- [host-management.md](host-management.md)：使用 OpenBMC 執行主機管理任務
 
-- [rest-api.md](rest-api.md): Introduction to using the OpenBMC REST API
+- [rest-api.md](rest-api.md)：使用 OpenBMC REST API 的簡介
 
-- [REDFISH-cheatsheet.md](REDFISH-cheatsheet.md): Quick reference for some
-  common OpenBMC Redfish commands
+- [REDFISH-cheatsheet.md](REDFISH-cheatsheet.md)：一些常見 OpenBMC Redfish 指令的快速參考
 
-- [REST-cheatsheet.md](REST-cheatsheet.md): Quick reference for some common
-  OpenBMC REST API commands
+- [REST-cheatsheet.md](REST-cheatsheet.md)：一些常見 OpenBMC REST API 指令的快速參考

@@ -1,162 +1,92 @@
-# VPD collection app on OpenBMC
+# OpenBMC 上的 VPD 收集應用程式
 
-Author: Santosh Puranik <santosh.puranik@in.ibm.com> <santosh.puranik>
+作者：Santosh Puranik <santosh.puranik@in.ibm.com> <santosh.puranik>
 
-Created: 2019-06-11
+建立日期：2019-06-11
 
-## Problem Description
+## 問題描述
 
-On OpenBMC, Vital Product Data (VPD) collection is limited to only one or two
-Field Replaceable Units (FRUs) today - one example is the BMC FRU. On OpenPower
-systems, the BMC also supports just one VPD format, the [OpenPower VPD] [1]
-format. As a part of its enterprise class servers, IBM will use the IPZ format
-VPD, which the BMC currently does not support. Certain FRUs also have keyword
-format VPD.
+在 OpenBMC 上，目前重要產品資料（Vital Product Data，VPD）的收集僅限於一兩個可場勘更換單元（Field Replaceable Units，FRU）——其中一個例子就是 BMC FRU。在 OpenPower 系統上，BMC 也只支援一種 VPD 格式，也就是 [OpenPower VPD] [1] 格式。作為其企業級伺服器的一部分，IBM 將使用 IPZ 格式的 VPD，而 BMC 目前並不支援這種格式。某些 FRU 也具有關鍵字（keyword）格式的 VPD。
 
-The BMC requires to read VPD for all FRUs for several reasons:
+BMC 因為多项原因而需要讀取所有 FRU 的 VPD：
 
-- Some of the VPD information such as FRU part number, serial number need to be
-  included in the Platform Error Logs (PELs) for calling out FRUs for service.
+- 部分 VPD 資訊，例如 FRU 料號（part number）、序號（serial number），必須包含在平台錯誤紀錄（Platform Error Logs，PEL）中，以便在維修時指出特定的 FRU。
 
-- Several use cases on the BMC require that the applications decide on a certain
-  code path based on what level of FRU is plugged in. For example, the
-  application that controls voltage regulators might need to set different
-  registers based on the version of the voltage regulator FRU.
+- BMC 上有若干使用案例需要應用程式依據所插入 FRU 的層級來決定某個程式碼路徑。舉例來說，控制電壓調節器（voltage regulator）的應用程式可能需要根據電壓調節器 FRU 的版本來設定不同的暫存器。
 
-- There are use cases for the BMC to send VPD data to the host
-  hypervisor/operating system (over PLDM). This is mainly so that the host can
-  get VPD that is not directly accessible to it.
+- 有些使用案例需要 BMC 將 VPD 資料傳送至主機端的管理程式／作業系統（透過 PLDM）。這主要是為了讓主機能夠取得其無法直接存取的 VPD。
 
-The VPD data itself may reside on an EEPROM (typical) or may be synthesized out
-of certain parameters of the FRU (atypical - for FRUs that do not have an
-EEPROM).
+VPD 資料本身可能存放在 EEPROM（常見情況），也可能是由 FRU 的某些參數合成而來（不常見——針對沒有 EEPROM 的 FRU）。
 
-This design document aims to define a high level design for VPD collection and
-VPD access on OpenBMC. It does _not_ cover low level API details.
+本設計文件旨在為 OpenBMC 上的 VPD 收集與 VPD 存取定義一套高階設計。它_不_涵蓋低階的 API 細節。
 
-## Background and References
+## 背景與參考資料
 
-Essentially, the IPZ VPD structure consists of key-value pairs called keywords.
-Each keyword can be used to contain specific data about the FRU. For example,
-the SN keyword will contain a serial number that can uniquely identify an
-instance of a part. Keywords themselves can be combined or grouped into records.
-For example, a single record can be used to group keywords that have similar
-function, such as serial number, part number.
+從本質上來說，IPZ VPD 結構由稱為關鍵字（keyword）的鍵值對組成。每個關鍵字可用來包含關於 FRU 的特定資料。舉例來說，SN 關鍵字會包含一個序號，用以唯一識別某個料件的實例。關鍵字本身可以被合併或分組成記錄（record）。舉例來說，可以使用單一記錄來分組具有相似功能的關鍵字，例如序號、料號。
 
-The keyword format VPD does not contain records, but instead has just keywords
-laid out one after another.
+關鍵字格式的 VPD 不包含記錄，而是只有關鍵字一個接一個地排列。
 
-The IPZ format is quite similar in its structure to the OpenPower format except
-for the following details:
+IPZ 格式在其結構上與 OpenPower 格式相當類似，除了以下幾點細節：
 
-- IPZ VPD has different records and keywords.
+- IPZ VPD 有不同的記錄與關鍵字。
 
-- IPZ VPD is required to implement and validate ECC as defined in the OpenPower
-  specification. The BMC code currently does not validate/use ECC although the
-  specification does define it, but will need to use the ECC for IBM's
-  enterprise class of servers.
+- IPZ VPD 要求實作並驗證 OpenPower 規格中所定義的 ECC。BMC 程式碼目前並未驗證／使用 ECC，儘管規格確實有定義它，但針對 IBM 的企業級伺服器將需要使用 ECC。
 
-- The keyword format VPD is also something that consists of key-value pairs, but
-  has no concept of a record to group keywords together. The ECC for the keyword
-  format VPD is simply a CRC.
+- 關鍵字格式的 VPD 同樣也是由鍵值對組成，但沒有用以將關鍵字分組在一起的記錄概念。關鍵字格式 VPD 的 ECC 只是一個 CRC。
 
-## Requirements
+## 需求
 
-The following are requirements for the VPD function on OpenBMC:
+以下是 OpenBMC 上 VPD 功能的需求：
 
-- The BMC must collect VPD for all FRUs that it has direct access to by the time
-  the BMC reaches Standby (aka the Ready state, a state from where the BMC can
-  begin CEC poweron). This is needed for several reasons:
+- BMC 必須在它進入待機（Standby，又稱 Ready 狀態，即 BMC 可從此狀態開始進行 CEC 開機）之前，為所有它能直接存取的 FRU 收集 VPD。這基於多項原因是必要的：
 
-  BMC applications need to be able to read VPD for FRUs to determine, for ex.,
-  the hardware level of the FRU.
+  BMC 應用程式需要能夠讀取 FRU 的 VPD，以判斷（例如）FRU 的硬體層級。
 
-  Some of the VPD will need to be exchanged with the host.
+  部分 VPD 需要與主機交換。
 
-  Manufacturing and Service engineers need the ability to view and program the
-  FRU VPD without powering the system ON.
+  製造與維修工程師需要能在不開機的情況下檢視及寫入 FRU VPD。
 
-  Certain system level VPD is also used by applications on the BMC to determine
-  the system type, model on which it is running.
+  某些系統層級的 VPD 也會被 BMC 上的應用程式用來判斷它所執行於其上的系統類型與型號。
 
-- If a FRU does not have a VPD store such as an EEPROM, the BMC should be able
-  to synthesize VPD for such FRUs. Details on VPD synthesis will be in its own
-  design document and are not covered here.
+- 若某個 FRU 沒有 VPD 儲存裝置（例如 EEPROM），BMC 應該能夠為此類 FRU 合成 VPD。關於 VPD 合成的細節將會放在它自己的設計文件中，此處不涵蓋。
 
-- The BMC should be able to recollect VPD for FRUs that can be hotplugged or
-  serviced when the BMC is running.
+- 當 BMC 正在執行時，BMC 應該能夠為可熱插拔或可場勘維修的 FRU 重新收集 VPD。
 
-- The BMC must log errors if any of the VPD cannot be properly parsed or fails
-  ECC checks.
+- 若有任何 VPD 無法正確解析或未通過 ECC 檢查，BMC 必須記錄錯誤。
 
-- The BMC must create/update FRU inventory objects for all FRUs that it collects
-  VPD for. The inventory D-Bus object must contain (among other details), the
-  serial number, part number and CCIN (an IBM way of differentiating different
-  versions of a FRU) of the FRU.
+- BMC 必須為它收集 VPD 的所有 FRU 建立／更新 FRU 庫存（inventory）物件。庫存 D-Bus 物件必須包含（除其他細節外）FRU 的序號、料號與 CCIN（IBM 用來區分同一 FRU 不同版本的方式）。
 
-- Applications on the BMC need to have the ability to query any given VPD
-  keyword for a given FRU.
+- BMC 上的應用程式必須能夠查詢某個特定 FRU 的任一指定 VPD 關鍵字。
 
-- Applications also need to have the ability to update the VPD contents in a
-  FRU. For example, the BMC needs to have the ability to update the system VPD
-  in scenarios where the FRU containing the system VPD is repaired in the field.
+- 應用程式也需要能夠更新 FRU 中的 VPD 內容。舉例來說，在包含系統 VPD 的 FRU 於現場被更換的情況下，BMC 需要能夠更新系統 VPD 的能力。
 
-- There needs to be a tool/API that allows viewing and updating VPD for any
-  given FRU. This includes FRUs that the BMC does not directly collect VPD for
-  (such as FRUs that can be accessed both by the BMC and the host, but the host
-  collects VPD for)
+- 需要有一個工具／API，能允許檢視及更新任何指定 FRU 的 VPD。這包含 BMC 並非直接為其收集 VPD 的 FRU（例如可由 BMC 與主機兩者存取、但由主機收集 VPD 的 FRU）。
 
-## Proposed Design
+## 建議設計
 
-This document covers the architectural, interface, and design details. It
-provides recommendations for implementations, but implementation details are
-outside the scope of this document.
+本文件涵蓋架構、介面與設計細節。它為實作提供了建議，但實作細節不在本文件的範圍之內。
 
-The proposal here is to build upon the existing VPD collection design used by
-open power. The current implementation consists of the following entities:
+此處的提案是建立在 open power 現行使用的 VPD 收集設計之上。目前的實作包含以下幾項實體：
 
-- [op-vpd-parser] [2] service, which parses the contents of an EEPROM containing
-  VPD in the OpenPower VPD format.
+- [op-vpd-parser] [2] 服務，它會解析包含 OpenPower VPD 格式 VPD 的 EEPROM 內容。
 
-- A udev [rule] [3] that is used by systemd to launch the above service as
-  EEPROM devices are connected.
+- 一條 udev [rule] [3]，由 systemd 用來在 EEPROM 裝置接上時啟動上述服務。
 
-- A set of config [files] [4] that describe the inventory objects and D-Bus
-  properties to update for a given FRU.
+- 一組設定 [files] [4]，用來描述針對某個指定 FRU 該更新哪些庫存物件與 D-Bus 屬性。
 
-In order to meet the requirements noted in the previous section, the following
-updates will be made:
+為了滿足前一節所列的需求，將會進行以下更新：
 
-- Two new services will be created to handle the new VPD formats. ipz-vpd-parser
-  and a keyword-vpd-parser. These services shall be templated to allow for
-  multiple instances to be run.
+- 將建立兩個新的服務來處理新的 VPD 格式：ipz-vpd-parser 與 keyword-vpd-parser。這些服務將以範本（template）方式設計，以允許執行多個實例。
 
-- Another service will be created to update the inventory with location code
-  information. Since the location code expansion comes from the system VPD, this
-  service can only be launched after the system VPD (stored on the backplane) is
-  collected.
+- 將建立另一個服務，用以使用位置碼（location code）資訊來更新庫存。由於位置碼展開來自系統 VPD，因此這個服務只能在地系統 VPD（存放在背板上）收集完成之後才能啟動。
 
-- There will be one udev rule per EEPROM on the system from which the BMC has to
-  collect VPD. We could also have just a single rule, but that would mean we
-  would have to filter out non-VPD EEPROMs somehow.
+- 系統上每個 BMC 必須收集 VPD 的 EEPROM 各會有一條 udev rule。我們也可以只設一條 rule，但那代表我們必須以某種方式過濾掉非 VPD 的 EEPROM。
 
-- Each udev rule will be setup to launch an instance of one of the VPD parser
-  services (The format of the VPD in any given EEPROM are known at build time as
-  they are system specific)
+- 每條 udev rule 都會設定為啟動其中一個 VPD 解析服務的一個實例（任何指定 EEPROM 中 VPD 的格式在建置時期即已知，因為它們是系統專屬的）。
 
-- The service (one instance of ipz-vpd-parser or keyword-vpd-parser), when
-  launched, will read the EEPROM, parse its contents and use config files to
-  determine what VPD contents to store in the inventory.
+- 該服務（ipz-vpd-parser 或 keyword-vpd-parser 的一個實例）在啟動後，將讀取 EEPROM、解析其內容，並使用設定檔來決定要在庫存中存放哪些 VPD 內容。
 
-- The service will update the inventory D-Bus object with the contents of the
-  VPD in the following format: There will be one interface per record (ex, VINI
-  record) which will have each keyword as a property (ex, FN, PN). This will
-  allow us to support multiple records that can have the same keyword and will
-  also serve as means to logically group keywords in the inventory, quite
-  similar to how they are grouped in the actual VPD. For example (some names
-  here are made up, but they help illustrate the point), for the VINI record
-  containing keywords SN, FN and CCIN, the representation in D-Bus would look
-  like:
+- 該服務將以下列格式使用 VPD 的內容來更新庫存 D-Bus 物件：每個記錄會有一個介面（例如 VINI 記錄），而該介面會將每個關鍵字作為一個屬性（例如 FN、PN）。這將讓我們得以支援可能具有相同關鍵字的多個記錄，同時也是一種在庫存中對關鍵字進行邏輯分組的方式，與它們在實際 VPD 中的分組方式相當類似。舉例來說（此處有些名稱是虛構的，但它們有助於說明要點），對於包含關鍵字 SN、FN 與 CCIN 的 VINI 記錄，其在 D-Bus 上的表示方式將如下所示：
 
 ```text
 Interface: com.ibm.ipzvpd.VINI
@@ -166,106 +96,68 @@ Properties:
     CCIN
 ```
 
-- In case of keyword format VPD, all keywords shall be placed as properties
-  under a single interface.
+- 就關鍵字格式的 VPD 而言，所有關鍵字都將作為屬性放在單一介面之下。
 
-- The parser services will not format or transform the data in VPD in any way
-  before updating the properties noted above, the properties shall be stored as
-  byte arrays. Note, however, that the services will continue updating the
-  commonly used FRU properties such as SerialNumber, PartNumber as strings, just
-  as the openpower-vpd-parser does.
+- 解析服務在更新上述屬性之前，不會以任何方式格式化或轉換 VPD 中的資料，這些屬性將以位元組陣列（byte array）的形式儲存。不過請注意，這些服務仍會持續將常用的 FRU 屬性（例如 SerialNumber、PartNumber）更新為字串，就如同 openpower-vpd-parser 所做的那樣。
 
-- To handle VPD writes, another systemd service will be launched once all the
-  VPD read services have completed. This service shall be a daemon that will
-  manage parallel writes to EEPROMs. The VPD writer service will expose D-bus
-  interfaces to update VPD for a FRU given its inventory path.
+- 為了處理 VPD 寫入，在所有 VPD 讀取服務完成之後將啟動另一個 systemd 服務。這個服務將是一個常駐程式（daemon），負責管理對 EEPROM 的平行寫入。VPD 寫入服務將暴露 D-Bus 介面，用以在給定庫存路徑的情況下更新某個 FRU 的 VPD。
 
-- Generation of the udev rules and configs shall be layered such that they can
-  be tweaked on a per-system basis.
+- udev rule 與設定檔的產生將採分層方式設計，以便能針對每個系統進行調整。
 
-### Open topics
+### 待決事項
 
-Some open questions:
+一些尚未決定的問題：
 
-- Some more thought is needed on how concurrent maintenance (replacing a FRU
-  when the host is up and running) will be handled. That will be presented in
-  its own design document.
+- 對於併行維護（concurrent maintenance，即在主機開機並運行的情況下更換 FRU）將如何處理，還需要更多思考。這將會在它自己的設計文件中提出。
 
-## Alternatives Considered
+## 曾考慮的替代方案
 
-The following alternative designs were considered:
+曾考慮以下幾種替代設計：
 
-### Write a standalone VPD server app
+### 撰寫一個獨立的 VPD 伺服器應用程式
 
-One option considered was to develop a standalone, do-it-all VPD application on
-the BMC that collects all of the VPD by BMC standby. The application has to be a
-daemon that will expose a set of D-bus interfaces to:
+曾考慮的選項之一是在 BMC 上開發一個獨立、萬能的 VPD 應用程式，在 BMC 進入待機之前收集所有 VPD。該應用程式必須是一個常駐程式，將暴露一組 D-Bus 介面以：
 
-- Collect/recollect all VPD.
-- Query a given FRU for its VPD. Example read the serial number of the VRM.
-- Update the VPD keyword(s) for a given FRU.
-- Concurrently maintain a FRU, which will in turn perform a remove/add/replace
-  operation.
+- 收集／重新收集所有 VPD。
+- 查詢某個指定 FRU 的 VPD。例如讀取 VRM 的序號。
+- 更新某個指定 FRU 的 VPD 關鍵字。
+- 對某個 FRU 進行併行維護，這將依序執行移除／新增／更換的操作。
 
-The application would be driven off of a configuration file that lists the FRUs
-available for a given system, their I2C bus address, slave address etc.
+該應用程式將由一份設定檔驅動，該設定檔列出某個指定系統上可用的 FRU、它們的 I2C 匯流排位址、從位址等。
 
-This option was rejected for the following reasons:
+此選項因以下原因被否決：
 
-- Design would make the application very specific to a given system or a set of
-  VPD formats. Although the application could be written in a way that allows
-  plugging in support for different VPD formats, it was deemed that the current
-  approach of small applications that target a very specific requirement is
-  better.
-- The design does not leverage upon the layered design approach that the chosen
-  option allows us to do.
+- 這樣的設計會讓該應用程式過於特定於某個系統或某一組 VPD 格式。雖然該應用程式可以撰寫成允許插入對不同 VPD 格式的支援，但經評估認為，目前這種針對非常特定需求的小型應用程式的做法較佳。
+- 此設計未能善用其所選方案讓我們得以採取的分層設計方法。
 
-### Build upon the entity manager
+### 建立在 entity manager 之上
 
-Using the entity manager: <https://github.com/openbmc/entity-manager>. The
-Entity manager has an application called the FruDevice, which probes /dev/i2c/
-for EEPROMs, reads (IPMI format) VPD and stores it on DBUS.
+使用 entity manager：<https://github.com/openbmc/entity-manager>。Entity manager 有一個稱為 FruDevice 的應用程式，它會探測 /dev/i2c/ 以尋找 EEPROM、讀取（IPMI 格式）VPD 並將其存放在 D-Bus 上。
 
-The application could be enhanced to:
+可以增強該應用程式以：
 
-- Add support for other VPD formats such as the IPZ and keyword format.
-- Perhaps update a different set of data into a different DBUS object, like the
-  Inventory manager.
-- Change the external DBUS interfaces that read/write FRU data to take an
-  inventory path (instead of the I2C path, address it takes in today).
+- 加入對其他 VPD 格式的支援，例如 IPZ 與關鍵字格式。
+- 或許將不同的一組資料更新到不同的 D-Bus 物件，例如 Inventory manager。
+- 變更用來讀寫 FRU 資料的外部 D-Bus 介面，使其改為接受庫存路徑（而非目前所接受的 I2C 路徑、位址）。
 
-This option was rejected for the following reasons:
+此選項因以下原因被否決：
 
-- We do not need the full spectrum of functions offered by the entity manager,
-  that is we do not want to replace the existing inventory manager. Moving away
-  from the inventory manager for Power systems is outside of the scope of this
-  document.
-- The code did not appear very pluggable to add support for new VPD formats, we
-  might have to end up just utilizing #ifdef's to separate functions.
-- Does not have a way to determine system blueprint for FRU devices, scans the
-  entire /dev/ tree to pick out EEPROMs.
+- 我們並不需要 entity manager 所提供的全方位功能，也就是說我們不想取代現有的 inventory manager。讓 Power 系統改用其他方式取代 inventory manager，不在本文件的範圍之內。
+- 該程式碼看起來不太具有良好的可插拔性來加入對新 VPD 格式的支援，我們最終可能不得不使用 #ifdef 來區隔功能。
+- 沒有辦法為 FRU 裝置判斷系統藍圖（blueprint），它會掃描整個 /dev/ 樹狀結構來挑出 EEPROM。
 
-## Impacts
+## 影響
 
-The following impacts have been identified:
+已識別出以下影響：
 
-- The services to parse VPD and store it in the inventory will add some time to
-  the BMC boot flow. The impact should be kept to a minimum by achieving maximum
-  possible parallelism in the launching of these services.
-- Applications that need to read VPD keywords will be impacted in the sense that
-  they would have to use the inventory interfaces to fetch the data they are
-  interested in.
+- 用於解析 VPD 並將其存放在庫存中的服務，會為 BMC 開機流程增加一些時間。應透過在這些服務的啟動上達成最大限度的平行化，將影響降到最低。
+- 需要讀取 VPD 關鍵字的應用程式會受到影響，因為它們將必須使用庫存介面來取得它們感兴趣的資料。
 
-## Testing
+## 測試
 
-VPD parsing function can be tested by faking out the VPD EEPROMs as files on the
-filesystem. Such testing can also ensure that the right set of VPD data makes
-its way into the OpenBMC Inventory. There is also a proposal to build in a file
-mode into the application. The file mode will not need real hardware to test the
-code functions, but can use files on the BMC to mimic the EEPROMs.
+可以透過在檔案系統上模擬（fake out）VPD EEPROM 檔案來測試 VPD 解析功能。這類測試也能確保正確的一組 VPD 資料進入 OpenBMC 庫存。此外也有一項提案要在應用程式中內建檔案模式（file mode）。檔案模式不需要真實硬體即可測試程式碼功能，但可以使用 BMC 上的檔案來模擬 EEPROM。
 
-VPD writes can be tested by writing a small command line utility that can invoke
-the VPD write application's APIs to write VPD.
+可以透過撰寫一個小型命令列工具，呼叫 VPD 寫入應用程式的 API 來寫入 VPD，藉以測試 VPD 寫入。
 
 [1]:
   https://www-355.ibm.com/systems/power/openpower/posting.xhtml?postingId=1D060729AC96891885257E1B0053BC95

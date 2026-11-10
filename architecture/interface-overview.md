@@ -1,58 +1,31 @@
-# OpenBMC interfaces
+# OpenBMC 介面
 
-Purpose: This introduces a simplified view of the BMC's primary interfaces. It
-is intended to provide a reference suitable for a wide audience:
+目的：本文介紹 BMC 主要介面的簡化觀點，希望能提供適合廣大讀者參考的內容：
 
-- Engineers provide domain expertise in specific areas and learn about use cases
-  and threats their interfaces poses.
-- Give BMC administrators and system integrators a simplified view of the BMC's
-  system interfaces. For example, to understand which interfaces can be
-  disabled.
-- Management and security folks need everything to work and play together
-  nicely. For example, to understand the BMC's attack surfaces.
+- 工程師在特定領域提供專業知識，並了解其介面所帶來的使用案例與威脅。
+- 為 BMC 管理員與系統整合商提供 BMC 系統介面的簡化觀點，例如了解哪些介面可以被停用。
+- 管理與資安人員需要一切協同運作良好，例如了解 BMC 的攻擊面。
 
-## Introduction to the interfaces and services
+## 介面與服務簡介
 
-This section shows the BMC's primary interfaces and how they are related. It
-begins with the BMC's physical interfaces and moves toward abstractions such as
-network services. The intent is to show the interfaces essential to the OpenBMC
-project in a framework to reason about which interfaces are present, how they
-are related. This provides a foundation to reason about which can be disabled,
-how they are secured, etc. The appendix provides details about each interface
-and service shown.
+本節說明 BMC 的主要介面以及它們彼此的關聯。內容從 BMC 的實體介面開始，逐步過渡到網路服務等抽象概念。目的是把 OpenBMC 專案中必要的介面放在一個架構框架中呈現，讓讀者能據以推論有哪些介面存在、它們彼此如何關聯。這提供了基礎，用以推論哪些介面可以被停用、它們如何受到保護等等。附錄提供文中每個介面與服務的詳細資訊。
 
-OpenBMC's services and the interfaces they provide are controlled by `systemd`.
-This document references OpenBMC `systemd` unit names to help link concepts to
-the source code. The reader is assumed to be familiar with [systemd concepts][].
-The templated units (`unit@.service`) may be omitted for clarity. Relevant
-details from the unit file may be shown, such as the program which implements a
-service.
+OpenBMC 的服務及其提供的介面由 `systemd` 控制。本文會引用 OpenBMC 的 `systemd` 單元名稱，協助將觀念連結到原始碼。請讀者事先熟悉 [systemd concepts][]。為求清晰，範本化單元（`unit@.service`）可能會省略。單元檔案中的相關細節可能會顯示出來，例如實作某個服務的程式。
 
-The OpenBMC [Service Management][] interface can control `systemd` services. For
-example, disabling a BMC service will disable the corresponding external
-interface.
+OpenBMC 的 [Service Management][] 介面可以控制 `systemd` 服務。例如，停用某個 BMC 服務也會停用對應的外部介面。
 
 [systemd concepts]:
   https://www.freedesktop.org/software/systemd/man/systemd.html#Concepts
 [service management]:
   https://github.com/openbmc/phosphor-dbus-interfaces/blob/master/yaml/xyz/openbmc_project/Control/Service/README.md
 
-Diagrams are included to help visualize relationships. The diagrams show
-management agents on the left side, the BMC in the center, and host elements on
-the right side. The diagrams are simplified and are not intended to be complete.
+文中附上圖示以協助視覺化各種關聯。圖示左側為管理代理端，中間為 BMC，右側為主機元素。這些圖示經過簡化，並非要完整呈現全貌。
 
-### Physical interfaces
+### 實體介面
 
-This shows the BMC's physical connections including network, USB, UART serial,
-and connections to its host platform. This uses a simplified view of the host
-which shows only the host interfaces that connect directly to the BMC. A typical
-host would have additional connections for console, network, etc.
+這裡顯示 BMC 的實體連線，包含網路、USB、UART 序列，以及與其主機平台的連線。這裡對主機採用簡化觀點，只顯示直接連線到 BMC 的主機介面。典型的主機還會有用於控制台、網路等的其他連線。
 
-Interfaces between the BMC and its host platform vary considerably based on BMC
-and host platform implementation. The information presented in this section and
-its subsections is intended to illustrate common elements, not to represent any
-particular system. This section is intended to be referenced by additional
-documentation which gives details for specific BMC and host implementations.
+BMC 與其主機平台之間的介面，會因 BMC 與主機平台的實作不同而有極大差異。本節及其小節所提供的資訊，目的是說明常見的元素，而非代表某個特定的系統。本節預計供其他文件引用，那些文件會提供特定 BMC 與主機實作的細節。
 
 ```ascii
         +----------------+         +----------------+
@@ -72,32 +45,29 @@ documentation which gives details for specific BMC and host implementations.
         +----------------+         +----------------+
 ```
 
-#### Host-BMC physical interface transport protocols
+#### 主機-BMC 實體介面傳輸協定
 
-This lists protocols that operate over the BMC-host physical interfaces:
+這裡列出運作於 BMC-主機實體介面之上的協定：
 
-- Host IPMI.
-- [MCTP][]. OpenBMC offers MCTP over LPC, PCIe, UART.
-- Custom OEM solution.
-- SMBus.
+- 主機 IPMI。
+- [MCTP][]。OpenBMC 提供 LPC、PCIe、UART 上的 MCTP。
+- 自訂 OEM 解決方案。
+- SMBus。
 
 [mctp]:
   https://www.dmtf.org/sites/default/files/standards/documents/DSP0236_1.3.0.pdf
 
-#### Host-BMC data models
+#### 主機-BMC 資料模型
 
-This lists specifications for the data which flows over the BMC-host transport
-protocols:
+這裡列出在 BMC-主機傳輸協定之上流動的資料規格：
 
-- Host IPMI.
-- PLDM (DMTF document DSP0240).
-- Custom OEM solution.
+- 主機 IPMI。
+- PLDM（DMTF 文件 DSP0240）。
+- 自訂 OEM 解決方案。
 
-### Network services provided
+### 提供的網路服務
 
-OpenBMC provides services via its management network. The default services are
-listed here by port number. More information about each service is given in
-sections below or in the appendix.
+OpenBMC 透過其管理網路提供服務。以下依埠號列出預設服務。每個服務的更多資訊見下方各節或附錄。
 
 ```ascii
         +----------------------------------+
@@ -120,34 +90,31 @@ sections below or in the appendix.
         +----------------------------------+
 ```
 
-Services provided to connected clients may use ports for:
+提供給已連線用戶端的服務，可能會使用埠來處理：
 
-- Active SSH sessions.
-- Active KVM-IP sessions.
-- Active virtual media sessions.
+- 進行中的 SSH 工作階段。
+- 進行中的 KVM-IP 工作階段。
+- 進行中的虛擬媒體工作階段。
 
-### Network services consumed
+### 使用的網路服務
 
-This section lists network services used by OpenBMC systems. OpenBMC uses the
-typical services in the usual way, such as NTP, DNS, and DHCP. In addition,
-OpenBMC uses:
+本節列出 OpenBMC 系統所使用的網路服務。OpenBMC 以一般方式使用了通常的服務，例如 NTP、DNS 與 DHCP。此外，OpenBMC 還會使用：
 
-- TFTP (disabled by default, when invoked by BMC operator) - Trivial FTP client
-  to fetch firmware images for [code update][].
-- SNMP manager to catch [SNMP traps][] (when enabled).
+- TFTP（預設停用，由 BMC 操作員呼叫時啟用）- 用於抓取韌體映像以進行 [code update][] 的簡易 FTP 用戶端。
+- SNMP 管理者，用於接收 [SNMP traps][]（啟用時）。
 
 [code update]:
   https://github.com/openbmc/docs/blob/master/code-update/code-update.md
 [snmp traps]:
   https://github.com/openbmc/phosphor-snmp/blob/master/docs/snmp-configuration.md
 
-### Host console
+### 主機控制台
 
-OpenBMC provides access to its host's serial console in various ways:
+OpenBMC 以多種方式提供對其主機序列控制台的存取：
 
-- Client access via network IPMI.
-- Client access via ssh port 2200.
-- The hostlogger facility.
+- 用戶端透過網路 IPMI 存取。
+- 用戶端透過 ssh 埠 2200 存取。
+- hostlogger 機制。
 
 ```ascii
                 +---------------------------+    +-----------------+
@@ -163,14 +130,13 @@ OpenBMC provides access to its host's serial console in various ways:
                 +---------------------------+    +-----------------+
 ```
 
-The [obmc-console][] details how the host UART connection is abstracted within
-the BMC as a Unix domain socket.
+[obmc-console][] 說明主機 UART 連線如何在 BMC 內部被抽象化為 Unix domain socket。
 
 [obmc-console]: https://github.com/openbmc/obmc-console/blob/master/README.md
 
-### Web services
+### Web 服務
 
-OpenBMC provides a custom HTTP/Web server called BMCWeb.
+OpenBMC 提供一個名為 BMCWeb 的客製 HTTP／Web 伺服器。
 
 ```ascii
         +--------------------------------------------------+
@@ -191,27 +157,23 @@ OpenBMC provides a custom HTTP/Web server called BMCWeb.
         +--------------------------------------------------+
 ```
 
-In the diagram, the arrowheads represent the flow of control from web agents to
-BMCWeb APIs, some of which set up Websockets which give the network agent direct
-communication with the desired interface (not via BMCWeb).
+在圖中，箭頭代表控制流程從 web 代理端流向 BMCWeb API，其中一些會建立 Websockets，讓網路代理端能直接與所需的介面通訊（不經過 BMCWeb）。
 
-Note that [BMCWeb is configurable][] at compile time. This section describes the
-default configuration (which serves the HTTP application protocol over the HTTPS
-transport protocol on TCP port 443).
+請注意 [BMCWeb is configurable][]，可在編譯期間設定。本節描述預設設定（在 HTTPS 傳輸協定上、TCP 埠 443 提供 HTTP 應用程式協定）。
 
 [bmcweb is configurable]: https://github.com/openbmc/bmcweb#configuration
 
-Services provided:
+提供的服務：
 
-- Web application (webui-vue) and other static content
-- REST APIs including custom phosphor-rest and Redfish APIs
-- KVM-IP (Keyboard, Video, Mouse over IP)
-- Virtual media via USB-IP (Universal Serial Bus over IP)
-- others
+- Web 應用程式（webui-vue）及其他靜態內容
+- REST API，包含自訂的 phosphor-rest 與 Redfish API
+- KVM-IP（Keyboard, Video, Mouse over IP）
+- 透過 USB-IP（Universal Serial Bus over IP）提供的虛擬媒體
+- 其他
 
-### Host IPMI services
+### 主機 IPMI 服務
 
-OpenBMC provides a host IPMI service.
+OpenBMC 提供主機 IPMI 服務。
 
 ```ascii
     +---------------+    +-----------------+
@@ -222,18 +184,14 @@ OpenBMC provides a host IPMI service.
     +---------------+    +-----------------+
 ```
 
-The IPMI firmware firewall (which aims to control which host commands and
-channels can be used) is not implemented in OpenBMC. There is support for a
-[Phosphor host IPMI whitelist][] scheme.
+IPMI 韌體防火牆（旨在控制可使用哪些主機命令與通道）並未在 OpenBMC 中實作。有支援 [Phosphor host IPMI whitelist][] 機制。
 
 [phosphor host ipmi whitelist]:
   https://github.com/openbmc/openbmc/blob/master/meta-phosphor/classes/phosphor-ipmi-host-whitelist.bbclass
 
-### D-Bus interfaces
+### D-Bus 介面
 
-OpenBMC uses D-Bus interfaces as the primary way to communicate (inter-process
-communication) between OpenBMC applications. Note that other methods are used,
-for example Unix domain sockets.
+OpenBMC 使用 D-Bus 介面作為 OpenBMC 應用程式之間通訊（程序間通訊）的主要方式。請注意也會使用其他方法，例如 Unix domain socket。
 
 ```ascii
         +--------------------------------------------------+
@@ -252,58 +210,50 @@ for example Unix domain sockets.
         +--------------------------------------------------+
 ```
 
-To learn more, read the [Phosphor D-Bus interface docs][] and search for README
-files in various subdirectories under the xyz/openbmc_project path.
+若要深入了解，請閱讀 [Phosphor D-Bus interface docs][]，並在 xyz/openbmc_project 路徑下的各子目錄中搜尋 README 檔案。
 
 [phosphor d-bus interface docs]:
   https://github.com/openbmc/phosphor-dbus-interfaces
 
-## Interfaces and services
+## 介面與服務
 
-This section lists each interface and service shown in this document. The intent
-is to give the relevance of each item and how to locate details in the source
-code.
+本節列出本文中顯示的每個介面與服務。目的是說明每一項的相關性，以及如何在原始碼中找到詳細資訊。
 
-### BMC network
+### BMC 網路
 
-This sections shows variations in the operational environment of the BMC's
-management network.
+本節顯示 BMC 管理網路在運作環境上的各種變化。
 
-The BMC may be connected to a network used to manage the BMC. This is dubbed the
-"management network" to distinguish it from the payload network the host system
-is connected to. These are typically separate networks.
+BMC 可能連線到一個用於管理 BMC 的網路。這個網路被稱為「管理網路」，以區別於主機系統所連線的承載網路（payload network）。這些通常是各自獨立的網路。
 
 ```ascii
              +-----------+      +----------------+
              | BMC       |      | Host           |
-management   |           |      |                |
-network   ---+- Network  |      |       Network -+- payload
+ management   |           |      |                |
+ network   ---+- Network  |      |       Network -+- payload
              |           |      |                |  network
              +-----------+      +----------------+
 ```
 
-The BMC may be served by a Network Controller Sideband Interface (NC-SI) which
-maintains a logically separate network from the host, as shown in this diagram:
+BMC 可能由 Network Controller Sideband Interface（NC-SI）提供服務，它與主機維持一個邏輯上獨立的網路，如以下圖示：
 
 ```ascii
              +-----------+      +----------------+
              | BMC       |      | Host           |
-management   |           |      |                |
-network    +-+- Network  |      |       Network -+-+
-           | |           |      |                | |
-           | +-----------+      +----------------+ |
-           |                                       |
-           |      +------------------+             |
-           |      | NIC              |             |
-           |      |.........+       -+-------------+
-           +------+- side-  :        |
-management -------+- band   :       -+- payload
-network           |.........+        |  network
-                  +------------------+
+ management   |           |      |                |
+ network    +-+- Network  |      |       Network -+-+
+            | |           |      |                | |
+            | +-----------+      +----------------+ |
+            |                                       |
+            |      +------------------+             |
+            |      | NIC              |             |
+            |      |.........+       -+-------------+
+            +------+- side-  :        |
+ management -------+- band   :       -+- payload
+ network           |.........+        |  network
+                   +------------------+
 ```
 
-The BMC's management network may be provided by its host system and have no
-direct connection external to the host, as shown in this diagram:
+BMC 的管理網路可能由其主機系統提供，且沒有任何直接連線到主機外部，如以下圖示：
 
 ```ascii
              +-----------+      +----------------+
@@ -318,7 +268,7 @@ direct connection external to the host, as shown in this diagram:
           +------------------+
 ```
 
-The BMC's management network may be connected to USB (LAN over USB):
+BMC 的管理網路可能連線到 USB（LAN over USB）：
 
 ```ascii
              +-----------+      +----------------+
@@ -330,136 +280,97 @@ The BMC's management network may be connected to USB (LAN over USB):
              +-----------+      +----------------+
 ```
 
-### BMC serial
+### BMC 序列
 
-This gives access to the BMC's console which provides such function as
-controlling the BMC's U-Boot and then providing access to the BMC's shell.
-Contrast with the host serial console access.
+這提供對 BMC 控制台的存取，其功能包括控制 BMC 的 U-Boot，接著提供對 BMC shell 的存取。請與主機序列控制台存取相互對照。
 
-### Network interfaces
+### 網路介面
 
-This refers to the standard NIC and Linux network services on the BMC.
+這指的是 BMC 上標準的 NIC 與 Linux 網路服務。
 
 ### Secure Shell (SSH)
 
-This refers to the SSH protocol which provides both secure shell (ssh) and
-secure copy (scp) access to the BMC. OpenBMC uses the Dropbear SSH
-implementation. Note that port 22 connects to the BMC's shell, while port 2200
-connects to the host console.
+這指的是 SSH 協定，它同時提供對 BMC 的安全 shell（ssh）與安全複製（scp）存取。OpenBMC 使用 Dropbear SSH 實作。請注意埠 22 連線到 BMC 的 shell，而埠 2200 連線到主機控制台。
 
-### HTTP and HTTPS
+### HTTP 與 HTTPS
 
-OpenBMC supports the HTTP application protocol over HTTPS, both handled by the
-BMCWeb server. The "http" URI scheme is disabled by default but can be enabled
-at compile time by BMCWeb configuration options.
+OpenBMC 支援在 HTTPS 之上的 HTTP 應用程式協定，兩者都由 BMCWeb 伺服器處理。"http" URI scheme 預設停用，但可透過 BMCWeb 的編譯設定選項啟用。
 
-### Host serial console
+### 主機序列控制台
 
-Refers to the BMC's access to its host's serial connection which typically
-accesses the host system's console. See also `obmc-console-server` which
-provides host serial access to various internal BMC services. Contrast with
-access to the BMC's serial connection which provides access to the BMC's
-console.
+指的是 BMC 對其主機序列連線的存取，通常用於存取主機系統的控制台。另見 `obmc-console-server`，它對各種 BMC 內部服務提供主機序列存取。請與對 BMC 序列連線的存取相互對照，後者提供對 BMC 控制台的存取。
 
-### Service discovery
+### 服務探索
 
-Refers to the multicast discovery service (mDNS). For example, you can find the
-BMC via the `avahi-browse -rt _obmc_rest._tcp` command.
+指的是多播探索服務（mDNS）。例如，你可以用 `avahi-browse -rt _obmc_rest._tcp` 命令找到 BMC。
 
 ### Service Location Protocol (SLP)
 
-Refers to the unicast service discovery protocol provided by `slpd`. For
-example, you can find the BMC via the
-`slptool -u ${ip} findsrvtypes or findsrvs` command.
+指的是由 `slpd` 提供的單播服務探索協定。例如，你可以用
+`slptool -u ${ip} findsrvtypes or findsrvs` 命令找到 BMC。
 
-### RMCP+, IPMI, and ipmitool
+### RMCP+、IPMI 與 ipmitool
 
-Refers to the RMCP+ protocol and IPMI implementation provided by `netipmid` with
-source here: `https://github.com/openbmc/phosphor-net-ipmid` and some details
-provided by [IPMI Session management][]. Network IPMI provides access to many
-resources including host IPMI access, SOL (access to the host console), and
-more. Also known as out of band IPMI. Contrast with host-IPMI which interacts
-with the host and with Redfish which provides alternate function.
+指的是由 `netipmid` 提供的 RMCP+ 協定與 IPMI 實作，原始碼在此：`https://github.com/openbmc/phosphor-net-ipmid`，部分細節由 [IPMI Session management][] 提供。網路 IPMI 提供對許多資源的存取，包含主機 IPMI 存取、SOL（對主機控制台的存取）等等。也稱為帶外（out of band）IPMI。請與與主機互動的 host-IPMI，以及提供替代功能的 Redfish 相互對照。
 
-The BMC's RMCP+ IPMI interface is designed to be operated by the [ipmitool][]
-external command.
+BMC 的 RMCP+ IPMI 介面設計為由 [ipmitool][] 外部命令操作。
 
 [ipmi session management]:
   https://github.com/openbmc/phosphor-dbus-interfaces/blob/master/yaml/xyz/openbmc_project/Ipmi/SESSION_README.md
 [ipmitool]: https://github.com/ipmitool/ipmitool
 
-### Host IPMI
+### 主機 IPMI
 
-Refers to the host-facing IPMI service provided by the `ipmid` program with
-source here: `https://github.com/openbmc/phosphor-host-ipmid`. The systemd
-service is `phosphor-ipmi-host` implemented by the `ipmid` program. Also known
-as in-band IPMI. Contrast with RMCP+ which faces the network and with PLDM which
-provides alternate function.
+指的是由 `ipmid` 程式提供、面向主機的 IPMI 服務，原始碼在此：`https://github.com/openbmc/phosphor-host-ipmid`。systemd 服務為 `phosphor-ipmi-host`，由 `ipmid` 程式實作。也稱為帶內（in-band）IPMI。請與面向網路的 RMCP+，以及提供替代功能的 PLDM 相互對照。
 
 ### BMC shell
 
-This refers to the BMC's command line interface which defaults to the `bash`
-program provided via the `/bin/sh` path on the BMC's file system. Note that the
-shell (together with its utility programs) provides access to many of the BMC's
-internal and external interfaces.
+這指的是 BMC 的命令列介面，預設為 `bash` 程式，透過 BMC 檔案系統上的 `/bin/sh` 路徑提供。請注意 shell（連同其公用程式）提供對 BMC 許多內部與外部介面的存取。
 
 ### obmc-console
 
-This refers to support for multiple independent consoles in
-<https://github.com/openbmc/obmc-console> and two applications:
+這指的是在 <https://github.com/openbmc/obmc-console> 中對多重獨立控制台的支援，以及兩個應用程式：
 
-- The `obmc-console-server` abstracts the host console (UART) connection as a
-  Unix domain socket.
-- The `obmc-console-client` can connect a console to an SSH session.
+- `obmc-console-server` 將主機控制台（UART）連線抽象化為 Unix domain socket。
+- `obmc-console-client` 可將控制台連線到 SSH 工作階段。
 
-Other applications use the console server.
+其他應用程式也會使用 console server。
 
 ### hostlogger
 
-Refers to the BMC service provided by the `hostlogger` program here:
-<https://github.com/openbmc/phosphor-hostlogger> which listens to the
-`obmc-console-server` and logs host console messages into the BMC's file system.
+指的是由 `hostlogger` 程式提供的 BMC 服務，位於：
+<https://github.com/openbmc/phosphor-hostlogger>，它監聽 `obmc-console-server`，並將主機控制台訊息記錄到 BMC 的檔案系統中。
 
-### BMCWeb web server
+### BMCWeb web 伺服器
 
-Refers to the custom HTTP/Web server with source here:
-<https://github.com/openbmc/bmcweb> Note that BMCWeb is configurable per
-<https://github.com/openbmc/bmcweb#configuration> with build-time options to
-control which interfaces it provides. For example, there are configurations
-options to:
+指的是客製的 HTTP／Web 伺服器，原始碼在此：
+<https://github.com/openbmc/bmcweb>。請注意 BMCWeb 可依照 <https://github.com/openbmc/bmcweb#configuration> 進行設定，透過建置期間的選項來控制它提供哪些介面。例如，有以下設定選項可以：
 
-- enable downloading firmware images from a TFTP server
-- enable the "http" URI scheme
-- others
+- 啟用從 TFTP 伺服器下載韌體映像
+- 啟用 "http" URI scheme
+- 其他
 
-The webserver also sets up Secure Websockets for services such as KVM-IP,
-Virtual-USB, and more.
+此 web 伺服器也會為 KVM-IP、Virtual-USB 等服務建立安全的 Websockets。
 
 ### Redfish
 
-Refers to the set of Redfish REST APIs served by the BMCWeb web server. See
-details here: <https://github.com/openbmc/bmcweb/blob/master/Redfish.md> with
-docs here: <https://github.com/openbmc/docs/blob/master/REDFISH-cheatsheet.md>
+指的是由 BMCWeb web 伺服器提供的一組 Redfish REST API。詳細資訊見：<https://github.com/openbmc/bmcweb/blob/master/Redfish.md>，文件見：<https://github.com/openbmc/docs/blob/master/REDFISH-cheatsheet.md>
 
 ### phosphor-dbus-rest
 
-Refers to the legacy REST APIs optionally served by the BMCWeb server. Docs:
+指的是由 BMCWeb 伺服器選擇性提供的傳統 REST API。文件：
 <https://github.com/openbmc/docs/blob/master/REST-cheatsheet.md>
 
 ### KVM-IP
 
-Refers to the OpenBMC implementation of the Remote Frame Buffer (RFB, aka VNC)
-protocol which lets you operate the host system's keyboard, video, and mouse
-(KVM) remotely. See <https://github.com/openbmc/obmc-ikvm/blob/master/README.md>
-Also known as IPKvm. Do not confuse with Kernel Virtual Machine (the other KVM).
+指的是 OpenBMC 對 Remote Frame Buffer（RFB，又稱 VNC）協定的實作，讓你能遠端操作主機系統的鍵盤、影像與滑鼠（KVM）。見 <https://github.com/openbmc/obmc-ikvm/blob/master/README.md>。也稱為 IPKvm。請勿與 Kernel Virtual Machine（另一種 KVM）混淆。
 
-### Virtual media
+### 虛擬媒體
 
-- Also known as: remote media and USB-over-IP.
-- Design: <https://github.com/openbmc/docs/blob/master/designs/VirtualMedia.md>
-- Contrast with LAN-over-USB.
+- 也稱為：remote media 與 USB-over-IP。
+- 設計：<https://github.com/openbmc/docs/blob/master/designs/VirtualMedia.md>
+- 請與 LAN-over-USB 相互對照。
 
-### Virtual USB
+### 虛擬 USB
 
-Also known as USB-over-IP, and helps implement virtual media. Contrast with the
-BMC and host physical USB ports.
+也稱為 USB-over-IP，有助於實作虛擬媒體。請與 BMC 及主機的實體 USB 埠相互對照。

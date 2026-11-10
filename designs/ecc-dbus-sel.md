@@ -1,119 +1,105 @@
-# ECC Error SEL for BMC
+# BMC 的 ECC Error SEL
 
 Author: Will Liang
 
 Created: 2019-02-26
 
-## Problem Description
+## 問題描述
 
-The IPMI SELs only define memory Error Correction Code (ECC) errors for host
-memory rather than BMC.
+IPMI SEL 僅針對主機（host）記憶體定義了 Error Correction Code (ECC) 錯誤，
+並未涵蓋 BMC 本身的記憶體。
 
-The aim of this proposal is to record ECC events from the BMC in the IPMI System
-Event Log (SEL). Whenever ECC occurs, the BMC generates an event with the
-appropriate information and adds it to the SEL.
+本提案的目標是將來自 BMC 的 ECC 事件記錄到 IPMI System Event Log (SEL) 中。
+每當發生 ECC 時，BMC 便會產生一個帶有適當資訊的事件，並將其加入 SEL。
 
-## Background and References
+## 背景與參考
 
-The IPMI specification defines memory system event log about ECC/other
-correctable or ECC/other uncorrectable and whether ECC/other correctable memory
-error logging limits are reached.[1]. The BMC ECC SEL will follow IPMI SEL
-format and creates BMC memory ECC event log.
+IPMI 規格定義了關於 ECC/其他可修正錯誤，以及 ECC/其他不可修正錯誤的記憶體
+system event log，以及 ECC/其他可修正記憶體錯誤的記錄上限是否已達到的相關
+內容。[1] BMC ECC SEL 將遵循 IPMI SEL 格式，建立 BMC 記憶體 ECC 事件記錄。
 
-OpenBMC currently support for generating SEL entries based on parsing the D-Bus
-event log. It does not yet support the BMC ECC SEL feature in OpenBMC project.
-Therefore, the memory ECC information will be registered to D-Bus and generate
-memory ECC SEL as well.
+OpenBMC 目前支援透過解析 D-Bus event log 來產生 SEL 條目。但 OpenBMC 專案
+尚未支援 BMC ECC SEL 此功能。因此，記憶體 ECC 資訊將註冊到 D-Bus，並同
+樣產生記憶體 ECC SEL。
 
 [[1]Intelligent Platform Management Interface Specification v2.0 rev 1.1, section 41](https://www.intel.com/content/www/us/en/servers/ipmi/ipmi-second-gen-interface-spec-v2-rev1-1.html)
 
-## Requirements
+## 需求
 
-Currently, the OpenBMC project does not support ECC event logs in D-Bus because
-there is no relevant ECC information in the OpenBMC D-Bus architecture. The new
-ECC D-Bus information will be added to the OpenBMC project and an ECC monitor
-service will be created to fetch the ECC count (ce_count/ue_count) from the EDAC
-driver. And make sure the EDAC driver must be loaded and ECC/other correctable
-or ECC/other uncorrectable counts need to be obtained from the EDAC driver.
+目前 OpenBMC 專案不支援 D-Bus 中的 ECC 事件記錄，因為 OpenBMC 的 D-Bus
+架構中沒有相關的 ECC 資訊。新的 ECC D-Bus 資訊將加入 OpenBMC 專案，並建立
+一個 ECC 監控服務，從 EDAC 驅動程式取得 ECC 計數（ce_count/ue_count）。
+同時必須確保 EDAC 驅動程式已載入，且 ECC/其他可修正或 ECC/其他不可修正的
+計數需要從 EDAC 驅動程式取得。
 
-## Proposed Design
+## 建議設計
 
-ECC-enabled memory controllers can detect and correct errors in operating
-systems (such as certain versions of Linux, macOS, and Windows) that allow
-detection and correction of memory errors, which helps identify problems before
-they become catastrophic faulty memory module.
+具備 ECC 功能的記憶體控制器可以在允許偵測與修正記憶體錯誤的作業系統（例如
+某些版本的 Linux、macOS 與 Windows）中偵測並修正錯誤，這有助於在問題惡化成
+災難性的記憶體模組故障之前先識別出來。
 
-Many ECC memory systems use an "external" EDAC between the CPU and the memory to
-fix memory error. Most host integrate EDAC into the CPU's integrated memory
-controller.
+許多 ECC 記憶體系統在 CPU 與記憶體之間使用一顆「外部」的 EDAC 來修正記憶體
+錯誤。多數主機則將 EDAC 整合進 CPU 的內建記憶體控制器中。
 
-According to Section 42.2 of the IPMI specification, Table 42 [2], these SEL
-sensor types will be defined as `Memory` and `Event Data 3` field can be used to
-provide an event extension. Therefore, the BMC ECC event sets "Event Data 3"
-with the value FEh to identify the BMC ECC error.
+根據 IPMI 規格的 Section 42.2、Table 42 [2]，這些 SEL sensor type 將被定義為
+`Memory`，而 `Event Data 3` 欄位可用來提供事件延伸資訊。因此，BMC ECC 事件
+將 "Event Data 3" 設為值 FEh，以辨識這是 BMC ECC 錯誤。
 
 [[2] Intelligent Platform Management Interface Specification v2.0 rev 1.1, section 42.2](https://www.intel.com/content/www/us/en/servers/ipmi/ipmi-second-gen-interface-spec-v2-rev1-1.html)
 
-The main purpose of this function is to provide the BMC with the ability to
-record ECC error SELs.
+此功能的主要目的，是提供 BMC 記錄 ECC 錯誤 SEL 的能力。
 
-There are two new applications for this design:
+本設計有兩個新的應用程式：
 
-- poll the ECC error count
-- create the ECC SEL
+- 輪詢（poll）ECC 錯誤計數
+- 建立 ECC SEL
 
-It also devised a mechanism to limit the "maximum number" of logs to avoid
-creating a large number of correctable ECC logs. When the `maximum quantity` is
-reached, the ECC service will stop to record the ECC log. The `maximum quantity`
-(default:100) is saved in the configuration file, and the user can modify the
-value if necessary.
+此外也設計了一種機制來限制日誌的「最大數量」，以避免產生大量可修正 ECC 的
+日誌。當達到 `maximum quantity` 時，ECC 服務將停止記錄 ECC 日誌。
+`maximum quantity`（預設值：100）存放於設定檔中，使用者可在必要時修改此
+值。
 
 ### phosphor-ecc.service
 
-This will always run the application and look up the ECC error count every
-second after service is started. On first start, it resets all correctable ECC
-counts and uncorrectable ECC counts in the EDAC driver.
+這會在服務啟動後持續執行該應用程式，並每秒查詢一次 ECC 錯誤計數。首次啟動
+時，它會將 EDAC 驅動程式中所有可修正 ECC 計數與不可修正 ECC 計數重設。
 
-It also provide the following path on D-Bus:
+它同時在 D-Bus 上提供以下路徑：
 
 - bus name : `xyz.openbmc_project.Memory.ECC`
 - object path : `/xyz/openbmc_project/metrics/memory/BmcECC`
 - interface : `xyz.openbmc_project.Memory.MemoryECC`
 
-The interface with the following properties: | Property | Type | Description | |
--------- | ---- | ----------- | | isLoggingLimitReached | bool | ECC logging
-reach limits| | ceCount| int64 | correctable ECC events | | ueCount| int64 |
-uncorrectable ECC events | | state| string | bmc ECC event state |
+此介面具有以下屬性： | Property | Type | Description | |
+-------- | ---- | ----------- | | isLoggingLimitReached | bool | ECC 記錄
+已達上限| | ceCount| int64 | 可修正 ECC 事件 | | ueCount| int64 |
+不可修正 ECC 事件 | | state| string | bmc ECC 事件狀態 |
 
-The error types for `xyz::openbmc_project::Memory::Ecc::Error::ceCount` and
-`ueCount` and `isLoggingLimitReached` will be created which generated the error
-type for the ECC logs.
+`xyz::openbmc_project::Memory::Ecc::Error::ceCount` 與 `ueCount` 以及
+`isLoggingLimitReached` 的錯誤類型將被建立，用以產生 ECC 日誌的錯誤類型。
 
-### Create the ECC SEL
+### 建立 ECC SEL
 
-Use the `phosphor-sel-logger` package to record the following logs in BMC SEL
-format.
+使用 `phosphor-sel-logger` 套件，以 BMC SEL 格式記錄以下日誌。
 
-- correctable ECC log : when fetching the `ce_count` from EDAC driver parameter
-  and the count exceeds previous count.
-- uncorrectable ECC log : when fetching the `ue_count` from EDAC driver
-  parameter and the count exceeds previous count.
-- logging limit reached log : When the correctable ECC log reaches the
-  `maximum quantity`.
+- correctable ECC log：當從 EDAC 驅動程式參數取得 `ce_count`，且該計數超過
+  先前的計數時。
+- uncorrectable ECC log：當從 EDAC 驅動程式參數取得 `ue_count`，且該計數超過
+  先前計數時。
+- logging limit reached log：當可修正 ECC 日誌達到 `maximum quantity` 時。
 
-## Alternatives Considered
+## 曾考慮的替代方案
 
-Another consideration is that there is no stopping the recording of the ECC
-logging mechanism. When the checks `ce_count` and value exceeds the previous
-value, it will record the ECC log. But this will encounter a lot of ECC logs,
-and BMC memory will also be occupied.
+另一個考量是完全不採用停止記錄 ECC 的機制。只要檢查 `ce_count` 且其值超過
+先前的值，就記錄一筆 ECC 日誌。但這樣會遇到大量的 ECC 日誌，同時也會佔用
+BMC 的記憶體。
 
-## Impacts
+## 影響
 
-This application implementation only needs to make some changes when creating
-the event log, so it has minimal impact on the rest of the system.
+此應用程式的實作只需要在建立 event log 時做一些修改，因此對系統其餘部分的
+影響極小。
 
-## Testing
+## 測試
 
-Depending on the platform hardware design, this test requires an ECC driver to
-make fake ECC errors and then check the scenario is good.
+依平台硬體設計而定，此測試需要一個 ECC 驅動程式來製造假造的 ECC 錯誤，接著
+檢查該情境是否正確。

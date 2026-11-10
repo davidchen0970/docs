@@ -1,60 +1,43 @@
-# TOF Membership and Voting
+# TOF 會員資格與投票
 
-## Technical Oversight Forum
+## 技術監督論壇（Technical Oversight Forum）
 
-### Members
+### 成員
 
-The TOF body shall consist of between 5 and 9 members selected by the OpenBMC
-Development Community by vote. The current number of members is **7** and this
-shall only be changed, prior to a TOF election, by a unanimous decision at a
-regular meeting of the current TOF body.
+TOF 這個組織應由 5 到 9 位成員組成，由 OpenBMC 開發社群投票選出。目前的成員人數為 **7** 位；此數字只允許在 TOF 選舉之前，由現任 TOF 團隊於例行會議中以一致決議的方式變更。
 
-TOF members must themselves be members of the OpenBMC Development Community.
-This is determined by voting eligibility; ie. an individual is only eligible to
-be elected a member of the TOF if they are eligible to vote in their own
-election.
+TOF 成員本身必須是 OpenBMC 開發社群的成員。這取決於投票資格；也就是說，只有在自身選舉中具有投票資格的個人，才有資格當選為 TOF 成員。
 
-To encourage a diverse viewpoint, no more than 2 TOF members may be employed by,
-or working under a contract relationship for, the same entity unless (one of):
+為了鼓勵多元的觀點，受雇於同一實體、或以承攬關係為同一實體工作的 TOF 成員不得超過 2 位，除非符合下列情形之一：
 
-- The entity is the Linux Foundation.
-- The TOF members have been unopposed in an election.
+- 該實體是 Linux Foundation。
+- 該等 TOF 成員在選舉中未經對手競爭（unopposed）。
 
-### Terms and Elections
+### 任期與選舉
 
-Members are elected by Ranked Choice Voting of the OpenBMC Development Community
-at twice yearly elections. Members of the TOF typically serve a 1 year term
-before their seat is up for re-election; members have no term limits.
+成員由 OpenBMC 開發社群以排序選擇投票（Ranked Choice Voting）方式選出，每年舉行兩次選舉。TOF 成員通常在席位改選前服務 1 年任期；成員沒有任期次數限制。
 
-To facilitate continuity of the TOF body, these elections are held every 6
-months in which half (+/- 1) of the seats are re-elected. Due to additions or
-subtractions in seats and membership resignations, more than half (+1) of the
-seats may need to be filled in a single election. Prior to the election the
-current TOF may determine a certain number of seats will be 6 month terms, to
-return the number of seats per election to a more equal number, and these seats
-will be given to the individuals with the later results in the RCV.
+為維持 TOF 團隊的延續性，這些選舉每 6 個月舉行一次，每次改選半數（正負 1 席）席位。由於席次的增減以及成員辭職，單次選舉可能需要填補超過半數（加 1 席）的席位。在選舉之前，現任 TOF 可以決定將若干席位設為 6 個月任期，以使每次選舉的席次數回歸較為均等的數字，而這些席位將授予在 RCV 中成績排名較後的個人。
 
-Elections are to begin on March 1st and September 1st at 00:00 UTC and conclude
-seven days later. Election schedule is as follows:
+選舉將於 3 月 1 日及 9 月 1 日 00:00 UTC 開始，並於七天後結束。選舉時程如下：
 
-| Q1 Elections | Q3 Elections | Action on or by 00:00 UTC.                                                                                 |
+| Q1 選舉 | Q3 選舉 | 於 00:00 UTC 或之前應完成的動作。 |
 | :----------: | :----------: | :--------------------------------------------------------------------------------------------------------- |
-|   Jan 1st    |   July 1st   | Developer contributions close for OpenBMC Development Community membership eligibility (See “Metrics”).    |
-|   Jan 15th   |  July 15th   | Current TOF must publish a list of eligible voting members.                                                |
-|   Jan 30th   |  July 30th   | Nominations (self or peer) for TOF seats must be sent to the mailing list.                                 |
-|   Jan 30th   |  July 30th   | Developers disputing membership eligibility must submit a petition request to the current TOF.             |
-|   Feb 15th   |   Aug 15th   | Current TOF must publish a final list of eligible voting members and upcoming candidates for TOF seats.    |
-|  March 1st   |   Sept 1st   | Election begins.                                                                                           |
-|  March 7th   |   Sept 7th   | Election concludes.                                                                                        |
-|  March 15th  |  Sept 15th   | Current TOF publishes election results and updates the TOF membership document with new members and terms. |
-|   Apr 1st    |   Oct 1st    | TOF member terms conclude / begin.                                                                         |
+|   1 月 1 日    |   7 月 1 日   | OpenBMC 開發社群會員資格（見「指標」）的開發貢獻截止。    |
+|   1 月 15 日   |  7 月 15 日   | 現任 TOF 必須公布符合投票資格的成員名單。                                                |
+|   1 月 30 日   |  7 月 30 日   | 對於 TOF 席位的提名（自薦或他薦）必須寄送至郵件列表中。                                 |
+|   1 月 30 日   |  7 月 30 日   | 對會員資格有異議的開發者必須向現任 TOF 提交陳情請求。             |
+|   2 月 15 日   |   8 月 15 日   | 現任 TOF 必須公布符合投票資格的最終成員名單，以及即將參選 TOF 席位的候選人。    |
+|  3 月 1 日   |   9 月 1 日   | 選舉開始。                                                                                           |
+|  3 月 7 日   |   9 月 7 日   | 選舉結束。                                                                                        |
+|  3 月 15 日  |  9 月 15 日   | 現任 TOF 公布選舉結果，並以新成員與任期更新 TOF 成員文件。 |
+|   4 月 1 日    |   10 月 1 日    | TOF 成員任期結束 / 開始。                                                                         |
 
-This document shall be maintained with a list of current members and their term
-end (sorted by term conclusion followed by alphabetically by preferred name).
+本文件應維持一份現任成員清單及其任期結束日（依任期結束時間排序，其次依慣用姓名（preferred name）字母順序排序）。
 
-### Current Members
+### 現任成員
 
-| Name             | Term Conclusion |
+| 姓名             | 任期結束 |
 | :--------------- | :-------------: |
 | Andrew Geissler  |   2026-10-01    |
 | Ed Tanous        |   2026-10-01    |
@@ -64,41 +47,17 @@ end (sorted by term conclusion followed by alphabetically by preferred name).
 | Jagpal Gill      |   2027-04-01    |
 | Patrick Williams |   2027-04-01    |
 
-## OpenBMC Development Community
+## OpenBMC 開發社群
 
-Membership in the OpenBMC development community is determined by development
-contributions to the project. By contributing to the project, developers gain a
-voice in the technical direction of the project by shaping the membership in the
-TOF.
+OpenBMC 開發社群的會員資格由對專案的開發貢獻決定。透過為專案做出貢獻，開發者得以透過塑造 TOF 的成員組成，在專案的技術方向上擁有話語權。
 
-Membership is determined using data from the previous 6 months of development
-contributions. Using this data, the TOF will publish a list of Active Members of
-the two tiers. An individual who was an Active Member of a tier in the preceding
-6 months, but does not qualify in the most recent 6 months, will be listed as an
-Member Emeritus for 6 months. Both Active and Emertius members are eligible for
-elections.
+會員資格是使用過去 6 個月的開發貢獻資料來決定的。TOF 會依據這些資料發布兩個等級的 Active Members（活躍成員）名單。若某人在前 6 個月曾是某個等級的 Active Member，但在最近 6 個月不再符合資格，則將被列為 Member Emeritus（榮譽成員）6 個月。Active 與 Emeritus 成員皆有資格參與選舉。
 
-There are two tiers of membership in the development community: normal and
-highly-productive. It is the responsibility of the TOF to set metrics for
-determining community and tier membership. The normal membership tier is
-expected to maintain a low-bar to encourage a diverse and vibrant membership,
-while the highly-productive membership tier is expected to represent between
-12.5% (1/8) and 20% (1/5) of the community. (Whenever the highly-productive tier
-has representation outside of this percentage, the TOF should adjust the
-determining metrics for the next election / membership cycle.) In any election
-cycle, normal developers are given a vote weight of 1 and highly-productive
-developers are given a vote weight of 3.
+開發社群的會員資格分為兩個等級：normal（一般）與 highly-productive（高產出）。設定用以決定社群與等級會員資格的指標，是 TOF 的責任。normal 會員等級預期維持低門檻，以鼓勵多元且充滿活力的 membership；而 highly-productive 會員等級預期代表社群的 12.5%（1/8）到 20%（1/5）之間。（當 highly-productive 等級的代表比例偏離此百分比時，TOF 應調整下次選舉 / 會員週期的判定指標。）在任何選舉週期中，normal 開發者的投票權重為 1，highly-productive 開發者的投票權重為 3。
 
-Any individual who feels their contributions to the project were not recognized
-by the existing metrics may petition the TOF for inclusion in either tier and
-the TOF will make a determination. Examples of these types of contributions
-might be: development in upstream Open Source communities not directly
-controlled by OpenBMC, but for features leveraged by the OpenBMC codebase, and
-significant support activities in areas not covered by existing metrics such as
-Wikis and Discord.
+任何認為自己對專案的貢獻未被現有指標認可的個人，皆可向 TOF 陳情要求納入任一等級，TOF 將作出裁決。這類貢獻的例子可能包括：在非由 OpenBMC 直接控制的上游 Open Source 社群中的開發，但該開發的功能是 OpenBMC 程式碼庫所採用的；以及在現有指標未涵蓋的領域（例如 Wikis 與 Discord）中重要的支援活動。
 
-Currently, work on the following projects requires an explicit petition for
-recognition of ToF membership eligibility:
+目前，針對下列專案的工作需要明確陳情，才能獲得 ToF 會員資格的認可：
 
 - Linux
 - u-boot
@@ -107,22 +66,16 @@ recognition of ToF membership eligibility:
 - open-embedded
 - Poky
 
-### Metrics
+### 指標
 
-Determination of membership in the community is made by a point system for
-activities.
+社群會員資格的判定是依據一套針對各項活動的點數系統。
 
-- Development of a non-trivial commit (10+ lines) - 3 points.
-- Non-trivial code review (3 or more code suggestions) - 1 point.
+- 開發一個非微不足道的 commit（10 行以上）- 3 點。
+- 非微不足道的 code review（3 個以上的程式碼建議）- 1 點。
 
-The TOF may decide to exempt commits which are only machine configuration or
-sub-sections of a repository only intended for use by one entity. For example
-repositories named `company-ipmi-oem-provider`, subdirectories named
-`oem/company`, Yocto recipes in `meta-company`, and entity-manager configuration
-might all be exempted. Any such exemptions should be applied consistently to all
-members.
+TOF 可以決定豁免那些僅為機器設定、或僅供單一實體使用的倉庫子段落（sub-sections）的 commit。例如，名為 `company-ipmi-oem-provider` 的倉庫、名為 `oem/company` 的子目錄、`meta-company` 中的 Yocto recipes，以及 entity-manager 設定，都可能被豁免。任何這類豁免都應一致地套用於所有成員。
 
-Points required for Active membership (in the preceding 6 months):
+Active membership 所需的點數（在前 6 個月內）：
 
-- Normal - 15 points.
-- Highly-Productive - 115 points.
+- Normal - 15 點。
+- Highly-Productive - 115 點。

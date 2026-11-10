@@ -1,85 +1,71 @@
-# User Management - OpenBMC - Design document
+# 使用者管理 - OpenBMC - 設計文件
 
-## Scope
+## 範圍
 
-This document covers the architectural, interface, and design details needed for
-user-management components. The implementation detail is beyond the scope of
-this document.
+本文件涵蓋使用者管理元件所需之架構、介面與設計細節。實作層面的細節不在本文件
+的範圍之內。
 
-## Basic principles in design
+## 設計基本原則
 
-1. Use common user-management (e.g. phosphor-user-manager) rather than
-   application-based user-management. Especially, avoid IPMI based
-   user-management.
-2. For security reasons, avoid transmitting passwords over any D-Bus API.
-   Observe this rule even while creating, modifying or authenticating the user.
-3. Have applications use the PAM module to authenticate the user instead of
-   relying on a D-Bus API-based approach.
-4. User creation has to be generic in nature wherever possible.
-5. As IPMI requires clear text password (Refer IPMI 2.0 specification, section
-   13.19-13.33 inclusive for more details), new PAM module (e.g. pam-ipmi
-   modules) has to be used along with regular PAM password hashing modules (e.g.
-   pam-unix), which will store the password in encrypted form. Implementation
-   can elect to skip this if the IPMI daemon is not the part of the distribution
-   or if the user created doesn't have an 'ipmi' group role.
-6. User name, Password, Group and Privilege roles are maintained by the common
-   user-management (e.g. phosphor-user-manager), whereas individual user-related
-   settings for any application has to be managed by that application. In other
-   words, with the exception of User Name, Password, Group and Privileged Role,
-   the rest of the settings needed has to be owned by the application in
-   question. (e.g. IPMI daemon has to manage settings like channel based
-   restriction etc. for the corresponding user). Design is made to cover this
-   scenario.
+1. 使用通用的使用者管理機制（例如 phosphor-user-manager），而非各應用程式自行
+   實作的使用者管理。特別是要避免使用基於 IPMI 的使用者管理。
+2. 基於安全性考量，避免透過任何 D-Bus API 傳輸密碼。即使是在建立、修改或驗證
+   使用者時，也必須遵守此規則。
+3. 讓應用程式使用 PAM 模組來驗證使用者，而非依賴基於 D-Bus API 的做法。
+4. 只要可能，使用者的建立必須維持一般性的設計。
+5. 由於 IPMI 需要明文密碼（詳情請參考 IPMI 2.0 規格書第 13.19 至 13.33 節），
+   因此必須搭配一般的 PAM 密碼雜湊模組（例如 pam-unix），使用新的 PAM 模組
+   （例如 pam-ipmi 模組），以加密形式儲存密碼。若 IPMI 守護程序並非發行版本的
+   一部分，或所建立的使用者不屬於 'ipmi' 群組角色，實作方可選擇略過此步驟。
+6. 使用者名稱、密碼、群組與權限角色均由通用的使用者管理機制（例如
+   phosphor-user-manager）維護，而各應用程式的個別使用者相關設定則必須由該
+   應用程式自行管理。換言之，除了使用者名稱、密碼、群組與權限角色之外，其餘
+   所需的設定必須由對應的應用程式負責。（例如 IPMI 守護程序必須為對應的使用者
+   管理通道型限制等設定。）本設計已涵蓋此情境。
 
-## Supported Group Roles
+## 支援的群組角色
 
-The purpose of group roles is to determine the first-level authorization of the
-corresponding user. This is used to determine at a high level whether the user
-is authorized to the required interface. In other words, users should not be
-allowed to login to SSH if they only belong to redfish group and not to group
-SSH. Also having group roles in common user-management (e.g.
-phosphor-user-manager) allows different application to create roles for the
-other (e.g. Administrative user will be able to create a new user through
-webserver who will be able to login to webserver/REDFISH & IPMI etc.)
+群組角色的用途在於決定對應使用者的第一層授權。它用於在高階層級判斷使用者是否
+被授權存取所需的介面。換言之，若使用者僅屬於 redfish 群組而不屬於 SSH 群組，
+則不應允許其登入 SSH。此外，將群組角色置於通用的使用者管理機制中（例如
+phosphor-user-manager），可讓不同的應用程式為彼此建立角色（例如管理員使用者
+將能透過 webserver 建立一位新的使用者，而該使用者將能登入 webserver/REDFISH
+與 IPMI 等）。
 
-_Note: Group names are for representation only and can be modified/extended
-based on the need_
+_註：群組名稱僅供呈現之用，可依需求修改或擴充_
 
-| Sl. No | Group Name  | Purpose / Comments                                                  |
+| 編號 | 群組名稱      | 用途 / 備註                                                            |
 | -----: | ----------- | ------------------------------------------------------------------- |
-|      1 | ssh         | Users in this group are only allowed to login through SSH.          |
-|      2 | ipmi        | Users in this group are only allowed to use IPMI Interface.         |
-|      3 | redfish     | Users in this group are only allowed to use REDFISH Interface.      |
-|      4 | hostconsole | Users in this group are only allowed to interact with host console. |
+|      1 | ssh         | 僅允許此群組中的使用者透過 SSH 登入。                                       |
+|      2 | ipmi        | 僅允許此群組中的使用者使用 IPMI 介面。                                       |
+|      3 | redfish     | 僅允許此群組中的使用者使用 REDFISH 介面。                                    |
+|      4 | hostconsole | 僅允許此群組中的使用者與主機主控台互動。                                       |
 
-## Supported Privilege Roles
+## 支援的權限角色
 
-OpenBMC supports privilege roles which are common across all the supported
-groups (i.e. User will have same privilege for REDFISH / IPMI / SSH /
-HostConsole). User can belong to any one of the following privilege roles at any
-point of time.
+OpenBMC 支援跨所有受支援群組通用的權限角色（亦即使用者在 REDFISH / IPMI / SSH /
+HostConsole 上擁有相同的權限）。使用者在任何時間點僅能屬於下列其中一種權限角色。
 
-_Note: Privileges are for representation only and can be modified/extended based
-on the need_
+_註：權限僅供呈現之用，可依需求修改或擴充_
 
-| Sl. No | Privilege roles | Purpose / Comments                                                                                                                                                              |
+| 編號 | 權限角色          | 用途 / 備註                                                                                                                                                              |
 | -----: | --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-|      1 | admin           | Users are allowed to configure all OpenBMC (including user-management, network and all configurations). Users will have full administrative access.                             |
-|      2 | operator        | Users are allowed to view and control basic operations. This includes reboot of the host, etc. But users are not allowed to change other configuration like user, network, etc. |
-|      3 | user            | Users only have read access and can't change any behavior of the system.                                                                                                        |
+|      1 | admin           | 允許使用者設定所有 OpenBMC（包含使用者管理、網路及所有設定）。使用者將擁有完整的系統管理權限。                             |
+|      2 | operator        | 允許使用者檢視並控制基本作業，包括主機重新啟動等。但不允許使用者變更其他設定，例如使用者、網路等。 |
+|      3 | user            | 使用者僅擁有唯讀權限，無法變更系統的任何行為。                                                                                                        |
 
-## Common User Manager - D-Bus API (phosphor-user-manager)
+## 通用使用者管理 - D-Bus API（phosphor-user-manager）
 
-User Manager service exposes D-Bus methods for user-management operations. It
-exposes `xyz.openbmc_project.User.Manager` as a service and handles objects
-through `org.freedesktop.DBus.ObjectManager`. Please refer
-<https://github.com/openbmc/phosphor-dbus-interfaces/tree/master/yaml/xyz/openbmc_project/User>
-for detailed user management D-Bus API and interfaces.
+User Manager 服務公開了供使用者管理作業使用的 D-Bus 方法。它以
+`xyz.openbmc_project.User.Manager` 作為服務名稱，並透過
+`org.freedesktop.DBus.ObjectManager` 處理物件。詳細的使用者管理 D-Bus API 與
+介面請參考
+<https://github.com/openbmc/phosphor-dbus-interfaces/tree/master/yaml/xyz/openbmc_project/User>。
 
-## OpenBMC - User Management - High Level architectural diagram
+## OpenBMC - 使用者管理 - 高階架構圖
 
 ```ascii
-                                WEBSERVER/REDFISH
+                                 WEBSERVER/REDFISH
      ========================================================================
     ||  ________________  |  ________________  |   |**********************| ||
     ||  |PAM for user   | |  |Create new user| |   | Redfish specific 1:1 | ||
@@ -118,7 +104,7 @@ for detailed user management D-Bus API and interfaces.
 
 ```
 
-## User management - overview
+## 使用者管理 - 總覽
 
 ```ascii
                              user management
@@ -161,7 +147,7 @@ for detailed user management D-Bus API and interfaces.
 
 ```
 
-## OpenBMC - User Management - User creation from webserver flow - with all groups
+## OpenBMC - 使用者管理 - 自 webserver 建立使用者的流程 - 包含所有群組
 
 ```ascii
 ------------------------------------|---------------------------------- -|-----------------------------|
@@ -206,7 +192,7 @@ user is part of 'ipmi' Group)       |                                    |      
 --------------------------------------------------------------------------------------------------------
 ```
 
-## OpenBMC - User Management - User creation from IPMI - 'ipmi' Group only
+## OpenBMC - 使用者管理 - 自 IPMI 建立使用者 - 僅限 'ipmi' 群組
 
 ```ascii
 ------------------------------------|---------------------------------- -|-----------------------------|
@@ -259,7 +245,7 @@ to login if user is disabled        |                                    |      
 --------------------------------------------------------------------------------------------------------
 ```
 
-## OpenBMC - User Management - User deletion from webserver flow - with all groups
+## OpenBMC - 使用者管理 - 自 webserver 刪除使用者的流程 - 包含所有群組
 
 ```ascii
 ------------------------------------|---------------------------------- -|-----------------------------|
@@ -294,7 +280,7 @@ to be deleted            (REQ)--------->                                 |      
 --------------------------------------------------------------------------------------------------------
 ```
 
-## OpenBMC - User Management - User deletion from IPMI - 'ipmi' Group only
+## OpenBMC - 使用者管理 - 自 IPMI 刪除使用者 - 僅限 'ipmi' 群組
 
 ```ascii
 ------------------------------------|---------------------------------- -|
@@ -328,11 +314,10 @@ if required                         |                                    |
 --------------------------------------------------------------------------
 ```
 
-## Authentication flow
+## 驗證流程
 
-Applications must use `pam_authenticate()` API to authenticate user. Stacked PAM
-modules are used such that `pam_authenticate()` can be used for both local &
-remote users.
+應用程式必須使用 `pam_authenticate()` API 來驗證使用者。系統採用堆疊式（stacked）
+PAM 模組，使得 `pam_authenticate()` 可同時用於本機與遠端使用者。
 
 ```ascii
                 +----------------------------------+
@@ -357,14 +342,12 @@ remote users.
                 +----------------------------------+
 ```
 
-## Password update
+## 密碼更新
 
-Applications must use `pam_chauthtok()` API to set / change user password.
-Stacked PAM modules allow all 'ipmi' group user passwords to be stored in
-encrypted form, which will be used by IPMI. The same has been performed by
-`pam_ipmicheck` and `pam_ipmisave` modules loaded in stacked pam modules.
-Changing a user's 'ipmi' group membership must force password expiry so that the
-IPMI credential is updated.
+應用程式必須使用 `pam_chauthtok()` API 來設定 / 變更使用者密碼。堆疊式 PAM 模組
+可讓所有 'ipmi' 群組使用者的密碼以加密形式儲存，供 IPMI 使用。此作業由載入於
+堆疊式 PAM 模組中的 `pam_ipmicheck` 與 `pam_ipmisave` 模組執行。變更使用者的
+'ipmi' 群組成員身分時，必須強制密碼到期，以使 IPMI 憑證得以更新。
 
 ```ascii
                 +------------------+---------------+
@@ -403,7 +386,7 @@ IPMI credential is updated.
                 +----------------------------------+
 ```
 
-## Authorization flow (except IPMI)
+## 授權流程（IPMI 除外）
 
 ```ascii
                                 +
@@ -443,99 +426,78 @@ IPMI credential is updated.
 
 ## LDAP
 
-SSH, Redfish, Webserver and HostConsole interface allows the user to
-authenticate against an LDAP directory. IPMI interface cannot be used to
-authenticate against LDAP, since IPMI needs the password in clear text at the
-time of session setup.
+SSH、Redfish、Webserver 與 HostConsole 介面允許使用者對 LDAP 目錄進行驗證。IPMI
+介面無法用於對 LDAP 進行驗證，因為 IPMI 在建立工作階段時需要明文密碼。
 
-In OpenBMC, PAM based authentication is implemented, so for both LDAP users and
-local users, the authentication flow is the same.
+在 OpenBMC 中實作了基於 PAM 的驗證，因此無論是 LDAP 使用者還是本機使用者，其驗證
+流程都相同。
 
-For the LDAP user accounts, there is no LDAP attribute type that corresponds to
-the OpenBMC privilege roles. The preferred way is to group LDAP user accounts
-into LDAP groups. D-Bus API is provided for the user to assign privilege role to
-the LDAP group.
+對於 LDAP 使用者帳戶，並沒有對應到 OpenBMC 權限角色的 LDAP 屬性型別。建議的做法
+是將 LDAP 使用者帳戶歸類到 LDAP 群組中。系統提供了 D-Bus API，讓使用者可將權限
+角色指派給 LDAP 群組。
 
-## Authorization Flow
+## 授權流程
 
-This section explains how the privilege roles of the user accounts are consumed
-by the webserver interface. The privilege role is a property of the user D-Bus
-object for the local users. For the LDAP user accounts, the privilege role will
-be based on the LDAP group. The LDAP group to privilege role mapping needs to be
-configured prior to authenticating with the LDAP user accounts.
+本節說明 webserver 介面如何取用使用者帳戶的權限角色。對於本機使用者，權限角色是
+使用者 D-Bus 物件的一項屬性。對於 LDAP 使用者帳戶，權限角色將以 LDAP 群組為依據。
+在使用 LDAP 使用者帳戶進行驗證之前，必須先設定好 LDAP 群組與權限角色的對應關係。
 
-1. Invoke PAM API for authenticating with user credentials. Proceed, if the
-   authentication succeeds.
-2. Check if the user is a local user account. If the user account is local,
-   fetch the privilege role from the D-Bus object and update the session
-   information.
-3. If the user account is not local, read the group name for the user.
-4. Fetch the privilege role corresponding to the group name, update the session
-   information with the privilege role.
-5. If there is no mapping for group name to privilege role, the session creation
-   is rejected. The LDAP group to privilege role mapping must be configured for
-   the user to be able to authenticate.
+1. 呼叫 PAM API，以使用者憑證進行驗證。若驗證成功則繼續進行。
+2. 檢查該使用者是否為本機使用者帳戶。若為本機帳戶，則從 D-Bus 物件取得權限角色，
+   並更新工作階段資訊。
+3. 若該使用者帳戶並非本機帳戶，則讀取該使用者的群組名稱。
+4. 取得對應於該群組名稱的權限角色，並以該權限角色更新工作階段資訊。
+5. 若群組名稱與權限角色之間沒有對應關係，則拒絕建立工作階段。必須設定好 LDAP
+   群組與權限角色的對應關係，使用者才能成功驗證。
 
-## Recommended Implementation
+## 建議實作方式
 
-1. Should add IPMI_NULL_USER by default and keep the user in disabled state.
-   This is to prevent IPMI_NULL_USER from being created as an actual user. This
-   is needed as NULL user with NULL password in IPMI can't be added as an entry
-   from Unix user-management point of it.
-2. IPMI spec doesn't support groups for the user-management. Hence the same can
-   be implemented through OEM Commands, thereby creating a user in IPMI with
-   different group roles.
-3. Do not use 'Set User Name' IPMI command to extend already existing non-ipmi
-   group users to 'ipmi' group. 'Set User Name' IPMI command will not be able to
-   differentiate between new user request or request to extend an existing user
-   to 'ipmi' group. Use OEM Commands to extend existing users to 'ipmi' group.
-   Note: 'Set User Name' IPMI command will return CCh 'Invalid data field in
-   Request' completion code, if tried to add existing user in the system.
+1. 應預設加入 IPMI_NULL_USER，並讓該使用者保持停用狀態。這是為了防止
+   IPMI_NULL_USER 被建立為一位實際的使用者。由於從 Unix 使用者管理的觀點來看，
+   IPMI 中帶有 NULL 密碼的 NULL 使用者無法作為一筆項目新增，因此有此需要。
+2. IPMI 規格並不支援使用者管理的群組。因此可以透過 OEM 指令來實作，從而在 IPMI
+   中建立具有不同群組角色的使用者。
+3. 不要使用 'Set User Name' IPMI 指令，將已存在的非 ipmi 群組使用者擴充至 'ipmi'
+   群組。'Set User Name' IPMI 指令無法區分這是新增使用者的請求，還是將既有使用者
+   擴充至 'ipmi' 群組的請求。請使用 OEM 指令將既有使用者擴充至 'ipmi' 群組。
+   註：若嘗試新增系統中已存在的使用者，'Set User Name' IPMI 指令會回傳完成碼
+   CCh 'Invalid data field in Request'。
 
-## Deployment - Out of factory
+## 部署 - 出廠時
 
-### Guidelines
+### 指導方針
 
-As per
-[SB-327 Information Privacy](https://leginfo.legislature.ca.gov/faces/billTextClient.xhtml?bill_id=201720180SB327),
-Connected devices must avoid shipping with generic user name & password. The
-reasonable security expected is
+根據
+[SB-327 資訊隱私法案](https://leginfo.legislature.ca.gov/faces/billTextClient.xhtml?bill_id=201720180SB327)，
+連網裝置必須避免以通用的使用者名稱與密碼出貨。所期望的合理安全性為：
 
-1. Preprogrammed password unique to each device
-2. Forcing user to generate new authentication account, before using the device.
+1. 每個裝置各別唯一的預燒密碼
+2. 在使用裝置之前，強制使用者產生新的驗證帳戶。
 
-### Generating user during deployment
+### 部署期間建立使用者
 
-To adhere above mentioned guideline and to make OpenBMC more secure, this design
-specifies about forcing end-user to generate a new account, during deployment
-through any of the system in-band interfaces (like KCS etc.). IPMI 2.0
-specification provides commands like `SetUserName`, `SetUserPassword`,
-`SetUserAccess`, which must be used to create a new user account instead of
-using any generic default user name and password. Accounts created through this
-method have access to IPMI, REDFISH & Webserver and can be used to create more
-accounts through out-of-band interfaces.
+為了遵循上述指導方針並讓 OpenBMC 更為安全，本設計規範了在使用者透過任一系統帶內
+介面（例如 KCS 等）進行部署時，強制終端使用者產生一個新的帳戶。IPMI 2.0 規格書
+提供了 `SetUserName`、`SetUserPassword`、`SetUserAccess` 等指令，必須使用這些
+指令來建立新的使用者帳戶，而非使用任何通用的預設使用者名稱與密碼。以此方式建立的
+帳戶可存取 IPMI、REDFISH 與 Webserver，並可用於透過帶外界面建立更多帳戶。
 
-### Special user - root – user id 0
+### 特殊使用者 - root - user id 0
 
-Exposing root account (user id 0) to end-user by default (other than debug /
-developer scenario) is security risk. Hence current architecture recommends not
-to enable root user by default for end-user. For general login for debug /
-developer builds, a new default user with password can be created by specifying
-the same in local.conf.sample file. This can be used to establish a session by
-default (CI systems etc. can use this account). From OpenBMC package user name
-`openbmc` with password `0penBmc$` can be added.
+預設向終端使用者暴露 root 帳戶（user id 0）（除錯 / 開發情境除外）是一種安全性
+風險。因此目前的架構建議預設不為終端使用者啟用 root 使用者。若要為除錯 / 開發
+版本進行一般登入，可透過在 local.conf.sample 檔案中指定，來建立一位帶有密碼的
+新預設使用者。這可用於預設建立工作階段（CI 系統等可使用此帳戶）。可從 OpenBMC
+套件中加入使用者名稱 `openbmc`，密碼為 `0penBmc$`。
 
-#### Debugging use-case
+#### 除錯使用情境
 
-`root` user / sudo privilege access are required during development / debug
-phase of the program. For this purpose a new IPMI OEM command (TBD) / REDFISH
-OEM action(TBD) to can be used to set password for the root user, after which
-`root` user can be used to login to the serial console and for further debugging
-(Note: `root` user will not be listed as user account in any interfaces like
-IPMI / REDFISH from user management point of view).
+在開發 / 除錯階段，需要 `root` 使用者 / sudo 權限存取。為此目的，可使用新的
+IPMI OEM 指令（待定）/ REDFISH OEM 動作（待定）來為 root 使用者設定密碼，之後
+即可使用 `root` 使用者登入序列主控台以進行進一步除錯（註：從使用者管理的觀點來看，
+`root` 使用者不會在 IPMI / REDFISH 等任何介面中被列為使用者帳戶）。
 
-### Deployment for systems without in-band interfaces
+### 無帶外界面的系統之部署
 
-Any systems which doesn’t have in-band system interface can generate passwords
-uniquely for each & every device or can expose a default user name & password
-forcing end-user to update the same, before using the device (TBD).
+任何不具備帶內系統介面的裝置，可為每一台裝置產生唯一的密碼，或暴露一組預設的使用者
+名稱與密碼，並在使用裝置之前強制終端使用者更新之（待定）。

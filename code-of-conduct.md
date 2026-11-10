@@ -1,209 +1,125 @@
-# Code of Conduct
+# 行為準則
 
-Effective: Nov 1, 2018
+生效日期：2018 年 11 月 1 日
 
-LF Projects, LLC (“LF Projects”) supports and hosts open source and open
-standards projects (each a “Project”) and undertakes such other activities as is
-consistent with its mission and purpose.
+LF Projects, LLC（「LF Projects」）支援並託管開放原始碼與開放標準專案（各稱一個「專案（Project）」），並從事其他與其使命及宗旨相符的活動。
 
-## Introduction
+## 前言
 
-The purposes of LF Projects, LLC (“LF Projects”) are to:
+LF Projects, LLC（「LF Projects」）的宗旨如下：
 
-- support the collaborative development, availability and adoption of open
-  source software, hardware and networking and other technologies and the
-  collaborative development, availability and adoption of open protocols and
-  standards (individually and collectively, “Open Technology”);
-- host various projects pursuing the development of Open Technology and other
-  technical assets, materials and processes (each such project, which itself may
-  include any number of projects, a “Project”);
-- provide enablement and support to Projects to assist their development
-  activities; and
-- undertake such other lawful activity as permitted by law and as consistent
-  with the mission, purpose and tax status of LFP, Inc., a Delaware non-profit
-  non-stock corporation and the sole member of LF Projects.
+- 支援開放原始碼軟體、硬體與網路及其他技術的協同開發、可用性與採用，並支援開放通訊協定與標準的協同開發、可用性與採用（個別或集體稱之為「開放技術（Open Technology）」）；
+- 託管各種致力於開發開放技術及其他技術資產、素材與流程的專案（每個此類專案，其本身可能包含任意數量的專案，稱之為「專案（Project）」）；
+- 為各專案提供賦能與支援，以協助其開發活動；以及
+- 從事法律允許、且與 LFP, Inc.（一間德拉瓦州非營利非股份法人，為 LF Projects 的單獨成員）的使命、宗旨及稅務地位相符的其他合法活動。
 
-LF Projects hosts communities where participants choose to work together, and in
-that process experience differences in language, location, nationality, and
-experience. In such a diverse environment, misunderstandings and disagreements
-happen, which in most cases can be resolved informally. In rare cases, however,
-behavior can intimidate, harass, or otherwise disrupt one or more people in the
-community, which LF Projects will not tolerate.
+LF Projects 託管各類社群，參與者在此自主選擇共同合作，並在過程中體會語言、地點、國籍與經驗的差異。在如此多元的環境中，誤解與歧見難免發生，多數情況下都能以非正式方式解決。然而在某些少數情況下，某些行為可能會恐嚇、騷擾或以其他形式打擾社群中的一人或多人，LF Projects 對此絕不寬貸。
 
-A **Code of Conduct (“Code”)** is useful to define accepted and acceptable
-behaviors and to promote high standards of professional practice. It also
-provides a benchmark for self-evaluation and acts as a vehicle for better
-identity of the organization.
+**行為準則（「準則」）**有助於定義獲認可且可接受的行為，並促進高水準的專業實務標準。它同時提供自我評估的基準，並作為提升組織識別度的工具。
 
-LF Projects is a Delaware series limited liability company. Projects of LF
-Projects are formed as separate series of LF Projects (each, a “Series”).
-References to “Projects” within this Policy include the applicable Series for
-each Project.
+LF Projects 是一間德拉瓦州系列有限責任公司。LF Projects 的專案以 LF Projects 的獨立系列（各稱一個「系列（Series）」）形式成立。本政策中提及的「專案（Projects）」包含各專案對應的系列。
 
-This Code applies to any participant of any Project – including without
-limitation developers, participants in meetings, teleconferences, mailing lists,
-conferences or functions, and contributors. Note that this Code complements
-rather than replaces legal rights and obligations pertaining to any particular
-situation. In addition, with the approval of LF Projects, Projects are free to
-adopt their own code of conduct in place of the Code.
+本準則適用於任何專案的任何參與者，包括但不限於開發者、會議與電話會議參與者、郵件列表、研討會或活動的參與者以及貢獻者。請注意，本準則是對任何特定情況相關法律權利與義務的補充，而非取代。此外，在取得 LF Projects 核准後，各專案可自由採用其自身的行為準則來取代本準則。
 
-## Statement of Intent
+## 意圖聲明
 
-LF Projects is committed to maintain a positive, professional work environment.
-This commitment calls for workplaces where participants at all levels behave
-according to the rules of the following code. A foundational concept of this
-code is that we all share responsibility for our work environment.
+LF Projects 致力於維持正面、專業的工作環境。此承諾要求工作場所中各層級的參與者皆依循下列準則的規範行事。本準則的一項基礎概念是：我們所有人共同為自己的工作環境負責。
 
-## Code
+## 準則
 
-1. Treat each other with respect, professionalism, fairness, and sensitivity to
-   our many differences and strengths, including in situations of high pressure
-   and urgency.
-2. Never harass or bully anyone verbally, physically, sexually, or in digital or
-   written form.
-3. Never discriminate on the basis of personal characteristics or group
-   membership.
-4. Communicate constructively and avoid demeaning or insulting behavior or
-   language.
-5. Seek, accept, and offer objective work criticism, and acknowledge properly
-   the contributions of others.
-6. Be honest about your own qualifications, and about any circumstances that
-   might lead to conflicts of interest.
-7. Respect the privacy of others and the confidentiality of data you access.
-8. With respect to cultural differences, be conservative in what you do and
-   liberal in what you accept from others, but not to the point of accepting
-   disrespectful, unprofessional or unfair or unwelcome behavior or advances.
-9. Promote the rules of this Code and take action (especially if you are in a
-   leadership position) to bring the discussion back to a more civil level
-   whenever inappropriate behaviors are observed.
-10. Stay on topic: Make sure that you are posting to the correct channel and
-    avoid off-topic discussions. Remember when you update an issue or respond to
-    an email you are potentially sending to a large number of people.
-11. Step down considerately: participants in every project come and go, and LF
-    Projects is no different. When you leave or disengage from the project, in
-    whole or in part, we ask that you do so in a way that minimizes disruption
-    to the project. This means you should tell people you are leaving and take
-    the proper steps to ensure that others can pick up where you left off.
+1. 以尊重、專業、公平的態度彼此相待，並對我們眾多的差異與優點保持敏銳，即使在壓力沉重或情勢急迫的情況下亦同。
+2. 絕不以言語、肢體、性、或數位或書面形式騷擾或霸凌任何人。
+3. 絕不基於個人特徵或團體成員身分而歧視他人。
+4. 以建設性的方式溝通，避免輕蔑或侮辱的行為或言語。
+5. 尋求、接受並提供客觀的工作評論，並適當地肯定他人的貢獻。
+6. 對自己的資格，以及任何可能導致利益衝突的情況，誠實以對。
+7. 尊重他人的隱私，並對你所存取的資料保密。
+8. 面對文化差異時，對自己的行為要謹慎保守，對他人的行為要寬容接納，但不能到了接受不尊重、不專業、不公平或不受歡迎的行為或挑逗的地步。
+9. 宣揚本準則的規範，並於觀察到不當行為時（尤其當你身處領導職位）採取行動，將討論帶回更為禮貌的層次。
+10. 保持主題聚焦：確認你發佈在正確的頻道，避免偏離主題的討論。請記住，當你更新一個議題或回覆一封郵件時，你可能會發送給為數眾多的人。
+11. 有體面地退位：每個專案的參與者來來去去，LF Projects 也不例外。當你全部或部分離開或退出專案時，我們要求你以將對專案造成的打擾降至最低的方式來進行。這代表你應該告知他人你即將離開，並採取適當步驟以確保他人能接手你留下的工作。
 
-## Glossary
+## 字彙表
 
-### Demeaning behavior
+### 輕蔑行為
 
-is acting in a way that reduces another person’s dignity, sense of self-worth or
-respect within the community.
+指以減損另一人在社群中的尊嚴、自我價值感或受尊重程度來行事的行為。
 
-### Discrimination
+### 歧視
 
-is the prejudicial treatment of an individual based on criteria such as:
-physical appearance, race, ethnic origin, genetic differences, national or
-social origin, name, religion, gender, sexual orientation, family or health
-situation, pregnancy, disability, age, education, wealth, domicile, political
-view, morals, employment, or union activity.
+指基於諸如外貌、種族、民族血統、基因差異、國家或社會出身、姓名、宗教、性別、性傾向、家庭或健康狀況、懷孕、身心障礙、年齡、教育、財富、住所、政治觀點、道德、就業或工會活動等標準，對個人進行的偏見對待。
 
-### Insulting behavior
+### 侮辱行為
 
-is treating another person with scorn or disrespect.
+指以輕蔑或無禮的態度對待另一人。
 
-### Acknowledgement
+### 肯定
 
-is a record of the origin(s) and author(s) of a contribution.
+指對一貢獻之來源與作者的記錄。
 
-### Harassment
+### 騷擾
 
-is any conduct, verbal, physical, digital, written, or otherwise, that has the
-intent or effect of interfering with an individual, or that creates an
-intimidating, hostile, or offensive environment.
+指意圖或效果上會干擾個人，或造成恐嚇、敵意或冒犯性環境的任何言語、肢體、數位、書面或其他形式的行為。
 
-### Leadership position
+### 領導職位
 
-includes group Chairs, project maintainers, staff members, and Board members.
+包含各群組主席、專案維護者、員工以及董事會成員。
 
-### Participant
+### 參與者
 
-includes the following persons:
+包含以下人士：
 
-- Developers
-- Representatives of corporate participants
-- Anyone from the Public partaking in the LF Projects work environment (e.g.
-  contribute code, comment on our code or specs, email us, attend our
-  conferences, functions, etc)
+- 開發者
+- 企業參與者的代表
+- 任何在 LF Projects 工作環境中參與的公眾（例如貢獻程式碼、對我們的程式碼或規格提供意見、寄郵件給我們、參加我們的研討會、活動等）
 
-### Respect
+### 尊重
 
-is the genuine consideration you have for someone (if only because of their
-status as participant in LF Projects, like yourself), and that you show by
-treating them in a polite and kind way.
+指你對某人發自內心的體貼（僅因其與你一樣是 LF Projects 的參與者此一身分便應如此），並通過以禮貌且友善的方式對待對方來加以展現。
 
-### Sexual harassment
+### 性騷擾
 
-includes visual displays of degrading sexual images, sexually suggestive
-conduct, offensive remarks of a sexual nature, requests for sexual favors,
-unwelcome physical contact, and sexual assault.
+包含展示貶損性的性影像、具性暗示的行為、具性性質的冒犯性言論、要求性恩惠、不請自來的肢體接觸，以及性侵害。
 
-### Unwelcome behavior
+### 不受歡迎的行為
 
-Hard to define? Some questions to ask yourself are:
+難以定義？可以問自己的幾個問題如下：
 
-- how would I feel if I were in the position of the recipient?
-- would my spouse, parent, child, sibling or friend like to be treated this way?
-- would I like an account of my behavior published in the organization’s
-  newsletter?
-- could my behavior offend or hurt other members of the work group?
-- could someone misinterpret my behavior as intentionally harmful or harassing?
-- would I treat my boss or a person I admire at work like that ? _Summary_: if
-  you are unsure whether something might be welcome or unwelcome, don’t do it.
+- 如果我處於受事者的位置，我會覺得如何？
+- 我的配偶、父母、子女、兄弟姊妹或朋友願意被這樣對待嗎？
+- 我願意自己行為的描述被刊登在組織的通訊中嗎？
+- 我的行為會不會冒犯或傷害工作群組的其他成員？
+- 有沒有人會將我的行為誤解為故意傷害或騷擾？
+- 我會這樣對待我的主管或我在工作中敬仰的人嗎？_摘要_：如果你不確定某件事可能是歡迎還是不受歡迎，就不要做。
 
-### Unwelcome sexual advance
+### 不請自來的性挑逗
 
-includes requests for sexual favors, and other verbal, digital, written, or
-physical conduct of a sexual nature, where:
+包含要求性恩惠，以及其他具性性質的言語、數位、書面或肢體行為，且符合以下情況之一：
 
-- submission to such conduct is made either explicitly or implicitly a term or
-  condition of an individual’s employment,
-- submission to or rejection of such conduct by an individual is used as a basis
-  for employment decisions affecting the individual,
-- such conduct has the purpose or effect of unreasonably interfering with an
-  individual’s work performance or creating an intimidating hostile or offensive
-  working environment.
+- 服從該行為被明確或暗示地作為個人就業的條件或前提，
+- 對該行為的服從或拒絕被作為影響該個人就業決定的依據，
+- 該行為的目的或效果是不合理地干擾個人的工作表現，或造成恐嚇、敵意或冒犯性的工作環境。
 
-### Workplace Bullying
+### 工作場所霸凌
 
-is a tendency of individuals or groups to use persistent aggressive or
-unreasonable behavior (e.g. verbal or written abuse, offensive conduct or any
-interference which undermines or impedes work) against a co-worker or any
-professional relations.
+指個人或群組傾向對同事或任何專業關係使用持續性的攻擊或不合理行為（例如言語或書面虐待、冒犯性行為，或任何破壞或阻礙工作的干擾）。
 
-### Work Environment
+### 工作環境
 
-is the set of all available means of collaboration, including, but not limited
-to messages to mailing lists, private correspondence, Web pages, chat channels,
-phone and video teleconferences, and any kind of face-to-face meetings or
-discussions.
+指所有可用協作方式的總和，包括但不限於郵件列表的訊息、私人通訊、網頁、聊天頻道、電話與視訊會議，以及任何面對面的會議或討論。
 
-## Incident Procedure
+## 事件處理程序
 
-To report incidents or to appeal reports of incidents, send an email to a member
-of the following escalation path:
+若要通報事件或就上報的事件提出申訴，請發送郵件至以下逐級上報路徑中的成員：
 
-- Brad Bishop, Lead Maintainer, OpenBMC <bradleyb@fuzziesquirrel.com>
-- Nancy Yuen, Technical Steering Committee Member, OpenBMC <yuenn@google.com>
-- James Mihm, Technical Steering Committee Member, OpenBMC
+- Brad Bishop，Lead Maintainer，OpenBMC <bradleyb@fuzziesquirrel.com>
+- Nancy Yuen，Technical Steering Committee Member，OpenBMC <yuenn@google.com>
+- James Mihm，Technical Steering Committee Member，OpenBMC
   <james.mihm@intel.com>
-- Mike Dolan, Manager of LF Projects, Linux Foundation <manager@lfprojects.org>
+- Mike Dolan，Manager of LF Projects，Linux Foundation <manager@lfprojects.org>
 
-Please include any available relevant information, including links to any
-publicly accessible material relating to the matter. Every effort will be taken
-to ensure a safe and collegial environment in which to collaborate on matters
-relating to the Project. In order to protect the community, the Project reserves
-the right to take appropriate action, potentially including the removal of an
-individual from any and all participation in the project. The Project will work
-towards an equitable resolution in the event of a misunderstanding.
+請包含任何可取得的相關資訊，包括任何與該事項相關且可公開存取的資料之連結。我們會盡一切努力確保一個安全且善於同儕合作的環境，以就與專案相關的事項進行協作。為保護社群，專案保留採取適當行動的權利，可能包括將某人從專案的所有參與中移除。若因誤解而發生事件，專案將努力達成公平的解決方案。
 
-## Credits
+## 致謝
 
-This code is based on the
-[W3C’s Code of Ethics and Professional Conduct](https://www.w3.org/Consortium/cepc)
-with some additions from the [Cloud Foundry](https://www.cloudfoundry.org/)’s
-Code of Conduct and the Hyperledger Project Code of Conduct. It has been
-modified from the Linux Foundation Project Code of Conduct to include incident
-managers local to the OpenBMC project.
+本準則以 [W3C 的道德與專業行為準則](https://www.w3.org/Consortium/cepc)為基礎，並加入 [Cloud Foundry](https://www.cloudfoundry.org/) 行為準則及 Hyperledger 專案行為準則的若干補充內容。其係自 Linux 基金會專案行為準則修改而來，以納入 OpenBMC 專案本地的事件處理負責人。

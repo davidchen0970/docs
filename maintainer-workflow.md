@@ -1,47 +1,37 @@
-# OpenBMC Maintainer/CLA Workflow
+# OpenBMC 維護者／CLA 工作流程
 
-OpenBMC contributors are required to execute an OpenBMC CLA (Contributor License
-Agreement) before their contributions can be accepted. This page is a checklist
-for sub-project maintainers to follow before approving patches.
+OpenBMC 的貢獻者在他們的貢獻被接受之前，必須先簽訂 OpenBMC CLA（貢獻者授權協議，Contributor License
+Agreement）。本頁面是供子專案維護者在核准補丁前參照的檢查清單。
 
-- Manually verify the contributor has signed the ICLA (individual) or is listed
-  on an existing CCLA (corporate).
-  - Executed CLAs can be found [in the CLA repository][1].
-  - If you were not added to the appropriate CLA repository ACL send an email to
-    `openbmc@lists.ozlabs.org` with a request to be added.
-  - If a CLA for the contributor is found, accept the patch(1).
-- If a CLA is not found, request that the contributor execute one and send it to
-  `manager@lfprojects.org`.
-  - Do not accept the patch(1) until a signed CLA (individual _or_ corporate)
-    has been uploaded to the CLA repository.
-  - The CCLA form can be found at [CCLA template][2].
-  - The ICLA form can be found at [ICLA template][3].
+- 手動確認貢獻者已簽署 ICLA（個人），或已列名於既有的 CCLA（企業）之中。
+  - 已簽訂的 CLA 可以在 [CLA 存放庫][1]找到。
+  - 如果你尚未被加入適當的 CLA 存放庫 ACL，請發信到
+    `openbmc@lists.ozlabs.org` 提出要求加入。
+  - 若找到該貢獻者的 CLA，即接受該補丁(1)。
+- 若找不到 CLA，請要求貢獻者簽訂一份並寄送到
+  `manager@lfprojects.org`。
+  - 在已簽署的 CLA（個人 _或_ 企業）上傳到 CLA 存放庫之前，請勿接受該補丁(1)。
+  - CCLA 表單請見 [CCLA 範本][2]。
+  - ICLA 表單請見 [ICLA 範本][3]。
 
-An executed OpenBMC CLA is _not_ required to accept contributions to OpenBMC
-forks of upstream projects, like the Linux kernel or U-Boot.
+接受對 OpenBMC 之中上游專案分岔（fork）的貢獻，例如 Linux 核心或 U-Boot，_不_ 需要已簽訂的 OpenBMC CLA。
 
-Review the maintainers' responsibilities in the
-[contributing guidelines](./CONTRIBUTING.md). Maintainers are ultimately
-responsible for sorting out open source license issues, issues with using code
-copied from the web, and maintaining the quality of the code.
+請參閱 [貢獻指南](./CONTRIBUTING.md)中維護者的職責。維護者最終要負責處理開放原始碼授權問題、
+使用擷取自網路的程式碼所產生的問題，以及維持程式碼的品質。
 
-Repository maintainers ought to have the following traits as recognized by a
-consensus of their peers:
+存放庫維護者應該具備以下經同儕共識所認可的特質：
 
-- responsible: have a continuing desire to ensure only high-quality code goes
-  into the repo
-- leadership: foster open-source aware practices such as [FOSS][4]
-- expertise: typically demonstrated by significant contributions to the code or
-  code reviews
+- 盡責（responsible）：持續致力於確保只有高品質的程式碼進入了存放庫
+- 領導力（leadership）：培育具備開放原始碼意識的實務，例如 [FOSS][4]
+- 專業知識（expertise）：通常以對程式碼的重大貢獻或程式碼審查來展現
 
-(1) The semantics of accepting a patch depend on the sub-project contribution
-process.
+(1) 接受補丁的意涵取決於該子專案的貢獻流程。
 
-- GitHub pull requests - Merging the pull request.
-- Gerrit - +2.
-- email - Merging the patch.
+- GitHub pull request —— 合併該 pull request。
+- Gerrit —— +2。
+- email —— 合併該補丁。
 
-Ensure that accepted changes actually merge into OpenBMC repositories.
+請確保已接受的變更確實合併進了 OpenBMC 存放庫。
 
 [1]: https://drive.google.com/drive/folders/1Ooi0RdTcaOWF1DWFJUAJDdN7tRKde7Nl
 [2]: https://drive.google.com/file/d/1d-2M8ng_Dl2j1odsvZ8o1QHAdHB-pNSH

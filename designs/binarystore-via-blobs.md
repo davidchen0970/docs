@@ -1,91 +1,56 @@
-# BMC Generic Binary Blob Store via OEM IPMI Blob Transport
+# 透過 OEM IPMI Blob 傳輸實作 BMC 通用二進位 Blob 儲存空間
 
-Author: Kun Yi <kunyi@google.com> `kunyi!`
+作者：Kun Yi <kunyi@google.com> `kunyi!`
 
-Created: 2018-12-07
+建立日期：2018-12-07
 
-## Problem Description
+## 問題說明
 
-Server platform host OS often needs to store and/or access data coupled with the
-machine itself, which in most cases has a 1:1 mapping with the motherboard.
-Traditionally, this is achieved by directly accessing the FRU EEPROM, or going
-through BMC using IPMI FRU commands. However, it may not always be viable or
-desirable due to:
+伺服器平台的宿主作業系統經常需要儲存及／或存取與機器本身綁定的資料，而這種資料在大多數情況下與主機板呈現 1:1 的對應關係。傳統上，這是透過直接存取 FRU EEPROM，或是透過 IPMI FRU 指令經由 BMC 來達成。然而，由於以下原因，這樣的作法未必可行或理想：
 
-- The FRU data may be programmed by MFG and treated as read-only
-- The FRU data may not be in IPMI FRU format
-- The data to store may not fit in the data types defined in IPMI FRU spec
-- Host may want to store multiple copies in e.g. BMC EEPROM
+- FRU 資料可能由製造（MFG）階段寫入，並被視為唯讀
+- FRU 資料可能不是 IPMI FRU 格式
+- 要儲存的資料可能不符合 IPMI FRU 規格中所定義的資料型別
+- 宿主可能希望在例如 BMC EEPROM 中儲存多份複本
 
-The BMC generic IPMI blobs binary store, or "binary store" in short, serves a
-simple purpose: provide a read/write/serialize abstraction layer through IPMI
-blobs transport layer to allow users to store binary data on persistent
-locations accessible to the BMC.
+BMC 通用 IPMI blobs 二進位儲存空間，簡稱「binary store」，滿足一個單純的目的：透過 IPMI blobs 傳輸層提供一個讀取／寫入／序列化的抽象層，讓使用者能把二進位資料存放在 BMC 可存取的持久化位置上。
 
-Despite its name, the binary blob store cannot be used for everything.
+儘管名稱如此，這個二進位 blob 儲存空間並不是什麼都能用。
 
-- It is not a host/BMC mailbox. In general, BMC should reserve the space for
-  blob store and not try to write it due to concurrency concerns. It is expected
-  the only accessors are the IPMI blob store commands.
-- It is not a key store. Because the data stored is accessible to IPMI users and
-  is not encrypted in anyway, extra caution should be used. It is not meant for
-  storing data containing any keys or secrets.
-- The data to be stored should not be too large. Since each IPMI packet is
-  limited in size, trying to send an overly large binary is going to take too
-  long, and the overhead of the IPMI transport layer might make it not
-  worthwhile.
+- 它不是宿主／BMC 的信箱（mailbox）。一般來說，BMC 應保留 blob store 的空間，並避免嘗試寫入它，以避免並發方面的疑慮。預期唯一的存取者就是 IPMI blob store 指令。
+- 它不是金鑰儲存空間（key store）。由於儲存的資料對 IPMI 使用者而言是可存取的，而且並未以任何方式加密，因此必須格外謹慎。它並不適合用於儲存包含任何金鑰或機密資訊的資料。
+- 要儲存的資料不應過大。由於每個 IPMI 封包的大小受限，嘗試傳送過大的二進位資料會耗時過久，而 IPMI 傳輸層所帶來的額外負擔（overhead）可能讓這種做法得不償失。
 
-## Background and References
+## 背景與參考
 
-Please read the IPMI Blob protocol design as
-[primer](https://github.com/openbmc/phosphor-ipmi-blobs/blob/master/README.md).
+請先閱讀 IPMI Blob 協定設計作為[入門導讀](https://github.com/openbmc/phosphor-ipmi-blobs/blob/master/README.md)。
 
-Under the hood, the binary blobs are stored as a binary
-[protocol buffer](https://github.com/protocolbuffers/protobuf), or "protobuf" in
-short.
+在底層，二進位 blob 是以二進位的
+[protocol buffer](https://github.com/protocolbuffers/protobuf)，簡稱「protobuf」的方式儲存。
 
-## Requirements
+## 需求
 
-1. BMC image should have `phosphor-ipmi-blobs` installed.
-1. The host should know the specific blob base id that it intends to operate on.
-   For this design the discovery operations are limited.
-1. The host should only store binary data that is suitable using this transfer
-   mechanism. As mentioned it is not meant for mailbox communication, key store,
-   or large binary data.
+1. BMC 映像檔應已安裝 `phosphor-ipmi-blobs`。
+1. 宿主應知道它打算操作的特定 blob base id。就本設計而言，探索（discovery）操作是有限的。
+1. 宿主只應儲存適合透過此傳輸機制處理的二進位資料。如前所述，它並不適合用於信箱通訊、金鑰儲存空間或大型二進位資料。
 
-## Proposed Design
+## 建議設計
 
-This section describes how the handler `phosphor-ipmi-blobs-binarystore` defines
-each handler of the IPMI Blob protocol.
+本節說明處理程序 `phosphor-ipmi-blobs-binarystore` 如何定義 IPMI Blob 協定的各個處理常式（handler）。
 
-### Blob ID Definition
+### Blob ID 定義
 
-A "blob id" is a unique string that identifies a blob. Binary Store handler may
-show two kinds of blob ids: "base id" and "file id". They should only contain
-ASCII alphanumerical characters and forward slashes ('/').
+「blob id」是用來識別某個 blob 的唯一字串。Binary Store 處理常式可能會顯示兩種 blob id：「base id」與「file id」。它們只應包含 ASCII 英數字母字元與正斜線（'/'）。
 
-A "base id" begins and ends with a forward slash. It is analogous to a Unix
-directory path. The binary store handler will assign each storage location a
-unique base id (See next section for details).
+「base id」以正斜線開頭並以正斜線結尾，類比於 Unix 的目錄路徑。binary store 處理常式會為每個儲存位置指派一個唯一的 base id（詳細說明請見下一節）。
 
-A "file id" begins with a forward slash but must not have a slash at the end,
-and is analogous to a Unix file path. Any file id with a valid base id as its
-longest matching prefix is considered reserved as a binary blob in the storage
-space.
+「file id」以正斜線開頭，但結尾必須沒有斜線，類比於 Unix 的檔案路徑。任何以其最長相符前綴為有效 base id 的 file id，都會被視為在該儲存空間中保留為一個二進位 blob。
 
-For example, if `/test/` and `/test/blob0` are the initial blob ids, we know
-there is one binary store location with one blob already created. To create a
-new blob named `/test/blob1`, one simply calls open with the id and write/commit
-with the returned session id. Opening invalid ids such as `/foo/bar` or
-`/test/nested/dir` will fail.
+舉例來說，若 `/test/` 與 `/test/blob0` 是初始的 blob id，我們就知道有一個二進位儲存位置，且其中已建立一個 blob。若要建立一個名為 `/test/blob1` 的新 blob，只需用該 id 呼叫 open，再以回傳的 session id 進行 write/commit 即可。開啟無效的 id，例如 `/foo/bar` 或 `/test/nested/dir`，將會失敗。
 
-### Platform Configuration
+### 平台設定
 
-For the binary store handler, a configuration file provides the base id, which
-file and which offset in the file to store the data. Optionally a "max_size"
-param can be specified to indicate the total size of such binary storage should
-not exceed the limitation. If "max_size" is specified as -1 or not specified,
-the storage could grow up to what the physical media allows.
+對於 binary store 處理常式，設定檔會提供 base id、要存放資料的檔案，以及在該檔案中的偏移位置（offset）。此外可以選擇性地指定一個「max_size」參數，用以表示此二進位儲存的總大小不應超過該限制。若「max_size」指定為 -1 或未指定，則儲存空間可以增長到實體儲存媒體所能容許的上限。
 
 ```none
 base_id: /bmc_store/
@@ -94,12 +59,11 @@ offset: 256
 max_size: 1024
 ```
 
-[1] Example Configuration
+[1] 設定範例
 
-### Binary Store Protobuf Definition
+### Binary Store Protobuf 定義
 
-The data is stored as a binary protobuf containing a variable number of binary
-blobs, each having a unique blob_id string with the base id as a common prefix.
+資料以一個二進位 protobuf 儲存，其中包含數量可變的多個二進位 blob，每個 blob 都有一個唯一的 blob_id 字串，且這些 blob_id 都以 base id 作為共同的前綴。
 
 ```none
 message BinaryBlob {
@@ -114,116 +78,86 @@ message BinaryBlobStore {
 }
 ```
 
-Storing data as a protobuf makes the format more flexible and expandable, and
-allows future modifications to the storage format.
+將資料以 protobuf 儲存，能讓格式更具彈性與可擴充性，並允許日後對儲存格式進行修改。
 
-### IPMI Blob Transfer Command Primitives
+### IPMI Blob 傳輸指令原語
 
-The binary store handler will implement the following primitives:
+binary store 處理常式將實作以下原語（primitives）：
 
 #### BmcBlobGetCount/BmcBlobEnumerate
 
-Initially only the base id will appear when enumerating the existing blobs. Once
-a valid binary has successfully been committed, its blob id will appear in the
-list.
+起初，在列舉現存的 blobs 時只會出現 base id。一旦某個有效的二進位資料成功 commit 之後，它的 blob id 就會出現在清單中。
 
 #### BmcBlobOpen
 
-`flags` can be `READ` for read-only access or `READ|WRITE`. `blob_id` can be any
-string with a matching prefix. If there is not already a valid binary stored
-with supplied `blob_id`, the handler treats it as a request to create such a
-blob.
+`flags` 可以是代表唯讀存取的 `READ`，或是 `READ|WRITE`。`blob_id` 可以是任何具有相符前綴的字串。如果目前還沒有一個以所提供 `blob_id` 存放的有效二進位資料，處理常式會將之視為建立此 blob 的請求。
 
-The `session_id` returned should be used by the rest of the session based
-commands to operate on the blob. If there is already an open session, this call
-will fail.
+回傳的 `session_id` 應由其餘基於 session 的指令使用，以對該 blob 進行操作。如果已有一個開啟中的 session，此呼叫將會失敗。
 
-NOTE: the newly created blob is not serialized and stored until `BmcBlobCommit`
-is called.
+注意：新建立的 blob 在 `BmcBlobCommit` 被呼叫之前，不會被序列化並儲存。
 
 #### BmcBlobRead
 
-Returns bytes with the requested offset and size. If there are not enough bytes
-the handler will return the bytes that are available.
+回傳指定偏移位置與大小所對應的位元組。若沒有足夠的位元組，處理常式會回傳所有可用的位元組。
 
-Note this operation reads from memory. Make sure the stat is 'COMMITTED' which
-indicates that the memory content matches the data serialized to storage.
+請注意，此操作是從記憶體讀取。務必確認狀態為 'COMMITTED'，這表示記憶體內容與序列化到儲存裝置的資料一致。
 
 #### BmcBlobWrite
 
-Writes bytes to the requested offset. Return number of bytes written if success,
-zero if failed.
+將位元組寫入指定的偏移位置。成功時回傳寫入的位元組數，失敗時回傳零。
 
 #### BmcBlobCommit
 
-Store the serialized BinaryBlobStore to associated system file.
+將序列化後的 BinaryBlobStore 儲存到關聯的系統檔案。
 
 #### BmcBlobClose
 
-Mark the session as closed. Any uncommitted changes to the blob state is lost.
+將該 session 標記為已關閉。任何尚未 commit 的 blob 狀態變更都會遺失。
 
 #### BmcBlobDelete
 
-Delete the binary data associated with `blob_id`. Deleting the base_id (the
-'directory' level) will fail harmlessly.
+刪除與 `blob_id` 關聯的二進位資料。刪除 base_id（即「目錄」層級）會無害地失敗。
 
 #### BmcBlobStat
 
-`size` returned equals to length of the `data` bytes in the protobuf.
-`blob_state` will be set with `OPEN_R`, `OPEN_W`, and/or `COMMITTED` as
-appropriate.
+回傳的 `size` 等於 protobuf 中 `data` 位元組的長度。`blob_state` 會依情況設定為 `OPEN_R`、`OPEN_W`，及／或 `COMMITTED`。
 
 #### BmcBlobSessionStat/BmcBlobWriteMeta
 
-Not supported.
+不支援。
 
-### Example Host Command Flow
+### 宿主指令流程範例
 
-#### No binary data yet, write data
+#### 尚無二進位資料，寫入資料
 
-1. `BmcBlobGetCount` followed by `BmcBlobEnumerate`. Since there is no valid
-   blob with binary data stored, BMC handler only populates the `base_id` per
-   platform configuration. e.g. `/bmc_store/`.
-1. `BmcBlobOpen` with `blob_id = /bmc_store/blob0`, BMC honors the request and
-   returns `session_id = 0`.
-1. `BmcBlobWrite` multiple times to write the data into the blob.
-1. `BmcBlobCommit`. BMC writes data into configured path, e.g. to EEPROM.
-1. `BmcBlobClose`
+1. 先 `BmcBlobGetCount`，接著 `BmcBlobEnumerate`。由於還沒有存放有效二進位資料的 blob，BMC 處理常式只會依照平台設定填入 `base_id`，例如 `/bmc_store/`。
+1. 以 `blob_id = /bmc_store/blob0` 呼叫 `BmcBlobOpen`，BMC 會接受該請求並回傳 `session_id = 0`。
+1. 多次呼叫 `BmcBlobWrite`，將資料寫入該 blob。
+1. 呼叫 `BmcBlobCommit`。BMC 會將資料寫入設定的路徑，例如寫入 EEPROM。
+1. 呼叫 `BmcBlobClose`
 
-#### Read existing data
+#### 讀取既有資料
 
-1. `BmcBlobGetCount` followed by `BmcBlobEnumerate` shows `/bmc_store/` and
-   `/bmc_store/blob0`.
-1. `BmcBlobStat` on `/bmc_store/blob0` shows non-zero size and `COMMITTED`
-   state.
-1. `BmcBlobOpen` with `blob_id = /bmc_store/blob0`.
-1. `BmcBlobRead` multiple times to read the data.
-1. `BmcBlobClose`.
+1. 先 `BmcBlobGetCount`，接著 `BmcBlobEnumerate`，會顯示 `/bmc_store/` 與 `/bmc_store/blob0`。
+1. 對 `/bmc_store/blob0` 呼叫 `BmcBlobStat`，會顯示非零的大小以及 `COMMITTED` 狀態。
+1. 以 `blob_id = /bmc_store/blob0` 呼叫 `BmcBlobOpen`。
+1. 多次呼叫 `BmcBlobRead` 來讀取資料。
+1. 呼叫 `BmcBlobClose`。
 
-## Alternatives Considered
+## 曾考慮的替代方案
 
-The first alternative considered was to store the data via IPMI FRU commands; as
-mentioned in the problem description, it is not always viable.
+最初考慮的替代方案是透過 IPMI FRU 指令儲存資料；如問題說明中所述，這並不一定可行。
 
-There is a Google OEM I2C-over-IPMI driver that allows the host to read/write
-I2C devices attached to the BMC. In comparison, the blob store approach proposed
-offer more abstraction and is more flexible in where to store the data.
+有一個 Google OEM 的 I2C-over-IPMI 驅動程式，可讓宿主讀寫連接在 BMC 上的 I2C 裝置。相較之下，此處提出的 blob store 方法提供更多抽象化，並且在資料存放位置上更具彈性。
 
-## Impacts
+## 影響
 
-**_Security_**: As mentioned, the binary store transfer mechanism doesn't offer
-encryption. Entities storing the data through this mechanism should be aware and
-either not to transfer security-critical data, or supply their own security
-mechanism on top.
+**_安全性_**：如前所述，binary store 傳輸機制不提供加密功能。透過此機制儲存資料的各方應了解這一點，並選擇不要傳輸涉及安全性的關鍵資料，或是在其上自行提供安全機制。
 
-**_BMC performance_**: Since the handler requires protobuf package, it may
-increase BMC image size if the package wasn't previously installed.
+**_BMC 效能_**：由於處理常式需要 protobuf 套件，若先前未安裝該套件，可能會增加 BMC 映像檔的大小。
 
-**_Host compatibility_**: If data has been stored using IPMI blob binary store,
-then the host would need a handler that understands the blob transfer semantics
-to read the data.
+**_宿主相容性_**：若資料已使用 IPMI blob binary store 儲存，則宿主將需要一個能理解 blob 傳輸語意的處理常式才能讀取該資料。
 
-## Testing
+## 測試
 
-Where possible mockable interfaces will be used to unit test the logic of the
-code.
+在可行的範圍內，會使用可模擬（mockable）的介面來對程式碼的邏輯進行單元測試。

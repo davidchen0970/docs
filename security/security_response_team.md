@@ -1,11 +1,10 @@
-# Security Response Team
+# 安全應變團隊
 
-The OpenBMC security response team is responsible for receiving and triaging
-reports of security vulnerabilities. For details on how to report a
-vulnerability, see
-[how-to-report-a-security-vulnerability.md](how-to-report-a-security-vulnerability.md).
+OpenBMC 安全應變團隊負責接收安全弱點回報並進行分流分級。關於如何回報弱點的
+詳細資訊，請參閱
+[how-to-report-a-security-vulnerability.md](how-to-report-a-security-vulnerability.md)。
 
-## Members
+## 成員
 
 - Andrew Jeffery <andrew@aj.id.au>
 - Brad Bishop <bradleyb@fuzziesquirrel.com>

@@ -1,149 +1,96 @@
 # Guard on BMC
 
-## Problem Description
+## 問題描述
 
-On systems with multiple processor units and other redundant vital resources,
-the system downtime can be prevented by isolating the faulty components. This
-document discusses the design of the BMC support for such isolation procedures.
-The defective components can be kept isolated until a replacement. Most of the
-actions required to isolate the parts will be dependent on the architecture and
-taken care of by the host. But the BMC needs to support a few steps like
-notifying users about the components in isolation, clearing isolation, isolating
-a suspected part, or isolating when the host is down due to a severe fault. The
-process of isolation is mentioned as guard in this document, which means
-guarding the system from faulty components.
+在具有多個處理器單元及其他冗餘關鍵資源的系統上，可以透過隔離故障元件來避免系統停機。本文件討論 BMC 對此類隔離程序的支持設計。故障元件可以持續保持隔離狀態，直到更換為止。隔離元件所需的大部分動作會取決於架構，並由 host 負責處理。但 BMC 需要支持幾個步驟，例如通知使用者哪些元件處於隔離狀態、清除隔離、隔離疑似故障的元件，或在 host 因嚴重故障而當機時進行隔離。本文件將隔離的流程稱為 guard，意即保護系統免受故障元件的影響。
 
-## Glossary
+## 術語表
 
-**Guard**: Guarding the system against failures by permanently isolating faulty
-units.
+**Guard**：透過永久隔離故障單元來保護系統免受故障影響。
 
-**Guard Records**: A file in the persistent storage with the list of permanently
-isolated components.
+**Guard Records**：存放於永久儲存裝置中的檔案，記錄被永久隔離的元件清單。
 
-**Manual guard**: An operation to manually add a unit to the list of isolated
-units. This operation is helpful in isolating a suspected component without
-physically removing it from the server.
+**Manual guard**：手動將某個單元加入隔離清單的操作。此操作有助於在不將疑似故障元件實際從伺服器上拔除的情況下將其隔離。
 
-## Background and References
+## 背景與參考
 
-The guard in the servers is for managing a record of faulty components to keep
-them out of service. The list of faulty but guarded components can be stored in
-multiple locations based on the ownership of the component. How to store the
-record or manage the record will be decided by the respective component. Some of
-the examples are guard on motherboard components managed by the host, guard on
-the fans can be managed by the fan control application, or the guard on the
-power components can be managed by the power management application.
+伺服器中的 guard 用於管理故障元件的記錄，使其停止服務。故障但已被 guard 的元件清單可以根據元件的所屬權儲存在多個位置。如何儲存或管理該記錄將由對應的元件自行決定。一些範例包括：由 host 管理的主機板元件 guard、可由風扇控制應用程式管理的風扇 guard，或由電源管理應用程式管理的電源元件 guard。
 
-These records will be created when an error is encountered on an element that
-can be isolated. The decision to create a record is based on the type of error,
-usecase, and the availability of a redundant hardware resource to keep the
-system in a usable state. The record which gets created to isolate the component
-is named as Guard Record. The guard record will be deleted after a repair action
-or manually by service personnel. Most of the time, the host creates the guard
-record since the host is responsible for the initialization and use of the
-hardware resources in a server system. The BMC creates guard records on a
-limited set of units during the early boot time, after a severe fault, which
-brings the host down or on the components like a power supply or fan which can
-be controlled by BMC. The BMC retrieves the guard records for presenting to an
-external interface for the review of customers and service personnel form
-various guard record sources.
+當在可隔離的元素上遇到錯誤時，就會建立這些記錄。是否建立記錄的決策取決於錯誤類型、使用案例，以及是否有冗餘硬體資源可讓系統保持在可用狀態。為隔離元件而建立的記錄命名為 Guard Record。Guard record 會在修復動作後，或由服務人員手動刪除。大多數情況下，guard record 是由 host 建立的，因為 host 負責伺服器系統中硬體資源的初始化與使用。BMC 僅在有限的一組單元上建立 guard record，例如在早期開機期間、在導致 host 當機的嚴重故障之後，或是在可由 BMC 控制的元件（如電源供應器或風扇）上。BMC 會從各種 guard record 來源取得 guard record，以便呈現在外部介面上供客戶及服務人員檢視。
 
-## Requirements
+## 需求
 
-### Primary requirements
+### 主要需求
 
 ![Guard Usecases](https://user-images.githubusercontent.com/16666879/70852658-0edfda80-1eca-11ea-9d70-c81a690c78f2.jpeg)
 
-- When user requests, create a record in the right guard record repository,
-  based on the hardware component.
-- An option should be given to user to create guard record for DIMM and
-  Processor core to manually keep it out of service.
-- An option should be given to the user to delete a guard record.
-- An option should be given to list the guard records.
-- An option should be given to delete all guard records
-- Industry standard interfaces should be provided to carry out these operations
-  on the guard records.
+- 當使用者要求時，根據硬體元件在正確的 guard record 儲存庫中建立記錄。
+- 應提供選項讓使用者為 DIMM 及處理器核心建立 guard record，以手動方式使其停止服務。
+- 應提供選項讓使用者刪除 guard record。
+- 應提供選項讓使用者列出 guard record。
+- 應提供選項讓使用者刪除所有 guard record。
+- 應提供產業標準介面來對 guard record 執行這些操作。
 
-### Assumptions
+### 假設
 
-- The guard records on the units which are owned by the host will be applied
-  only in a subsequent boot.
-- The sub-system which owns the hardware resource will apply the guard record
-  and isolates the units.
-- The clearing of the records after the replacement of the faulty component
-  should be done by the component owning the guard records.
-- There should be a mapping between key in the guard record to the key used in
-  BMC for the components.
+- 在由 host 管理的單元上的 guard record，只會在後續的開機中套用。
+- 擁有該硬體資源的子系統會套用 guard record 並隔離單元。
+- 在更換故障元件後清除記錄，應由擁有該 guard record 的元件負責。
+- guard record 中的 key 與 BMC 中用於元件的 key 之間應存在對應關係。
 
-## Proposed Design
+## 建議設計
 
-The guard proposed here is an aggregator for the guard records from various
-sources and provide a common interface for creating, deleting and listing those
-records.
+此處提議的 guard 是一個彙整器，用於彙整來自各種來源的 guard record，並提供一個通用介面來建立、刪除及列出這些記錄。
 
-### D-Bus Interfaces
+### D-Bus 介面
 
-On BMC, There will be a guard manager object and objects for each entry.
+在 BMC 上，會有一個 guard manager 物件，以及每個項目的對應物件。
 
 #### Guard Manager
 
-Guard manager is for providing the external interfaces for managing the guard
-records and retrieving information about guard records. The methods and
-properties of the guard manager.
+Guard manager 用於提供管理 guard record 及管理 guard record 相關資訊的外部介面。Guard manager 的方法與屬性如下。
 
-- Create Guard: Create guard record for a DIMM or Processor core Inputs: -
-  Inventory path of the DIMM or Processor core to be guarded.
+- Create Guard：為 DIMM 或處理器核心建立 guard record。輸入：待 guard 的 DIMM 或處理器核心的 Inventory 路徑。
 
-- Delete Guard: Delete an existing guard record Deleting the guard record D-Bus
-  entry should delete the underlying record.
+- Delete Guard：刪除現有的 guard record。刪除 guard record 的 D-Bus 項目時，應同時刪除底層的記錄。
 
-- Clear all guard: Clear all guard records in the system.
+- Clear all guard：清除系統中所有的 guard record。
 
-- List Guard: List all the guarded components.
+- List Guard：列出所有被 guard 的元件。
 
-**Note:** In few platforms may be the system or hardware is not in a state where
-guard operation can be performed either "permanently" or "temporarily".
+**Note：** 在某些平台上，系統或硬體可能處於無法執行「永久」或「暫時」guard 操作的狀態。
 
 #### Guard Entry
 
-The properties of each guard entry will be part of this object Properties:
+每個 guard entry 的屬性都會是此物件的一部分。屬性：
 
-- ID: Id of the record which is part of the entry object path.
-- Associations:
-  - Guarded hardware inventory path:
-    - Forward Name must be "isolated_hw".
-    - Reverse Name must be "isolated_hw_entry".
-  - BMC Error Log:
-    - Forward Name must be "isolated_hw_errorlog".
-    - Reverse Name must be "isolated_hw_entry".
+- ID：記錄的 ID，為 entry 物件路徑的一部分。
+- Associations（關聯）：
+  - Guarded hardware inventory path（被 guard 的硬體 inventory 路徑）：
+    - Forward Name 必須為 "isolated_hw"。
+    - Reverse Name 必須為 "isolated_hw_entry"。
+  - BMC Error Log：
+    - Forward Name 必須為 "isolated_hw_errorlog"。
+    - Reverse Name 必須為 "isolated_hw_entry"。
 
-      Error Log association can be optional because a user may be tried guard
-      hardware and it is not an error case.
+      Error Log 關聯可以是選擇性的，因為使用者可能嘗試 guard 硬體，這並非錯誤情況。
 
-- Severity: Type of Guard
-  - Manual - Manually Guarded
-  - Critical - Guarded based on a critical error
-  - Warning - Guarded based on an error which is not critical, but eventually,
-    there can be critical failures.
-- Resolved: Status of guarded hardware
-  - Used to indicate whether guarded hardware is repaired or replaced.
+- Severity：Guard 的類型
+  - Manual - 手動 Guard
+  - Critical - 基於嚴重錯誤進行的 Guard
+  - Warning - 基於非嚴重錯誤進行的 Guard，但最終可能導致嚴重故障。
+- Resolved：被 guard 硬體的狀態
+  - 用於指出被 guard 的硬體是否已修復或更換。
 
-    **Note:** Setting this to "true" will not delete this entry because in a few
-    system platforms guarded hardware records may not be deleted and used for
-    further analysis.
+    **Note：** 將其設為 "true" 不會刪除此項目，因為在某些系統平台上，被 guard 的硬體記錄可能不會被刪除，而會保留供進一步分析使用。
 
-The underlying guard function is implemented by the applications managing the
-hardware units. The application which implements the common guard entry
-interface should map between entry to the underlying guard record in the
-original guard record store.
+底層的 guard 功能由管理硬體單元的應用程式實作。實作通用 guard entry 介面的應用程式，應在 entry 與原始 guard record 儲存庫中的底層 guard record 之間建立對應。
 
-## Redfish interface
+## Redfish 介面
 
 ### Manual guard
 
-Creating manual gurad record, set the "Enabled" property to "false" to manually
-guard a unit which is present in the inventory.
+建立 manual guard record：將 inventory 中現有單元的 "Enabled" 屬性設為 "false"，以手動方式 guard 該單元。
 
 #### redfish » v1 » Systems » system » Processors » CPU1
 
@@ -172,7 +119,7 @@ guard a unit which is present in the inventory.
 }
 ```
 
-### Listing the guard record
+### 列出 guard record
 
 #### redfish >> v1 >> Systems >> system >> LogServices >> IsolatedHardware
 
@@ -195,9 +142,9 @@ guard a unit which is present in the inventory.
       "Name": "Processor 1",
       "links":  {
                  "OriginOfCondition": {
-                        "@odata.id": "/redfish/v1/Systems/system/Processors/cpu1"
-                  }
-                },
+                       "@odata.id": "/redfish/v1/Systems/system/Processors/cpu1"
+                 }
+               },
       "Severity": "Critical",
       "SensorType" : "Processor",
       "AdditionalDataURI": “/redfish/v1/Systems/system/LogServices/EventLog/attachment/111"
@@ -209,35 +156,18 @@ guard a unit which is present in the inventory.
   }
 ```
 
-## Alternatives Considered
+## 考慮過的替代方案
 
-The guard records can be created for any components which are redundant and
-isolatable to prevent any damage to the hardware or data. Once the record is
-created, an isolation procedure is needed to isolate the units from service.
-Some of the units like which are controlled by the host can be isolated only
-after a reboot, but the units controlled by BMC can be immediately taken out of
-service. The alternatives are
+guard record 可以為任何具冗餘性且可隔離的元件建立，以防對硬體或資料造成損害。一旦建立記錄，就需要一個隔離程序將單元從服務中隔離。某些由 host 控制的單元只能在重新開機後隔離，而由 BMC 控制的單元則可以立即從服務中移除。替代方案如下：
 
-- The host creates, applies, and present guard records: In this case, BMC has no
-  control, and the host needs to provide the user interface, so there may not be
-  a common interface across different types of hosts. Different user interfaces
-  are required for guard records created by BMC and host.
-- BMC manages the external interfaces for guard: There will be one common point
-  for presenting or managing the guard records created by multiple hosts or BMC
-  itself. There are some guard records created after a severe failure in the
-  host; as a system control entity, it will be easier for BMC to handle such
-  situations and create the records.
+- 由 host 建立、套用並呈現 guard record：在這種情況下，BMC 沒有任何控制權，且 host 需要提供商者介面，因此不同類型的 host 之間可能不會有一致的通用介面。針對由 BMC 及由 host 建立的 guard record，將需要不同的使用者介面。
+- 由 BMC 管理 guard 的外部介面：將有一個統一的位置來呈現或管理由多個 host 或 BMC 本身建立的 guard record。有些 guard record 是在 host 發生嚴重故障後建立的；作為系統控制實體，由 BMC 來處理這類情況並建立記錄會更為容易。
 
-## Impacts
+## 影響
 
-- The guard records will be presented as an extension to logs
-- Redfish implementation will have an impact to do the operations required for
-  the guard record management by the user. A request for standardization is
-  planned for the method to list the isolated units in the redfish since that is
-  not yet available in the redfish standard.
+- Guard record 將以日誌擴充的形式呈現。
+- Redfish 實作會受到影響，需要提供使用者進行 guard record 管理所需操作的能力。由於 Redfish 標準中尚未提供列出被隔離單元的方法，因此已規劃針對該方法提出標準化請求。
 
-## Testing
+## 測試
 
-The necessary tests needed are creating, deleting, and listing the guard records
-and that should be automated, further tests on the isolation of each type of the
-unit is implementation-specific.
+所需進行的測試包括建立、刪除及列出 guard record，這些應予以自動化；而針對每種單元隔離類型的進一步測試則取決於實作。

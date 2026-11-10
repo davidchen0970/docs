@@ -1,58 +1,51 @@
-# Modbus sensors and management
+# Modbus 感測器與管理
 
-Author: Jagpal Singh Gill <paligill@gmail.com>
+作者：Jagpal Singh Gill <paligill@gmail.com>
 
-Other contributors: Amithash Prasad <amithash@meta.com>
+其他貢獻者：Amithash Prasad <amithash@meta.com>
 
-Created: 21st January 2025
+建立日期：2025 年 1 月 21 日
 
-## Problem Description
+## 問題描述
 
-There are devices capable of connecting to the BMC via the Modbus interface.
-However, openBMC currently lacks a service to monitor sensors and perform
-management functions such as firmware inventory and updates for these devices.
-This proposal outlines a service designed to monitor and manage Modbus-based
-devices. The primary focus is on Modbus RTU (Serial) connections, with the
-flexibility to support other Modbus interfaces like TCP in the future. Although
-the design focuses on use cases for Modbus-based flow meters, it is extensible
-and can be adapted to add support for new device types.
+有些裝置可以透過 Modbus 介面連線到 BMC。然而，openBMC 目前缺乏一項服務，
+能夠為這些裝置監控感測器，以及執行韌體清單與更新等管理功能。本提案描述
+一個專為監控與管理 Modbus 裝置而設計的服務。主要著重於 Modbus RTU（序列）
+連線，並保留彈性，未來可支援如 TCP 等其他 Modbus 介面。雖然本設計以 Modbus
+流量計的使用情境為焦點，但其架構具備可擴充性，可調整以新增對新裝置類型的
+支援。
 
-## Background and References
+## 背景與參考資料
 
-A related design has been proposed for
-[Modbus based HW Inventory](https://gerrit.openbmc.org/c/openbmc/docs/+/77318),
-which aims to discover corresponding Modbus devices and create related inventory
-items. This design is built upon the foundation of Modbus inventory design.
+已有一項相關設計提案用於
+[Modbus 硬體清單](https://gerrit.openbmc.org/c/openbmc/docs/+/77318)，
+其目標是探索對應的 Modbus 裝置並建立相關的清單項目。本設計即以 Modbus
+清單設計的基礎之上建構而成。
 
-For further reference, please see:
+更多參考資料請見：
 
-- [Modbus Specification](https://www.modbus.org/docs/Modbus_Application_Protocol_V1_1b3.pdf)
-- [Belimo Flow Meter Modbus Interface](https://www.belimo.com/mam/general-documents/system_integration/Modbus/belimo_Modbus-Register_22PF_V4_2_en-gb.pdf)
+- [Modbus 規格](https://www.modbus.org/docs/Modbus_Application_Protocol_V1_1b3.pdf)
+- [Belimo 流量計 Modbus 介面](https://www.belimo.com/mam/general-documents/system_integration/Modbus/belimo_Modbus-Register_22PF_V4_2_en-gb.pdf)
 
-## Requirements
+## 需求
 
-1. Able to define device access configuration, for example, Modbus registers for
-   sensor data.
-2. Able to specify sensor thresholds for monitoring, with the ability to trigger
-   and resolve events when threshold limits are exceeded or restored.
-3. Able to read and provide the firmware version of the Modbus device to
-   clients.
-4. Capable of updating firmware for Modbus devices.
-5. Able to report Redfish events/errors specific to a device, such as:
-   - Reporting a fault status for a temperature sensor in liquid cooling
-     apparatus.
-   - Reporting wrong flow direction in liquid cooling apparatus.
-6. Supports Modbus RTU over a serial link (with limited capabilities), using a
-   master-slave model where the master can only communicate with one slave at a
-   time in unicast mode.
-7. Capable of efficiently polling Modbus devices over a serial connection, such
-   as RS485, which can support up to 32 daisy-chained devices.
-8. Exposes sensor, firmware, and status information via a Redfish-based REST
-   interface for client access.
+1. 能夠定義裝置存取設定，例如感測器資料的 Modbus 暫存器。
+2. 能夠指定用於監控的感測器閾值，並能在超過閾值上限或恢復時觸發與解除
+   事件。
+3. 能夠讀取 Modbus 裝置的韌體版本並提供給用戶端。
+4. 能夠更新 Modbus 裝置的韌體。
+5. 能夠回報特定裝置的 Redfish 事件／錯誤，例如：
+   - 回報液冷裝置中溫度感測器的故障狀態。
+   - 回報液冷裝置中流量方向錯誤。
+6. 支援序列連線上的 Modbus RTU（功能有限），採用主從（master-slave）模型，
+   其中主機（master）在單播模式下一次只能與一個從機（slave）通訊。
+7. 能夠有效率地輪詢序列連線（例如 RS485）上的 Modbus 裝置，該連線最多可
+   支援 32 個串接（daisy-chained）裝置。
+8. 透過以 Redfish 為基礎的 REST 介面暴露感測器、韌體與狀態資訊供用戶端存取。
 
-## Proposed Design
+## 提案設計
 
-### Proposed End to End Flow
+### 提案的端到端流程
 
 ```mermaid
 sequenceDiagram;
@@ -100,50 +93,48 @@ loop Each Modbus sensor
 end
 ```
 
-### Proposed D-Bus Interfaces
+### 提案的 D-Bus 介面
 
 - [xyz.openbmc_project.Configuration.ModbusDevice](https://gerrit.openbmc.org/c/openbmc/phosphor-dbus-interfaces/+/77299)
-  - Provides configuration details such as sensor, status bit and firmware
-    registers for modbus devices to be utilized by the sensor monitoring and
-    firmware management services.
+  - 提供設定細節，例如感測器、狀態位元元以及供感測器監控與韌體管理服務
+    使用的 Modbus 裝置韌體暫存器。
 
-Additionally, the following existing interfaces will also be used -
+此外，也將使用以下既有介面 -
 
 - xyz.openbmc_project.Association.Definitions
-  - Implement
+  - 實作到清單項目（inventory item）的
     [inventory](https://github.com/openbmc/phosphor-dbus-interfaces/blob/master/yaml/xyz/openbmc_project/Inventory/Item.interface.yaml#L97)
-    association to inventory item. A better alternative can be
+    關聯。較佳替代方案可能是
     [monitoring](https://github.com/openbmc/phosphor-dbus-interfaces/blob/master/yaml/xyz/openbmc_project/Inventory/Item.interface.yaml#L74)
-    association.
+    關聯。
 - xyz.openbmc_project.State.Decorator.Availability
 - xyz.openbmc_project.State.Decorator.OperationalStatus
 - xyz.openbmc_project.Sensor.Value
 - xyz.openbmc_project.Sensor.Threshold.Critical
-  - A better alternative can be xyz.openbmc_project.Common.Threshold
+  - 較佳替代方案可能是 xyz.openbmc_project.Common.Threshold
 - xyz.openbmc_project.Sensor.Threshold.Warning
-  - A better alternative can be xyz.openbmc_project.Common.Threshold
+  - 較佳替代方案可能是 xyz.openbmc_project.Common.Threshold
 
-The interfaces will be created at the
-`/xyz/openbmc_project/sensors/<SensorType>/<SensorName>` objectPath, where
-`<SensorType>` and `<SensorName>` correspond to properties defined in the
-ModbusDevice EM configuration. The table below illustrates some possible sensor
-types and associated information for liquid cooling apparatus.
+這些介面將於
+`/xyz/openbmc_project/sensors/<SensorType>/<SensorName>` objectPath 建立，
+其中 `<SensorType>` 與 `<SensorName>` 對應到 ModbusDevice EM 設定中所定義的
+屬性。下表說明液冷裝置一些可能的感測器類型及其相關資訊。
 
-| Sensor Type   | Sensor Object Path                         | Unit              |
+| 感測器類型    | 感測器物件路徑                              | 單位              |
 | ------------- | ------------------------------------------ | ----------------- |
 | LiquidFlow    | /xyz/openbmc_project/sensors/liquid_flow   | LPM               |
 | Temperature   | /xyz/openbmc_project/sensors/temperature   | DegreesC          |
-| Volume        | /xyz/openbmc_project/sensors/volume        | CM (Cubic Meters) |
+| Volume        | /xyz/openbmc_project/sensors/volume        | CM（立方米）      |
 | Concentration | /xyz/openbmc_project/sensors/concentration | Percent           |
 
-For further details, please
-[refer](https://gerrit.openbmc.org/c/openbmc/phosphor-dbus-interfaces/+/77542).
+更多詳細資訊請
+[參考](https://gerrit.openbmc.org/c/openbmc/phosphor-dbus-interfaces/+/77542)。
 
-### ModbusDevice EM Schema Definitions
+### ModbusDevice EM 結構定義
 
-For details on the schema definition, please
-[refer](https://gerrit.openbmc.org/c/openbmc/entity-manager/+/77289). Below is
-an example of entity manager configuration for this schema -
+關於結構定義的詳細資訊，請
+[參考](https://gerrit.openbmc.org/c/openbmc/entity-manager/+/77289)。以下是此
+結構的 entity manager 設定範例 -
 
 ```json
 "Exposes": [
@@ -186,103 +177,87 @@ an example of entity manager configuration for this schema -
 ]
 ```
 
-### Handle Modbus RTU serial link limitations
+### 處理 Modbus RTU 序列連線的限制
 
-The Modbus RTU serial link communication operates on a master-slave model, where
-the master can only communicate with one slave at a time in unicast mode. To
-handle this limitation, all communications sent to the serial line can be
-serialized through a processing queue. The master retrieves messages from this
-queue and processes them sequentially, ensuring exclusive access to a single
-slave in unicast mode. This addresses requirement# 6.
+Modbus RTU 序列連線通訊採用主從（master-slave）模型，其中主機在單播模式下
+一次只能與一個從機通訊。為處理此限制，所有送往序列線的通訊都可透過一個
+處理佇列進行序列化。主機從此佇列取得訊息並依序處理，確保在單播模式下對
+單一從機的獨佔存取。此舉滿足需求 #6。
 
-### Efficient Modbus Access
+### 有效率地存取 Modbus
 
-Building on the previous section, maintaining a processing queue per serial link
-enables the master to communicate with multiple serial lines simultaneously,
-resulting in improved performance compared to a single-queue model. This
-addresses requirement# 7.
+承接上一節，為每一條序列連線各自維護一個處理佇列，可讓主機同時與多條
+序列線通訊，相較於單一佇列模型能帶來更好的效能。此舉滿足需求 #7。
 
-### Redfish Interface
+### Redfish 介面
 
-The following Redfish Schemas need to be implemented in BMCWeb for flow meter
-support -
+為支援流量計，需在 BMCWeb 中實作以下 Redfish 結構描述（Schema）-
 
 - [ThermalSubsystem](https://redfish.dmtf.org/schemas/v1/ThermalSubsystem.v1_3_3.json)
 - [CoolantConnector](https://redfish.dmtf.org/schemas/v1/CoolantConnector.v1_1_0.json)
 - [CoolingLoop](https://redfish.dmtf.org/schemas/v1/CoolingLoop.v1_0_3.json)
 
-### Proposed Events
+### 提案的事件
 
-#### Redfish Environmental Errors and Events for Liquid Cooling Apparatus
+#### 液冷裝置的 Redfish 環境錯誤與事件
 
-The following categories of errors and events are defined for liquid cooling
-apparatus based on the
+依據
 [Standard Redfish Environmental](https://www.dmtf.org/sites/default/files/standards/documents/DSP2065_2024.4.pdf)
-specification:
+規格，為液冷裝置定義了以下幾類錯誤與事件：
 
-- _Flow Rate_: Errors and events related to the flow rate of the liquid coolant.
-- _Fluid Level_: Errors and events related to the level of the liquid coolant.
-- _Temperature_: Errors and events related to the temperature of the liquid
-  coolant.
+- _Flow Rate_：與液態冷卻劑流量相關的錯誤與事件。
+- _Fluid Level_：與液態冷卻劑液位相關的錯誤與事件。
+- _Temperature_：與液態冷卻劑溫度相關的錯誤與事件。
 
-#### OpenBMC Namespace Errors and Events for Liquid Cooling Apparatus
+#### 液冷裝置的 OpenBMC 命名空間錯誤與事件
 
-In addition to the standard Redfish environmental errors and events, the
-following custom errors and events needs to be defined for the openBMC namespace
-for liquid cooling apparatus:
+除了標準的 Redfish 環境錯誤與事件之外，還需為 openBMC 命名空間中的液冷
+裝置定義以下自訂錯誤與事件：
 
-- _Temperature Sensor Faulty_: Error indicating a faulty temperature sensor in
-  the liquid cooling apparatus.
-- _Reverse Flow_: Errors indicating wrong direction of flow in the liquid
-  cooling apparatus.
-- _Wrong Coolant Type_: Errors indicating the use of an incorrect or
-  incompatible coolant type in the liquid cooling apparatus.
+- _Temperature Sensor Faulty_：表示液冷裝置中溫度感測器故障的錯誤。
+- _Reverse Flow_：表示液冷裝置中流量方向錯誤的錯誤。
+- _Wrong Coolant Type_：表示液冷裝置中使用不正確或不相容冷卻劑類型的錯誤。
 
-### Firmware Inventory and Update
+### 韌體清單與更新
 
-The _FirmwareVersionRegisterAddress_ has been proposed in the
-[Entity Manager configuration](https://gerrit.openbmc.org/c/openbmc/entity-manager/+/77289)
-for modbus_device. This field will specify the Modbus address of the firmware
-register, enabling the Modbus daemon to retrieve the device's firmware version
-and display it via D-Bus Version interface. For more details on firmware
-inventory and update design, please
-[refer](https://github.com/openbmc/docs/blob/master/designs/code-update.md).
+已在 modbus_device 的
+[Entity Manager 設定](https://gerrit.openbmc.org/c/openbmc/entity-manager/+/77289)
+中提出 _FirmwareVersionRegisterAddress_。此欄位將指定韌體暫存器的 Modbus
+位址，讓 Modbus 守護行程得以取得裝置的韌體版本，並透過 D-Bus Version 介面
+顯示。更多關於韌體清單與更新設計的詳細資訊，請
+[參考](https://github.com/openbmc/docs/blob/master/designs/code-update.md)。
 
-## Alternatives Considered
+## 已考量的替代方案
 
-An alternative design option is to divide the Modbus daemon into smaller,
-device-specific daemons (e.g., for flow meters, rack pumping units, etc.).
-However, this approach is limited by the RTU constraints mentioned in
-requirement #6, as multiple devices of different types and addresses can coexist
-on the same link. Therefore, a single Modbus daemon master is a more suitable
-choice.
+另一種設計選項是將 Modbus 守護行程拆分為較小的、依裝置而分的守護行程
+（例如流量計、機架泵送單元等）。然而，此做法受限於需求 #6 中提及的 RTU
+限制，因為不同类型與位址的多個裝置可能共存於同一條連線之上。因此，單一的
+Modbus 守護行程主機是更為合適的選擇。
 
-## Impacts
+## 影響
 
-### Performance Impacts
+### 效能影響
 
-Periodic polling of Modbus sensors may cause a minor decrease in system
-performance, but this can be mitigated by adjusting the polling duration through
-configurable settings.
+定期輪詢 Modbus 感測器可能會造成系統效能些微下降，但可透過可設定的設定值
+調整輪詢間隔來緩解。
 
-### Organizational
+### 組織面向
 
-- Does this proposal require a new repository?
-  - Yes
-- Who will be the initial maintainer(s) of this repository?
-  - Patrick Williams, Jagpal S Gill, Amithash Prasad
-- Which repositories are expected to be modified to execute this design?
+- 本提案是否需要新的倉庫（repository）？
+  - 是
+- 誰將是此倉庫的初始維護者？
+  - Patrick Williams、Jagpal S Gill、Amithash Prasad
+- 預期需要修改哪些倉庫以執行本設計？
   - EntityManager
-- Make a list, and add listed repository maintainers to the gerrit review.
+- 列出清單，並將所列倉庫的維護者加入 gerrit 審查。
 
-## Testing
+## 測試
 
-### Unit Testing
+### 單元測試
 
-All the functional testing of the reference implementation will be performed
-using GTest.
+參考實作的所有功能測試將使用 GTest 執行。
 
-### Integration Testing
+### 整合測試
 
-The end to end integration testing involving Servers (for example BMCWeb) will
-be covered using openbmc-test-automation.
+涉及伺服器（例如 BMCWeb）的端到端整合測試將使用 openbmc-test-automation
+涵蓋。

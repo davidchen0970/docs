@@ -1,38 +1,35 @@
-# Multi-host front panel phosphor buttons interface
+# 多主機前面板 phosphor buttons 介面
 
-Author: Velumani T(velu), [velumanit@hcl](mailto:velumanit@hcl.com) Naveen Moses
+作者：Velumani T(velu), [velumanit@hcl](mailto:velumanit@hcl.com) Naveen Moses
 S(naveen.moses), [naveen.mosess@hcl.com](mailto:naveen.mosess@hcl.com)
 
-Other contributors:
+其他貢獻者：
 
-Created: August 3, 2021
+建立日期：2021 年 8 月 3 日
 
-## Problem Description
+## 問題描述
 
-Phosphor buttons module has currently option to monitor gpio events of power and
-reset buttons and trigger power event handlers.
+Phosphor buttons 模組目前提供選項，可監控 power 與 reset 按鈕的 gpio
+事件並觸發電源事件處理常式。
 
-phosphor-buttons currently only support push type buttons.support for different
-form factor inputs such as switches/MUX other than push type buttons are needed
-for some hardwares. It will be helpful if we could add option to support
-additional input types in phosphor button interfaces and event handling.
+phosphor-buttons 目前僅支援按壓式（push type）按鈕。某些硬體需要支援
+非按壓式的不同形式輸入，例如開關（switch）／多工器（MUX）。如果我們能
+在 phosphor button 介面與事件處理中加入選項，以支援額外的輸入類型，
+將會非常有幫助。
 
-Currently handler events are only based on monitoring gpio events as input
-(power and reset).There may be cases where we need to create button interface
-which monitors non gpio events and triggers button actions for example events
-based on dbus property changes.
+目前處理常式事件僅以監控 gpio 事件（power 與 reset）作為輸入。可能會有
+這種情況：我們需要建立一個按鈕介面，它監控的是非 gpio 事件，並觸發按鈕
+動作，例如基於 dbus 屬性變更的事件。
 
-## Requirements
+## 需求
 
-This feature is needed to support additional phosphor button interfaces
-corresponding to platform specific hardware buttons/MUX/Switches which are
-available in the front panel apart from existing power and reset button
-interfaces.
+此功能是為了支援額外的 phosphor button 介面，對應到現有 power 與 reset
+按鈕介面之外、前面板上可用的平台專屬硬體按鈕／MUX／開關。
 
-## Background and References
+## 背景與參考
 
-The front panel of bmc has buttons like power button, reset button in general
-the code for monitoring these buttons and triggering actions are supported.
+BMC 的前面板一般會有 power button、reset button 等按鈕，用來監控這些
+按鈕並觸發動作的程式碼已有支援。
 
 ```text
    +----------------------------------------------+
@@ -51,11 +48,10 @@ the code for monitoring these buttons and triggering actions are supported.
    +----------------------------------------------+
 ```
 
-platform specific front panel may contain additional hardware buttons or mux
-switch
+平台專屬的前面板可能包含額外的硬體按鈕或 MUX 開關。
 
-example for a multihost platform yosemite-V2 it has host selector switch mux as
-additional button in front panel.
+以多主機平台 yosemite-V2 為例，它的前面板上有一個主機選擇器開關
+（host selector switch）MUX 作為額外的按鈕。
 
 ```text
 +---------------------------+                                      +------------+
@@ -89,29 +85,25 @@ additional button in front panel.
 
 ```
 
-There are two additional hardware buttons/switch available in the frontpanel for
-yv2.
+yv2 的前面板上有兩個額外的硬體按鈕／開關。
 
-## 1.Host selector switch (selector switch)
+## 1.主機選擇器開關（selector switch）
 
-This host selector switch/selector switch has 4 gpio connected as input and
-based on the gpio state values the host selector switch value is derived. The
-possible switch values can vary from 0 to 10. The specific mapping between gpio
-values and host selector values can be stored as part of gpio json config.
+這個主機選擇器開關／選擇器開關有 4 個 gpio 作為輸入連接，並根據 gpio
+狀態值推導出主機選擇器開關的值。可能的開關值範圍為 0 到 10。gpio 值與
+主機選擇器值之間的特定對應關係，可以存放於 gpio json 設定中。
 
-yosemiteV2 platform has 1 bmc and 4 hosts and only one power button and reset
-button.
+yosemiteV2 平台有 1 個 bmc 與 4 個主機，且只有一個 power button 與一個
+reset button。
 
-For example, when the power button is pressed, The value of the host selector
-switch position(1 to 10) decides whether the power button action is needs to be
-triggered for bmc or any one of the hosts.
+舉例來說，當按下 power button 時，主機選擇器開關位置的值（1 到 10）決定
+了 power button 的動作是要對 bmc 觸發，還是對其中某個主機觸發。
 
-This option is to use same power button and reset button for multiple hosts.
+這個選項是為了讓多個主機共用同一個 power button 與 reset button。
 
-The power/reset button press events are triggered based on the value of host
-selector switch position.
+power／reset 按鈕的按下事件會根據主機選擇器開關位置的值來觸發。
 
-### Example
+### 範例
 
 host selector position value = 0,bmc is mapped to power and reset buttons host
 selector position value = 1,host 1 is mapped to power and reset buttons host
@@ -119,119 +111,106 @@ selector position value = 2,host 2 is mapped to power and reset buttons host
 selector position value = 3,host 3 is mapped to power and reset buttons host
 selector position value = 4,host 4 is mapped to power and reset buttons
 
-## 2.Serial console MUX switch
+## 2.Serial console MUX 開關
 
-There is also uart console for each host and bmc which is connected via a MUX
-switch.
+每個主機和 bmc 也都有一個 uart console，透過一個 MUX 開關連接。
 
-At a time any one of the device (either bmc or any one host) can be accessed via
-the console which is based on the UART MUX switch configuration.
+在任何時刻，只能透過 console 存取其中一個裝置（bmc 或某個主機），這取決
+於 UART MUX 開關的設定。
 
-Based on the position of the host selector switch, a separate handler interface
-can configure the respective serial console device is selected.
+根據主機選擇器開關的位置，一個獨立的處理常式介面可以設定選取相對應的
+serial console 裝置。
 
-## 3.OCP debug card host selector button
+## 3.OCP debug card 主機選擇器按鈕
 
-An OCP debug card can be connected to yosemitev2 via usb for debugging purpose.
+OCP debug card 可以透過 usb 連接到 yosemitev2 以進行除錯。
 
-This is a extension which has three buttons : 1.Power button 2.reset button
-3.host selector button
+這是一個延伸介面，有三個按鈕：1.Power button 2.reset button 3.host
+selector button
 
-Power and reset buttons are mapped to the same gpio of frontpanel so no separate
-event handling is required.
+Power 與 reset 按鈕對應到前面板相同的 gpio，因此不需要個別的事件處理。
 
-The host selector button purpose is same as that of the front panel host
-selector switch in yosemitev2 front panel. The debug card host selector button
-(push button) has different gpio lines than that of front panel host selector
-switch gpios. Whenever the debug host selector button is pressed the host
-selector switch position value should be increased up to MaxPosition. If the
-host selector switch value is more than MaxPosition then it should be reset to
-zero.
+主機選擇器按鈕的用途與 yosemitev2 前面板上的主機選擇器開關相同。debug
+card 的主機選擇器按鈕（按壓式按鈕）所使用的 gpio 線，不同於前面板主機
+選擇器開關的 gpio。每當按下 debug 主機選擇器按鈕時，主機選擇器開關位置
+的值應遞增，直到 MaxPosition 為止。若主機選擇器開關的值超過 MaxPosition，
+則應重設為零。
 
-## Proposed Design
+## 建議設計
 
-Three high level changes are required in the phosphor button interface class
+phosphor button 介面類別需要三個高階層級的變更。
 
-1. Add support for adding button interfaces which are monitoring more than one
-   gpio event and process with single event handler.
+1. 加入支援，可新增監控多個 gpio 事件並以單一事件處理常式處理的按鈕
+   介面。
 
-2. Add support to monitor button / switch interface event based on dbus property
-   changes (needed for serial console MUX).
+2. 加入支援，可基於 dbus 屬性變更來監控按鈕／開關介面事件（serial
+   console MUX 需要此功能）。
 
-3. Each button interface class can be extended with the following overridable
-   methods to allow platform specific logic if needed in a derived class.
+3. 每個按鈕介面類別可以延伸以下可覆寫的方法，以便在需要時於衍生類別中
+   實作平台專屬邏輯。
 
-- init() - This method may have gpio configuration and event handler
-  initialization.
+- init() - 此方法可能包含 gpio 設定與事件處理常式的初始化。
 
-- handleEvent() - This method may have custom event handling routines for the
-  respective button interface.This should be be called from the main even
-  handler function.
+- handleEvent() - 此方法可能包含對應按鈕介面的自訂事件處理常式。應從
+  主要事件處理常式函式呼叫此方法。
 
-## The host selector switch interface
+## 主機選擇器開關介面
 
-The host selector switch has 4 gpios associated with it. host selector switch
-button interface monitors these 4 gpio io events as sd-event based event loop
-and a single event handler function is called for all 4 gpio events.
+主機選擇器開關關聯著 4 個 gpio。主機選擇器開關按鈕介面以 sd-event 為
+基礎的事件迴圈監控這 4 個 gpio io 事件，並為所有 4 個 gpio 事件呼叫單一
+事件處理常式函式。
 
-Based on the 4 gpio state values, the host selector switch position value is
-derived and stored as a dbus property with name "Position".
+根據 4 個 gpio 狀態值推導出主機選擇器開關位置的值，並以名稱「Position」
+存放為 dbus 屬性。
 
-### Host selector dbus interface details
+### 主機選擇器 dbus 介面細節
 
-1. Position(property) - This is the property which holds the current value of
-   the host selector switch based on the GPIO state.
+1. Position(property) - 此屬性根據 GPIO 狀態保存主機選擇器開關的目前值。
 
-2. MaxPosition(property) - This is the property which keeps the maximum number
-   of Position the Position property can hold.(This value is based on the number
-   of hosts available in the platform)
+2. MaxPosition(property) - 此屬性保存 Position 屬性可容納的最大 Position
+   數量。（此值取決於平台上可用的主機數量）
 
-## OCP Debug card host selector button interface
+## OCP Debug card 主機選擇器按鈕介面
 
-A separate interface for debug card host selector button is created.
+為 debug card 主機選擇器按鈕建立一個獨立的介面。
 
-This button interface monitors the corresponding gpio lines for debug card host
-selection button press and release event via sd-event based loop.
+此按鈕介面透過 sd-event 為基礎的事件迴圈，監控對應的 gpio 線，以取得
+debug card 主機選擇按鈕的按下與放開事件。
 
-### OCP Debug card host selector button dbus interface details
+### OCP Debug card 主機選擇器按鈕 dbus 介面細節
 
-1. Released(signal) - This is signal is triggered in the ocp debug card event
-   handler when the ocp debug card button is pressed and released.
+1. Released(signal) - 當 ocp debug card 按鈕被按下並放開時，此訊號會在
+   ocp debug card 事件處理常式中觸發。
 
-When the event handler is called once the button is released, then the host
-selector switch dbus property "Position" is increased by 1. The host selector
-switch dbus property value is rollover to zero after Position value exceeds
-MaxPosition Value.
+當按鈕放開後事件處理常式被呼叫時，主機選擇器開關的 dbus 屬性「Position」
+會遞增 1。當 Position 值超過 MaxPosition 值之後，主機選擇器開關的 dbus
+屬性值會循環歸零。
 
-This way when power and reset button press events are handled, the Host selector
-Position property is referenced and based on the Position respective power
-events are called.
+如此一來，當處理 power 與 reset 按鈕按下事件時，會參考 Host selector
+Position 屬性，並根據 Position 呼叫相對應的電源事件。
 
-## serial console MUX interface
+## serial console MUX 介面
 
-This button interface monitors for change in host selector switch Position dbus
-property and based on the dbus property value change, corresponding serial
-console is selected.mux value can be set as configuring 4 gpio lines dedicated
-for the serial console mux.
+此按鈕介面監控主機選擇器開關 Position dbus 屬性的變更，並根據 dbus 屬性
+值變更選取相對應的 serial console。MUX 值可以透過設定專用於 serial
+console mux 的 4 個 gpio 線來設定。
 
-### Example
+### 範例
 
 0 - bmc serial console 1 - host 1 serial console 2 - host 2 serial console 3 -
 host 3 serial console 4 - host 4 serial console
 
-### Change in power button and reset button interface event handler
+### power button 與 reset button 介面事件處理常式的變更
 
-If selector button instance is available,then the power button and reset button
-pressed events must route to appropriate multihost dbus service name
+若有 selector button 實例可用，則 power button 與 reset button 的按下事件
+必須路由到適當的 multihost dbus 服務名稱。
 
-## Impacts
+## 影響
 
-The change impacts are under phosphor buttons repo,the existing power and reset
-button handlers are calling dbus calls for single host power events. This calls
-should be modified to adapt corresponding multi host power events and the
-respective host dbus object is based on host selector position.
+變更的影響範圍在 phosphor buttons repo 之下。現有的 power 與 reset 按鈕
+處理常式會呼叫 dbus 呼叫來處理單一主機的電源事件。這些呼叫應修改為配合
+對應的多主機電源事件，而相應的主機 dbus 物件則取決於主機選擇器位置。
 
-## Testing
+## 測試
 
-The proposed design can be tested in a platform in which the multiple hosts are
-connected.
+建議的設計可以在連接了多個主機的平台進行測試。

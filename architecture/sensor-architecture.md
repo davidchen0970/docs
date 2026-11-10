@@ -1,16 +1,13 @@
-# Sensor Support for OpenBMC using phosphor-hwmon
+# 使用 phosphor-hwmon 為 OpenBMC 提供感測器支援
 
-This document describes sensors provided by [phosphor-hwmon][15]. An alternate
-method is to use the suite of applications provided by [dbus-sensors][16]. While
-the configuration details between the two methods differ, the D-Bus
-representation remains mostly the same.
+本文件說明由 [phosphor-hwmon][15] 所提供的感測器。另一種做法是使用
+[dbus-sensors][16] 所提供的一組應用程式。雖然兩者的設定細節不同，
+但 D-Bus 的表示方式大致相同。
 
-OpenBMC makes it easy to add sensors for your hardware and is compliant with the
-traditional Linux HWMon sensor format. The architecture of OpenBMC sensors is to
-map sensors to [D-Bus][1] objects. The D-Bus object will broadcast the
-`PropertiesChanged` signal when either the sensor or threshold value changes. It
-is the responsibility of other applications to determine the effect of the
-signal on the system.
+OpenBMC 能讓你輕鬆地為硬體新增感測器，並符合傳統 Linux HWMon 感測器格式。
+OpenBMC 感測器的架構是將感測器對應到 [D-Bus][1] 物件。當感測器數值或閾值
+改變時，該 D-Bus 物件會廣播 `PropertiesChanged` 訊號。判斷此訊號對系統的影響，
+是其他應用程式的責任。
 
 ## D-Bus
 
@@ -22,120 +19,114 @@ Interfaces  xyz.openbmc_project.Sensor.[*], others (see below)
 Signals: All properties for an interface will broadcast signal changed
 ```
 
-### Path definitions
+### 路徑定義
 
-- **<type\>** : The [HWMon class][2] name in lower case.
-  - Examples include `temperature, fan_tach, voltage`.
+- **<type\>** ：[HWMon 類別][2]名稱的小寫形式。
+  - 範例包括 `temperature, fan_tach, voltage`。
 
-- **<label\>** : User defined name of the sensor.
-  - Examples include `ambient, cpu0, fan5`
+- **<label\>** ：使用者自訂的感測器名稱。
+  - 範例包括 `ambient, cpu0, fan5`
 
-**Note**: The label shall comply with "Valid Object Paths" of [D-Bus Spec][3],
-that shall only contain the ASCII characters `[A-Z][a-z][0-9]\_`.
+**注意**：label 必須符合 [D-Bus 規格][3]中的「Valid Object Paths」，
+也就是只能包含 ASCII 字元 `[A-Z][a-z][0-9]\_`。
 
-### Hash definition
+### Hash 定義
 
-The hash value in the service name is used to give the service a unique and
-stable name. It is a decimal number that is obtained by hashing characteristics
-of the device it is monitoring using std::hash().
+服務名稱中的 hash 值用於讓服務擁有一個唯一且穩定的名稱。它是一個十進位數字，
+由 std::hash() 對被監控裝置的特性進行 hash 運算而得到。
 
 ## Redfish
 
-The [BMCWeb Redfish][10] support returns information about sensors. The support
-depends on two types of [ObjectMapper associations][11] to find the necessary
-sensor information on D-Bus.
+[BMCWeb Redfish][10] 支援會回傳感測器的相關資訊。此支援依賴兩類
+[ObjectMapper 關聯（associations）][11]，以便在 D-Bus 上找到所需的感測器資訊。
 
-### Association Type #1: Linking a chassis to all sensors within the chassis
+### 關聯類型 #1：將機殼（chassis）連結到該機殼內的所有感測器
 
-Sensors are grouped by chassis in Redfish. An ObjectMapper association is used
-to link a chassis to all the sensors within the chassis. This includes the
-sensors for all hardware that is considered to be within the chassis. For
-example, a chassis might contain two fan sensors, an ambient temperature sensor,
-and a VRM output voltage sensor.
+在 Redfish 中，感測器依機殼分組。系統使用一個 ObjectMapper 關聯，將機殼連結到
+該機殼內的所有感測器。這包含了所有被視為位於該機殼內的硬體感測器。
+舉例來說，一個機殼可能包含兩個風扇感測器、一個環境溫度感測器，
+以及一個 VRM 輸出電壓感測器。
 
-#### D-Bus object paths
+#### D-Bus 物件路徑
 
-The association links the following D-Bus object paths together:
+此關聯將下列 D-Bus 物件路徑連結在一起：
 
-- Chassis inventory item object path
-- List of sensor object paths for sensors within the chassis
+- 機殼清單項目（inventory item）的物件路徑
+- 該機殼內各感測器的感測器物件路徑清單
 
-#### Association names
+#### 關聯名稱
 
 - "all_sensors"
-  - Contains the list of all sensors for this chassis
+  - 包含該機殼所有感測器的清單
 - "chassis"
-  - Contains the chassis associated with this sensor
+  - 包含與此感測器相關聯的機殼
 
-#### Example associations
+#### 關聯範例
 
 - /xyz/openbmc_project/inventory/system/chassis/all_sensors
-  - "endpoints" property contains
+  - "endpoints" 屬性包含
     - /xyz/openbmc_project/sensors/fan_tach/fan0_0
     - /xyz/openbmc_project/sensors/fan_tach/fan0_1
     - /xyz/openbmc_project/sensors/temperature/ambient
     - /xyz/openbmc_project/sensors/voltage/p0_vdn_voltage
 - /xyz/openbmc_project/sensors/fan_tach/fan0_0/chassis
-  - "endpoints" property contains
+  - "endpoints" 屬性包含
     - /xyz/openbmc_project/inventory/system/chassis
 
-### Association Type #2: Linking a low-level hardware item to its sensors
+### 關聯類型 #2：將低階硬體項目連結到它的感測器
 
-A sensor is usually related to a low-level hardware item, such as a fan, power
-supply, VRM, or CPU. The Redfish sensor support can obtain the following
-information from the related hardware item:
+一個感測器通常與某個低階硬體項目相關，例如風扇、電源供應器、VRM 或 CPU。
+Redfish 感測器支援可以從相關聯的硬體項目取得下列資訊：
 
-- Presence ([Inventory.Item interface][12])
-- Functional state ([OperationalStatus interface][13])
-- Manufacturer, Model, PartNumber, SerialNumber ([Decorator.Asset
-  interface][14])
+- 存在狀態（Presence，[Inventory.Item 介面][12]）
+- 功能狀態（Functional state，[OperationalStatus 介面][13]）
+- 製造商、型號、料號、序號 Manufacturer, Model, PartNumber, SerialNumber
+  （[Decorator.Asset 介面][14]）
 
-For this reason, an ObjectMapper association is used to link a low-level
-hardware item to its sensors. For example, a processor VRM could have
-temperature and output voltage sensors, or a dual-rotor fan could have two tach
-sensors.
+基於此原因，系統使用一個 ObjectMapper 關聯，將低階硬體項目連結到它的感測器。
+舉例來說，一個處理器 VRM 可能具有溫度與輸出電壓感測器，或一個雙轉子風扇可能
+有兩個轉速（tach）感測器。
 
-#### D-Bus object paths
+#### D-Bus 物件路徑
 
-The association links the following D-Bus object paths together:
+此關聯將下列 D-Bus 物件路徑連結在一起：
 
-- Low-level hardware inventory item object path
-- List of sensor object paths for sensors related to that hardware item
+- 低階硬體清單項目（inventory item）的物件路徑
+- 與該硬體項目相關的各感測器的感測器物件路徑清單
 
-#### Association names
+#### 關聯名稱
 
 - "sensors"
-  - Contains the list of sensors for this low-level hardware item
+  - 包含此低階硬體項目感測器的清單
 - "inventory"
-  - Contains the low-level hardware inventory item for this sensor
+  - 包含此感測器對應的低階硬體清單項目
 
-#### Example associations
+#### 關聯範例
 
 - /xyz/openbmc_project/inventory/system/chassis/motherboard/fan0/sensors
-  - "endpoints" property contains
+  - "endpoints" 屬性包含
     - /xyz/openbmc_project/sensors/fan_tach/fan0_0
     - /xyz/openbmc_project/sensors/fan_tach/fan0_1
 - /xyz/openbmc_project/sensors/fan_tach/fan0_0/inventory
-  - "endpoints" property contains
+  - "endpoints" 屬性包含
     - /xyz/openbmc_project/inventory/system/chassis/motherboard/fan0
 
-## Development Details
+## 開發細節
 
-Sensor properties are standardized based on the type of sensor. A Threshold
-sensor contains specific properties associated with the rise and fall of a
-sensor value. The [Sensor Interfaces][4] are described in their respective YAML
-files. The path location in the source tree is identical to the interface being
-described below the [phosphor-dbus-interfaces][5] parent directory.
+感測器屬性依感測器類型標準化。閾值（Threshold）感測器包含與感測器數值
+上升、下降相關的特殊屬性。[Sensor 介面][4]在它們各自的 YAML 檔案中說明。
+在來源樹中的路徑位置，與 [phosphor-dbus-interfaces][5] 上層目錄下所說明的
+介面完全相同。
 
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;example:
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;範例：
 [openbmc/phosphor-dbus-interfaces/xyz/openbmc_project/Sensor/Threshold/Warning.yaml][6]
 
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Maps to D-Bus interface
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;對應到 D-Bus 介面
 `xyz.openbmc_project.Sensor.Threshold.Warning`
 
-Each 'name' property in the YAML file maps directly to D-Bus properties.
+YAML 檔案中的每個 'name' 屬性都直接對應到 D-Bus 屬性。
 
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;example:
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;範例：
 
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;[Warning.interface.yaml][6]
 
@@ -151,7 +142,7 @@ properties:
     type: boolean
 ```
 
-Maps to
+對應到
 
 ```text
 busctl --system introspect xyz.openbmc_project.Hwmon-3301914901.Hwmon1 \
@@ -181,58 +172,55 @@ busctl --system introspect xyz.openbmc_project.Hwmon-3301914901.Hwmon1 \
 }
 ```
 
-### Other Interfaces
+### 其他介面
 
-Aside from the `xyz.openbmc_project.Sensor` interfaces, the sensor D-Bus objects
-may also expose the following interfaces:
+除了 `xyz.openbmc_project.Sensor` 介面之外，感測器的 D-Bus 物件
+也可能揭露下列介面：
 
 1. `xyz.openbmc_project.Control.FanSpeed`
-   - Provides a Target property to set a fan RPM value
+   - 提供一個 Target 屬性以設定風扇 RPM 值
 2. `xyz.openbmc_project.Control.FanPwm`
-   - Provides a Target property to set a fan PWM value
+   - 提供一個 Target 屬性以設定風扇 PWM 值
 3. `xyz.openbmc_project.State.Decorator.OperationalStatus`
-   - Provides a Functional property that tracks the state of any fault files
+   - 提供一個 Functional 屬性，追蹤任何故障檔案（fault files）的狀態
 
-### Signals
+### 訊號
 
-Any property value change broadcasts a signal on D-Bus. When a value trips past
-a threshold, an additional D-Bus signal is sent.
+任何屬性值改變都會在 D-Bus 上廣播一個訊號。當某個數值越過閾值時，
+會額外傳送一個 D-Bus 訊號。
 
-Example, if the value of WarningLow is 5...
+範例，若 WarningLow 的值為 5...
 
-| From | To  | propertyChanged Signals                                                                                                  |
+| 來源 | 目標 | propertyChanged 訊號                                                                                                  |
 | ---- | --- | ------------------------------------------------------------------------------------------------------------------------ |
 | 1    | 5   | "xyz.openbmc_project.Sensor.Value" : value = 5                                                                           |
 | 1    | 6   | "xyz.openbmc_project.Sensor.Value" : value = 6 ,<br>"xyz.openbmc_project.Sensor.Threshold.Warning" : WarningAlarmLow = 0 |
 | 5    | 6   | "xyz.openbmc_project.Sensor.Value" : value = 6                                                                           |
 | 6    | 1   | "xyz.openbmc_project.Sensor.Value" : value = 1 ,<br>"xyz.openbmc_project.Sensor.Threshold.Warning" : WarningAlarmLow = 1 |
 
-### System Configuration
+### 系統設定
 
-On the BMC each sensor's configuration is located in a file. These files can be
-found as a child of the `/etc/default/obmc/hwmon` path.
+在 BMC 上，每個感測器的設定都存放在一個檔案中。這些檔案可以在
+`/etc/default/obmc/hwmon` 路徑下的子目錄中找到。
 
-## Creating a Sensor
+## 建立感測器
 
-HWMon sensors are defined in the `recipes-phosphor/sensor/phosphor-hwmon%` path
-within the [machine configuration][7]. The children of the `obmc/hwmon`
-directory should follow the path of either:
+HWMon 感測器定義在[機器設定][7]中的 `recipes-phosphor/sensor/phosphor-hwmon%`
+路徑內。`obmc/hwmon` 目錄下的子項應遵循下列其中一種路徑：
 
-1. The children of the `devicetree/base` directory path on the system, as
-   defined by the kernel. The code obtains this from the OF_FULLNAME udev
-   environment variable.
+1. 系統上 `devicetree/base` 目錄路徑的子項，由核心定義。程式碼從
+   OF_FULLNAME udev 環境變數取得此資訊。
 
-2. If the device isn't in the device tree, then the device path can be used.
+2. 若裝置不在裝置樹（device tree）中，則可使用裝置路徑。
 
-As an example, the Palmetto [configuration][8] file for the ambient temperature
-sensor.
+作為範例，以下是 Palmetto 環境溫度感測器的[設定][8]檔案。
 
 ```text
 recipes-phosphor/sensors/phosphor-hwmon/obmc/hwmon/ahb/apb/bus@1e78a000/i2c-bus@c0/tmp423@4c.conf
 
 ```
 
-which maps to this specific sensor and conf file on the system...
+它對應到系統上這個特定的感測器與 conf 檔案...
 
 ```text
 /sys/firmware/devicetree/base/ahb/apb/bus@1e78a000/i2c-bus@c0/tmp423@4c
@@ -240,23 +228,22 @@ which maps to this specific sensor and conf file on the system...
 
 ```
 
-This next example shows using the device path as opposed to the devicetree path
-for the OCC device on an OpenPOWER system. Note how a '--' replaces a ':' in the
-directory names for the conf file.
+下一個範例示範在 OpenPOWER 系統的 OCC 裝置上使用裝置路徑，而非裝置樹路徑。
+請注意 conf 檔案的目錄名稱中如何以 '--' 取代 ':'。
 
 ```text
 recipes-phosphor/sensors/phosphor-hwmon%/obmc/hwmon/devices/platform/gpio-fsi/fsi0/slave@00--00/00--00--00--06/sbefifo1-dev0/occ-hwmon.1.conf
 ```
 
-which maps to this specific sensor and conf file on the system...
+它對應到系統上這個特定的感測器與 conf 檔案...
 
 ```text
 /sys/devices/platform/gpio-fsi/fsi0/slave@00:00/00:00:00:06/sbefifo1-dev0/occ-hwmon.1
 /etc/default/obmc/hwmon/devices/platform/gpio-fsi/fsi0/slave@00--00/00--00--00--06/sbefifo1-dev0/occ-hwmon.1.conf
 ```
 
-In order for the sensor to be exposed to D-Bus, the configuration file must
-describe the sensor attributes. Attributes follow a format.
+為了讓感測器能揭露到 D-Bus 上，設定檔案必須描述感測器的屬性。
+屬性遵循一定的格式。
 
 ```text
 xxx_yyy#=value
@@ -269,25 +256,24 @@ yyy = HWMon sensor type (i.e. temp, pwm)
 
 ```
 
-| Attribute      | Interfaces Added                       |
+| 屬性           | 新增的介面                             |
 | -------------- | -------------------------------------- |
 | LABEL          | xyz.openbmc_project.Sensor.Value       |
 | WARNHI, WARNLO | xyz.openbmc_project.Threshold.Warning  |
 | CRITHI, CRITLO | xyz.openbmc_project.Threshold.Critical |
 
-The HWMon sensor type
+HWMon 感測器類型
 
-| [HWMon sensor type][2] | type                         |
+| [HWMon 感測器類型][2] | 類型                       |
 | ---------------------- | ---------------------------- |
 | temp                   | temperature                  |
 | in                     | voltage                      |
-| \*                     | All other names map directly |
+| \*                     | 其他名稱皆直接對應         |
 
-See the [HWMon interface][2] definitions for more definitions and keyword
-details
+更多定義與關鍵字細節請參閱 [HWMon 介面][2]定義。
 
-In this conf example the tmp423 chip is wired to two temperature sensors. The
-values must be described in 10<sup>-3</sup> degrees Celsius.
+在這個 conf 範例中，tmp423 晶片連接了兩個溫度感測器。
+數值必須以 10<sup>-3</sup> 攝氏度為單位描述。
 
 ```text
 LABEL_temp1=ambient WARNLO_temp1=10000 WARNHI_temp1=40000
@@ -295,23 +281,21 @@ LABEL_temp1=ambient WARNLO_temp1=10000 WARNHI_temp1=40000
 LABEL_temp2=cpu WARNLO_temp2=10000 WARNHI_temp2=80000
 ```
 
-### Additional Config File Entries
+### 其他設定檔案項目
 
-The phosphor-hwmon code supports these additional config file entries:
+phosphor-hwmon 程式碼支援這些額外的設定檔案項目：
 
 #### INTERVAL
 
-The interval, in microseconds, at which sensors should be read. If not specified
-the interval is 1000000us (1 second).
+讀取感測器的間隔時間，單位為微秒。若未指定，間隔為 1000000us（1 秒）。
 
 ```text
 INTERVAL=1000000
 ```
 
-**GAIN**, **OFFSET**
+**GAIN**、**OFFSET**
 
-Used to support scaled sensor readings, where value = (raw sensor reading) \*
-gain + offset
+用於支援縮放後的感測器讀值，其中 value = (raw sensor reading) \* gain + offset
 
 ```text
 GAIN_in3 = 5.0 #GAIN is a double OFFSET_in3 = 6 #OFFSET is an integer
@@ -319,8 +303,8 @@ GAIN_in3 = 5.0 #GAIN is a double OFFSET_in3 = 6 #OFFSET is an integer
 
 #### MINVALUE / MAXVALUE
 
-If found, will be used to set the MinValue/MaxValue properties on the
-`xyz.openbmc_project.Sensor.Value` interface.
+若找到，將用於設定 `xyz.openbmc_project.Sensor.Value` 介面上的
+MinValue/MaxValue 屬性。
 
 ```text
 MINVALUE_temp1 = 1
@@ -329,20 +313,18 @@ MINVALUE_temp1 = 1
 
 #### MODE
 
-Needed for certain device drivers, specifically the OpenPOWER OCC driver, where
-the instance number (the N in tempN_input) is dynamic and instead another file
-contains the known ID.
+某些裝置驅動程式需要此項目，特別是 OpenPOWER OCC 驅動程式，
+其實例編號（tempN_input 中的 N）是動態的，而是由另一個檔案包含已知的 ID。
 
-For example
+例如
 
 ```text
 temp26_input:29000 temp26_label:171
 ```
 
-Where the 26 is just what hwmon assigns, but the 171 corresponds to something
-like an IPMI sensor value for a DIMM temperature.
+其中 26 只是 hwmon 所指派的值，而 171 對應到像是 DIMM 溫度的 IPMI 感測器值。
 
-The config file would then have:
+因此設定檔案中會有：
 
 ```text
 MODE_temp26 = "label" #Tells the code to look in temp26_label LABEL_temp171 =
@@ -351,9 +333,8 @@ MODE_temp26 = "label" #Tells the code to look in temp26_label LABEL_temp171 =
 
 #### REMOVERCS
 
-Contains a list of device driver errno values where if these are obtained when
-reading the hardware, the corresponding sensor object will be removed from D-Bus
-until it is successfully read again.
+包含一列裝置驅動程式的 errno 值。若讀取硬體時取得這些值，
+對應的感測器物件將從 D-Bus 上移除，直到能再次成功讀取為止。
 
 ```text
 REMOVERCS = "5,6" #If any sensor on the device returns a 5 or 6, remove it.
@@ -362,8 +343,8 @@ REMOVERCS_temp1 = "42" #If reading temp1_input returns a 42, remove it.
 
 #### TARGET_MODE
 
-Allows one to choose the fan target mode, either RPM or PWM, if the device
-driver exposes both methods.
+當裝置驅動程式同時揭露兩種方法時，可讓使用者選擇風扇目標模式，
+即 RPM 或 PWM。
 
 ```text
 TARGET_MODE = "RPM"
@@ -371,7 +352,7 @@ TARGET_MODE = "RPM"
 
 #### PWM_TARGET
 
-For fans that are PWM controlled, can be used to map the pwmN file to a fan M.
+對於以 PWM 控制的風扇，可用來將 pwmN 檔案對應到風扇 M。
 
 ```text
 PWM_TARGET_fan0 = 1 #Use the pwm1 file to control fan 0
@@ -379,45 +360,44 @@ PWM_TARGET_fan0 = 1 #Use the pwm1 file to control fan 0
 
 #### ENABLE
 
-Will write a value to a pwmN_enable file on startup if present.
+若 pwmN_enable 檔案存在，會在啟動時寫入一個值到該檔案。
 
 ```text
 ENABLE_fan1 = 2 #Write a 2 to pwm1_enable
 ```
 
-### Defining sensors in an IPMI YAML configuration file
+### 在 IPMI YAML 設定檔案中定義感測器
 
-For an example of how sensors entries are defined, consult the
-[example YAML](https://github.com/openbmc/phosphor-host-ipmid/blob/master/scripts/sensor-example.yaml)
+關於感測器項目如何定義的範例，請參考
+[範例 YAML](https://github.com/openbmc/phosphor-host-ipmid/blob/master/scripts/sensor-example.yaml)
 
-#### How to best choose coefficients
+#### 如何選擇最適合的係數
 
-Sensor reading, according to IPMI spec, is calculated as:
+根據 IPMI 規格，感測器讀值的計算方式為：
 
 ```text
 y = L[(Mx + B * 10^(bExp)) * 10^(rExp)]
 ```
 
-- y: the 'final value' as reported by IPMItool
-- x: 8 bits, unsigned, reading data encoded in IPMI response packet
-- M: 10 bits, signed integer multiplier, `multiplierM` in YAML
-- B: 10 bits, signed additive offset, `offsetB` in YAML
-- bExp: 4 bits, signed, `bExp` in YAML
-- rExp: 4 bits, signed, `rExp` in YAML
+- y：IPMItool 所回報的「最終值」
+- x：8 位元，無號數，編碼於 IPMI 回應封包中的讀值資料
+- M：10 位元，有號整數乘數，YAML 中的 `multiplierM`
+- B：10 位元，有號加法偏移量，YAML 中的 `offsetB`
+- bExp：4 位元，有號數，YAML 中的 `bExp`
+- rExp：4 位元，有號數，YAML 中的 `rExp`
 
-In addition, phosphor-ipmi-host configuration also supports `scale` property,
-which applies for analog sensors, meaning the value read over DBus should be
-scaled by 10^S.
+此外，phosphor-ipmi-host 設定也支援 `scale` 屬性，適用於類比感測器，
+意思是透過 DBus 讀取到的值應以 10^S 進行縮放。
 
-As you can tell, one should choose the coefficients based on possible sensor
-reading range and desired resolution. Commonly, B=0, we would have
+由此可知，應根據可能的感測器讀值範圍與所需的解析度來選擇係數。
+通常 B=0，則會有：
 
-- Supported range: [0, 255 \* M \* 10^(scale - rExp)]
-- Resolution: M \* 10^(scale - rExp)
+- 支援範圍：[0, 255 \* M \* 10^(scale - rExp)]
+- 解析度：M \* 10^(scale - rExp)
 
-For a concrete example, let's say a voltage sensor reports between 0 to 5.0V.
-hwmon sysfs scales the value by 1000, so the sensor value read over DBus is
-between 0 and 5000. A possible configuration for this is:
+舉一個具體的例子，假設一個電壓感測器回報介於 0 到 5.0V 之間。
+hwmon sysfs 會將該值縮放 1000 倍，因此透過 DBus 讀取到的感測器值介於
+0 到 5000 之間。一個可能的設定為：
 
 ```text
 multiplierM: 20
@@ -427,8 +407,7 @@ rExp: -3
 scale: -3
 ```
 
-so for a DBus sensor value of 4986 meaning 4.986V, phosphor-ipmi-host would
-encode it as
+因此，當 DBus 感測器值為 4986（代表 4.986V）時，phosphor-ipmi-host 會將其編碼為
 
 ```text
     x: 4986 / 20 = 249
@@ -436,16 +415,15 @@ encode it as
     rExp: -3
 ```
 
-When ipmitool sensor list is called, the tool fetches sensor factors and
-computes value as:
+當呼叫 ipmitool sensor list 時，該工具會取得感測器係數並計算值為：
 
 ```text
 y = 20 * 249 * 10^-3 = 4.98 (V)
 ```
 
-## Additional Reading
+## 延伸閱讀
 
-Mailing List [Comments on Sensor design][9]
+郵件列表 [關於感測器設計的評論][9]
 
 [1]: https://dbus.freedesktop.org/doc/dbus-tutorial.html
 [2]: https://www.kernel.org/doc/Documentation/hwmon/sysfs-interface
